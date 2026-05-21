@@ -1,0 +1,78 @@
+:root {
+  --kp-radius: 8px;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--kp-bg, #f5f5f7);
+}
+
+html,
+body {
+  overflow: hidden;
+}
+
+[data-theme='dark'] {
+  --kp-bg: #141416;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+}
+
+.kp-fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.kp-center-page {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.kp-card {
+  width: 100%;
+  max-width: 520px;
+}
+
+.kp-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kp-spacer {
+  flex: 1;
+}
+
+.kp-text-muted {
+  color: var(--kp-muted, rgba(0, 0, 0, 0.55));
+}
+
+[data-theme='dark'] .kp-text-muted {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+@media (max-width: 640px) {
+  .kp-center-page {
+    padding: 12px;
+  }
+}

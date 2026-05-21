@@ -1,0 +1,51 @@
+# Bağımlılıklar
+node_modules/
+
+# Build çıktısı
+dist/
+*.local
+
+# Ortam değişkenleri (API anahtarları vb.)
+.env
+.env.*
+!.env.example
+
+# TypeScript / Vite önbellek
+*.tsbuildinfo
+.vite/
+
+# Test / kapsam
+coverage/
+*.lcov
+
+# Loglar
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editör ve IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+*~
+
+# İşletim sistemi
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Geçici / yedek
+*.tmp
+*.temp
+.cache/
+
+# models.dev build embed (isteğe bağlı üretilir)
+# src/generated/models-catalog.ts

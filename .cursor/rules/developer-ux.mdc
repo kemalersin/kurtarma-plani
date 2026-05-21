@@ -1,0 +1,72 @@
+---
+description: Geliştirici mimarisi ve UI/UX yaklaşımı (Wiki §9)
+alwaysApply: true
+---
+
+# Geliştirici ve UI/UX Yaklaşımı
+
+Kaynak: `docs/WIKI.md` §9. Bu kural tüm geliştirme oturumlarında geçerlidir.
+
+## Mimari ve kod
+
+- **Modüler** yapı; özellikler `src/features/`, paylaşılan UI `src/components/`
+- **Kütüphane odaklı**; tekrar kullanılabilir composable ve bileşenler
+- Kod tekrarını **en aza indir**; üç kez tekrar → extract
+- Finans hesabı `src/finance/` içinde **saf TS**; Vue bileşenlerinde iş mantığı yok
+- Minimal diff; mevcut convention'a uy
+
+## Kullanılabilirlik
+
+- Sezgisel, esnek, **kolay** arayüz
+- Karmaşık ve **dağınık olmayan** yerleşim; bir ekranda tek ana görev
+- Finansal kullanım odaklı: tutarlar belirgin, hata mesajları anlaşılır
+
+## Görünüm ve cihaz
+
+- **Mobile-first**; responsive kırılımlar
+- **Açık / karanlık** tema; sistem tercihi + manuel geçiş
+- Ant Design Vue token sistemi; **Tailwind yok**
+- On-demand import; tek HTML bundle boyutunu gözet
+
+## İkonlar
+
+- **Emoji kullanma.** Her durumda ya `@ant-design/icons-vue` ya da `src/components/icons/*` SVG bileşenleri
+- Renk `currentColor`, boyut `1em` (yazı tipi büyüklüğüne ölçeklensin)
+- AntDV'de karşılığı olmayanlar için küçük inline SVG → ortak `icons/` klasörüne ekle
+- `aria-label` veya `role="img"` ile erişilebilir tut
+
+## Kabuk (AppShell)
+
+| Bileşen | Gereksinim |
+|---------|------------|
+| Sol menü | Collapsible; **pin** ile sabitlenebilir (tercih localStorage) |
+| Navbar | **Global arama** — banka, hesap, borç, gelir, gider indeksi |
+| Formlar | **Drawer**; modal yerine tercih et |
+
+## Drawer + combobox
+
+- Liste/combobox seçiminde **「Yeni Kayıt」** → ilgili form drawer'ı **mevcut drawer üstüne** aç
+- `z-index` artan stack; alt drawer kapanınca üstteki kalır
+
+## Liste öncelikli UI
+
+- Her veri türü için **liste sayfası** önce; detay/düzenleme drawer veya yan panel
+- Tüm listelerde: **sıralama**, **sayfalama**, **arama**, **filtreleme** (client-side Dexie)
+- Boş durum ve yükleme skeleton'ları
+
+## Grafik ve rapor
+
+- Önemli metrikler **ECharts** ile dashboard'da
+- Ayrı **analiz / rapor** sayfaları; ileride Excel/PDF yalnızca görünür tablo/grafikten
+
+## Bölgesel biçim
+
+- Varsayılan Türkiye; profil `localeSettings` ile override
+- Tutar/tarih: `Intl` + profil ayarı; timezone **Europe/Istanbul** varsayılan
+- Asla ham ISO tarihini kullanıcıya gösterme
+
+## Çalışma disiplini
+
+- Milestone sırasına uy (TODO.md)
+- Tamamlanan iş → `CHANGELOG.md`; planlanan → `TODO.md`
+- Belirsiz iş kuralı → Wiki / ARCHITECTURE'a sor veya not düş

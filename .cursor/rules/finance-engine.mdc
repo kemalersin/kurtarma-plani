@@ -1,0 +1,17 @@
+---
+description: Finans motoru ve bankacılık hesaplama kuralları
+globs: src/finance/**/*,src/domain/**/*
+alwaysApply: false
+---
+
+# Finans Motoru
+
+- Saf fonksiyonlar; yan etki yok; Vitest ile test et
+- Kullanıcı sözleşme oranı her zaman öncelikli
+- Preset: build embed + IndexedDB; çevrimiçi feed ile DB güncellenir (Zod, ezme); motor sözleşme oranını kullanır
+- Kredi: anüite; KK opsiyonel vergi katmanı
+- KK: dönem borcu, asgari %, tam/kısmi ödeme tarihleri
+- Nakit avans: kısmi ödeme sonrası faiz kalan anapara üzerinden
+- Taksitli avans: taksit durumu + erken faizsiz kapama bayrağı
+- Gecikme ve kapama tutarı tarih bazlı projeksiyon
+- Yuvarlama: TRY 2 hane, half-up

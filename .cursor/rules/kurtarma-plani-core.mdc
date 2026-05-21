@@ -1,0 +1,57 @@
+---
+description: Kurtarma Planı — temel proje kuralları
+alwaysApply: true
+---
+
+# Kurtarma Planı — Çekirdek Kurallar
+
+## Dağıtım
+
+- Production: tek `index.html` (vite-plugin-singlefile), `file://` uyumlu
+- Hash routing only; History API yok
+- Runtime CDN yok; asset'ler build'de inline
+- **İstisna:** Web fontları (Google Fonts gibi) CDN'den yüklenebilir; yüklenmezse sistem font fallback'i devreye girer ve uygulama bozulmaz
+
+## Veri
+
+- IndexedDB (Dexie); backend yok
+- Çoklu profil; profil başına izole store
+- Parola opsiyonel; varsa Web Crypto (PBKDF2 + AES-GCM)
+- `sensitive` kayıtlar: export'ta kullanıcı onayı; AI snapshot'ında **asla** yok
+- API anahtarları: export'ta kullanıcı seçimi; AI provider'a **asla** gönderilmez
+
+## Bölgesel
+
+- Varsayılan: `tr-TR`, `TRY`, `Europe/Istanbul`
+- Profil kurulumunda locale/currency/timezone/dateFormat değiştirilebilir
+- Tüm formatlama `Intl` + profil ayarlarından
+
+## UI
+
+- Vue 3 + **Ant Design Vue 4** (`ant-design-vue`, `@ant-design/icons-vue`)
+- **Tailwind kullanılmaz**; stil = AntDV token + scoped/global CSS
+- AntDV içinde `dayjs`; finans motoru `date-fns-tz`
+- `<a-config-provider :locale="trTR" :theme="...">`; açık/koyu algorithm
+- Mobile-first; ek responsive CSS
+- Liste öncelikli: `<a-table>` sort/page/filter
+- Formlar `<a-drawer>`; combobox "Yeni Kayıt" → üst drawer (z-index stack)
+- Zorunlu yasal disclaimer gösterilir
+
+## Çevrimdışı / çevrimiçi
+
+- Uygulama **offline-first**; finans modülü ağ olmadan tam işlevli
+- AI sohbet/stream yalnızca `navigator.onLine` (ve probe) true iken; offline'da UI disabled + açıklama
+- TCMB preset feed çekme yalnızca çevrimiçi + kullanıcı tetiklemeli
+
+## TCMB preset
+
+- Build: `banking-presets/*.json` derlemeye gömülü
+- Runtime okuma: IndexedDB > embed fallback
+- Çevrimiçi güncelleme: feed veya dosya import → Zod → DB'ye put (önceki kayıt ezilir)
+- Kullanıcı sözleşme oranı hesaplamada her zaman override
+
+## Kod
+
+- Finans hesabı `src/finance/` içinde saf TS; UI'dan ayrık
+- Para: `decimal.js`; tarih: `date-fns-tz`
+- Minimal diff; mevcut convention'a uy

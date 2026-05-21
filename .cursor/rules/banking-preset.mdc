@@ -1,0 +1,34 @@
+---
+description: TCMB/bankacılık referans preset — embed, IndexedDB, çevrimiçi güncelleme
+globs: src/**/banking-preset/**/*,src/data/banking-presets/**/*,docs/BANKING-TR.md
+alwaysApply: false
+---
+
+# Bankacılık Referans Preset
+
+## Katmanlar
+
+1. **Embed** — build ile `src/data/banking-presets/tr-*.json` gömülür
+2. **IndexedDB** — `bankingPreset` store; aktif kayıt
+3. **Okuma önceliği** — DB varsa DB, yoksa embed
+
+## Çevrimiçi güncelleme
+
+- Yalnızca kullanıcı "Güncelle" dediğinde ve `navigator.onLine`
+- `fetch(feedUrl)` → JSON → `BankingPresetSchema` (Zod)
+- Başarı: `put` ile DB kaydını **ez**; `source: 'remote'`, `fetchedAt` ISO
+- Hata: embed/DB korunur; kullanıcıya toast
+
+## Manuel import
+
+- Dosya seçici → aynı Zod şema → DB ezme (`source: 'import'`)
+
+## Form kullanımı
+
+- "Referansla doldur" yalnızca preset okur; kullanıcı alanları sonra düzenler
+- Hesap motoru kullanıcı/sözleşme oranını kullanır, preset'i değil
+
+## Şema
+
+- `id`, `label`, `effectiveFrom`, `schemaVersion`, ürün blokları (`creditCard`, …)
+- Uzak feed ile embed **aynı şema**

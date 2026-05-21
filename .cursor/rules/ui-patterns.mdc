@@ -1,0 +1,54 @@
+---
+description: Ant Design Vue UI ve UX kalıpları
+globs: "**/*.vue,src/features/**/*,src/components/**/*"
+alwaysApply: false
+---
+
+# UI Kalıpları (Ant Design Vue)
+
+## Kit ve stil
+
+- `ant-design-vue` v4 + `@ant-design/icons-vue` (on-demand import)
+- **Tailwind yok.** Stil: AntDV token + `<style scoped>` + minimal global `app.css`
+- Tema: `theme.defaultAlgorithm` / `theme.darkAlgorithm`; sistem + manuel toggle
+- Lokalizasyon: `<a-config-provider :locale="trTR">`
+
+## İkonlar (emoji yasak)
+
+- AntDV ikonları (`@ant-design/icons-vue`) birinci tercih
+- AntDV'de yoksa `src/components/icons/<Name>Icon.vue` SVG bileşeni
+- `currentColor` + `1em` boyut; aria-label ile erişilebilirlik
+- **Tab başlıklarında ikon kullanma.** Sadece düz metin (`tab="..."`)
+
+## AppShell
+
+- `<a-layout-sider :collapsible="true">` + manuel pin (localStorage)
+- Üst navbar `<a-input-search>` global arama (banka/hesap/borç/gelir/gider)
+- İçerik alanı `<a-layout-content>`; mobile-first responsive
+
+## Liste
+
+- `<a-table>` client-side sort/page/filter (Dexie query)
+- Boş durum `<a-empty>`; yükleme `loading` prop
+- Hassas kayıt: `<a-tag>` rozet
+
+## Drawer + combobox
+
+- Form drawer'ları `<a-drawer>`; z-index stack: yeni "Yeni Kayıt" üstte
+- `<a-select>` + `#dropdownRender` slot footer'da `<a-button>` "Yeni Kayıt"
+
+## Tarih ve para
+
+- DatePicker: AntDV (`dayjs`)
+- Görüntüleme: `Intl.NumberFormat(profile.locale, { currency })` + `date-fns-tz`
+- Asla ham ISO gösterme
+
+## Export
+
+- Snapshot JSON dialog ayrı
+- Excel/PDF yalnızca görünür tablo/grafik
+
+## Bundle
+
+- AntDV ve icons on-demand import (`unplugin-vue-components` + `AntDesignVueResolver` opsiyonel)
+- ECharts modüler import; SVG renderer tercih
