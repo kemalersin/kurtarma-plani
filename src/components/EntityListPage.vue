@@ -1,0 +1,1265 @@
+<script setup lang="ts" generic="T extends { id: string; name?: string; updatedAt: string; archived?: boolean }">
+import {
+  computed,
+  nextTick,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+  type Component,
+} from 'vue'
+import {
+  Badge,
+  Button,
+  DatePicker,
+  Empty,
+  Input,
+  Pagination,
+  Popconfirm,
+  Popover,
+  Segmented,
+  Select,
+  Space,
+  Spin,
+  Table,
+  Tag,
+} from 'ant-design-vue'
+import {
+  DeleteOutlined,
+  EditOutlined,
+  EyeOutlined,
+  FilterOutlined,
+  PlusOutlined,
+  SearchOutlined,
+} from '@ant-design/icons-vue'
+import type { TableColumnType, TablePaginationConfig } from 'ant-design-vue'
+import dayjs, { type Dayjs } from 'dayjs'
+import KpTooltip from '@/components/KpTooltip.vue'
+import ColorSwatch from '@/components/ColorSwatch.vue'
+import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
+import { formatListCellValue } from '@/core/util/list-cell'
+import {
+  LIST_ACTIONS_COLUMN_WIDTH,
+  listColumnScrollWidth,
+  prepareListTableColumns,
+} from '@/core/util/table-columns'
+import { textIncludesSearch } from '@/core/util/search'
+import { useListQuery, type SortOrder } from '@/composables/useListQuery'
+
+export interface ListBankOption {
+  id: string
+  name: string
+  archived?: boolean
+}
+
+export interface SelectListFilter<T> {
+  kind: 'select'
+  /** URL query anahtarı (önek `state-key` ile birleştirilir) */
+  key: string
+  /** Görünen etiket */
+  label: string
+  placeholder?: string
+  options: { value: string; label: string }[]
+  /** Kayıttan değer eşleştirmesi; `undefined`/`null` filtre kapsamı dışı */
+  getValue: (item: T) => string | undefined | null
+}
+
+export interface NumberRangeListFilter<T> {
+  kind: 'numberRange'
+  key: string
+  label: string
+  getValue: (item: T) => number | undefined | null
+  /** `LocaleInputNumber.kind` — varsayılan `currency` */
+  numberKind?: 'currency' | 'integer' | 'percent'
+  minPlaceholder?: string
+  maxPlaceholder?: string
+}
+
+export interface DateRangeListFilter<T> {
+  kind: 'dateRange'
+  key: string
+  label: string
+  /** ISO tarih (YYYY-MM-DD veya tam ISO); kıyaslama tarih kısmı (`slice(0, 10)`) üzerinden */
+  getValue: (item: T) => string | undefined | null
+}
+
+export type ListFilter<T> =
+  | SelectListFilter<T>
+  | NumberRangeListFilter<T>
+  | DateRangeListFilter<T>
+
+interface Props {
+  /** Tüm kayıtlar (arşivliler dahil) */
+  items: T[]
+  loading?: boolean
+  columns: TableColumnType<T>[]
+  /** Arama kutusu placeholder */
+  searchPlaceholder?: string
+  /** Arama yapılacak alanlar (string olarak değerlendirilir). Boşsa `name` */
+  searchKeys?: (keyof T)[]
+  /** Sıfırdan yeni kayıt için buton metni */
+  createLabel?: string
+  /** Boş durum mesajı */
+  emptyText?: string
+  /** Arşiv filtresi gösterilsin mi? (varsayılan true) */
+  archiveFilter?: boolean
+  /** Banka filtresi (built-in). `:banks` ile birlikte kullanılır */
+  bankFilter?: boolean
+  /** Banka seçenekleri; `bankFilter` true iken zorunlu */
+  banks?: ListBankOption[]
+  /** Kayıttan banka kimliği (varsayılan: `bankId` alanı) */
+  getBankId?: (item: T) => string
+  /**
+   * Ek filtreler (banka dışındaki tüm filtreler). Popover içinde render edilir.
+   * URL state otomatik (useListQuery rawValue/rawPatch).
+   */
+  filters?: ListFilter<T>[]
+  /**
+   * URL query anahtarı öneki (`q_<key>`, `bank_<key>`…). Sekmeli/çoklu listeli
+   * sayfalarda **zorunlu** — yoksa farklı listeler aynı parametreyi paylaşır.
+   */
+  stateKey?: string
+  /** `@row-click` tanımlıysa işlem sütununda gösterilir */
+  rowActionLabel?: string
+  rowActionIcon?: Component
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  loading: false,
+  searchPlaceholder: 'Ara…',
+  searchKeys: () => ['name'] as unknown as (keyof T)[],
+  createLabel: 'Yeni kayıt',
+  emptyText: 'Henüz kayıt yok.',
+  archiveFilter: true,
+  bankFilter: false,
+  banks: () => [],
+  filters: () => [] as ListFilter<T>[],
+  stateKey: '',
+  rowActionLabel: 'Detay',
+})
+
+const emit = defineEmits<{
+  (e: 'create'): void
+  (e: 'edit', item: T): void
+  (e: 'delete', item: T): void
+  (e: 'row-click', item: T): void
+}>()
+
+/**
+ * Satır aksiyon butonu (örn. "Taksit planı" / "Hesap özeti").
+ * Vue 3.5+ declared emits `useAttrs()` içine düşmediğinden eski
+ * `'onRowClick' in attrs` kontrolü kaldırıldı; prop varlığı (label + icon)
+ * artık niyeti taşıyan tek sözleşmedir.
+ */
+const hasRowAction = computed(
+  () => !!props.rowActionLabel && !!props.rowActionIcon,
+)
+const resolvedRowActionIcon = computed(
+  () => props.rowActionIcon ?? EyeOutlined,
+)
+
+const MOBILE_MQ = '(max-width: 640px)'
+
+const query = useListQuery({ key: props.stateKey, defaultPageSize: 10 })
+
+const search = query.search
+const archiveMode = query.archive
+const bankFilterId = query.bank
+const sortKey = query.sortKey
+const sortOrder = query.sortOrder
+const page = query.page
+const pageSize = query.size
+
+const isMobile = ref(false)
+const filtersOpen = ref(false)
+
+/* ---------------------------------------------------------------- bank */
+
+function resolveBankId(item: T): string {
+  return props.getBankId?.(item) ?? String((item as { bankId?: string }).bankId ?? '')
+}
+
+const bankSelectOptions = computed(() =>
+  [...props.banks]
+    .filter((b) => !b.archived)
+    .sort((a, b) => a.name.localeCompare(b.name, 'tr'))
+    .map((b) => ({ value: b.id, label: b.name })),
+)
+
+function filterSelectOption(input: string, option: unknown): boolean {
+  const opt = option as { label?: string }
+  return textIncludesSearch(String(opt.label ?? ''), input)
+}
+
+const activeBankFilter = computed(() => Boolean(props.bankFilter && bankFilterId.value))
+
+/* -------------------------------------------------------------- custom */
+
+interface NumberRangeState {
+  min: number | undefined
+  max: number | undefined
+}
+
+interface DateRangeState {
+  from: string
+  to: string
+}
+
+function getSelectValue(key: string): string {
+  return query.rawValue(key)
+}
+
+function setSelectValue(key: string, value: string | undefined): void {
+  query.rawPatch({ [key]: value || undefined })
+  query.patch({ page: 1 })
+}
+
+function getNumberRange(key: string): NumberRangeState {
+  const minStr = query.rawValue(`${key}From`)
+  const maxStr = query.rawValue(`${key}To`)
+  const min = minStr ? Number(minStr) : undefined
+  const max = maxStr ? Number(maxStr) : undefined
+  return {
+    min: Number.isFinite(min) ? (min as number) : undefined,
+    max: Number.isFinite(max) ? (max as number) : undefined,
+  }
+}
+
+function setNumberRange(key: string, side: 'min' | 'max', value: number | null | undefined): void {
+  const k = side === 'min' ? `${key}From` : `${key}To`
+  query.rawPatch({ [k]: value == null || !Number.isFinite(value) ? undefined : String(value) })
+  query.patch({ page: 1 })
+}
+
+function getDateRange(key: string): DateRangeState {
+  return {
+    from: query.rawValue(`${key}From`),
+    to: query.rawValue(`${key}To`),
+  }
+}
+
+function dateRangeValue(key: string): [Dayjs, Dayjs] | null {
+  const r = getDateRange(key)
+  if (!r.from && !r.to) return null
+  const from = dayjs(r.from || r.to)
+  const to = dayjs(r.to || r.from)
+  return [from, to]
+}
+
+function setDateRange(key: string, value: [Dayjs, Dayjs] | null): void {
+  if (!value) {
+    query.rawPatch({ [`${key}From`]: undefined, [`${key}To`]: undefined })
+  } else {
+    const [from, to] = value
+    query.rawPatch({
+      [`${key}From`]: from ? from.format('YYYY-MM-DD') : undefined,
+      [`${key}To`]: to ? to.format('YYYY-MM-DD') : undefined,
+    })
+  }
+  query.patch({ page: 1 })
+}
+
+function filterActiveFor(f: ListFilter<T>): boolean {
+  if (f.kind === 'select') return Boolean(query.rawValue(f.key))
+  return Boolean(query.rawValue(`${f.key}From`) || query.rawValue(`${f.key}To`))
+}
+
+const extraActiveCount = computed(() => props.filters.filter(filterActiveFor).length)
+
+const activeFilterCount = computed(
+  () => (activeBankFilter.value ? 1 : 0) + extraActiveCount.value,
+)
+
+const hasAnyFilter = computed(() => props.bankFilter || props.filters.length > 0)
+
+function passesItem(item: T): boolean {
+  for (const f of props.filters) {
+    if (f.kind === 'select') {
+      const v = query.rawValue(f.key)
+      if (!v) continue
+      const itemValue = f.getValue(item)
+      if (itemValue == null || String(itemValue) !== v) return false
+    } else if (f.kind === 'numberRange') {
+      const { min, max } = getNumberRange(f.key)
+      if (min === undefined && max === undefined) continue
+      const itemValue = f.getValue(item)
+      if (itemValue == null) return false
+      if (min !== undefined && itemValue < min) return false
+      if (max !== undefined && itemValue > max) return false
+    } else {
+      const { from, to } = getDateRange(f.key)
+      if (!from && !to) continue
+      const raw = f.getValue(item)
+      if (!raw) return false
+      const datePart = raw.slice(0, 10)
+      if (from && datePart < from) return false
+      if (to && datePart > to) return false
+    }
+  }
+  return true
+}
+
+const filtered = computed<T[]>(() => {
+  let list = props.items
+  if (props.archiveFilter) {
+    if (archiveMode.value === 'active') list = list.filter((it) => !it.archived)
+    else if (archiveMode.value === 'archived') list = list.filter((it) => it.archived)
+  }
+  if (activeBankFilter.value) {
+    list = list.filter((item) => resolveBankId(item) === bankFilterId.value)
+  }
+  if (props.filters.length) {
+    list = list.filter(passesItem)
+  }
+  const q = search.value.trim()
+  if (q) {
+    list = list.filter((item) =>
+      props.searchKeys.some((key) => {
+        const value = item[key]
+        return value != null && textIncludesSearch(String(value), q)
+      }),
+    )
+  }
+  return list
+})
+
+/* ----------------------------------------------------- controlled sort */
+
+interface EffectiveSort {
+  key: string
+  order: 'ascend' | 'descend'
+}
+
+const effectiveSort = computed<EffectiveSort | null>(() => {
+  if (sortKey.value && sortOrder.value) {
+    return { key: sortKey.value, order: sortOrder.value }
+  }
+  for (const col of props.columns) {
+    const k = String(col.key ?? col.dataIndex ?? '')
+    const def = col.defaultSortOrder as 'ascend' | 'descend' | undefined
+    if (k && (def === 'ascend' || def === 'descend')) {
+      return { key: k, order: def }
+    }
+  }
+  return null
+})
+
+const sortedItems = computed<T[]>(() => {
+  const eff = effectiveSort.value
+  if (!eff) return filtered.value
+  const col = props.columns.find(
+    (c) => String(c.key ?? c.dataIndex ?? '') === eff.key,
+  )
+  const sorter = col?.sorter
+  if (typeof sorter !== 'function') return filtered.value
+  const list = [...filtered.value]
+  const sign = eff.order === 'descend' ? -1 : 1
+  list.sort((a, b) => (sorter as (a: T, b: T) => number)(a, b) * sign)
+  return list
+})
+
+const pagedItems = computed<T[]>(() => {
+  const start = (page.value - 1) * pageSize.value
+  return sortedItems.value.slice(start, start + pageSize.value)
+})
+
+const showEmptyOverlay = computed(
+  () => !isMobile.value && !props.loading && filtered.value.length === 0,
+)
+
+const showEmptyCards = computed(
+  () => isMobile.value && !props.loading && filtered.value.length === 0,
+)
+
+/** AntDV varsayılan boş metin (「Veri yok」); gerçek boş durum `kp-list__empty` overlay. */
+const tableLocale = { emptyText: ' ' }
+
+/* ----------------------------------------------------------- columns */
+
+/**
+ * Mobil kart görünümünde gösterilecek sütunlar.
+ * `__` ile başlayan key'ler yalnızca masaüstü tablosunda anlamlıdır; mobilde gizlenir.
+ */
+const dataColumns = computed(() =>
+  prepareListTableColumns(props.columns).filter(
+    (c) => !String(c.key ?? '').startsWith('__') && c.key !== 'archived',
+  ),
+)
+
+const primaryColumn = computed(() => dataColumns.value[0])
+
+const detailColumns = computed(() => dataColumns.value.slice(1))
+
+/**
+ * AntDV Table sütunları:
+ *  - `prepareListTableColumns`: açık `width` korunur; diğerlerine `minWidth`
+ *  - `ellipsis: true` → `{ showTitle: false }` (sütunlarda otomatik tooltip yok)
+ *  - aktif `sortOrder` enjekte edilir (controlled sort)
+ *  - sonuna `__actions` sütunu eklenir
+ */
+const allColumns = computed<TableColumnType<T>[]>(() => {
+  const eff = effectiveSort.value
+  const enhanced = prepareListTableColumns(props.columns).map((col) => {
+    const key = String(col.key ?? col.dataIndex ?? '')
+    const ellipsis =
+      col.ellipsis === true
+        ? ({ showTitle: false } as { showTitle: false })
+        : col.ellipsis
+    const sortOrderForCol = eff && eff.key === key ? eff.order : null
+    return {
+      ...col,
+      ellipsis,
+      sortOrder: sortOrderForCol,
+    } as TableColumnType<T>
+  })
+  return [
+    ...enhanced,
+    {
+      key: '__actions',
+      title: '',
+      align: 'right',
+      width: hasRowAction.value ? 132 : LIST_ACTIONS_COLUMN_WIDTH,
+    },
+  ]
+})
+
+/** Sütunların minimum toplam genişliği (px). */
+const tableColumnsMinWidth = computed(() =>
+  allColumns.value.reduce(
+    (sum, col) => sum + listColumnScrollWidth(col as TableColumnType<unknown>),
+    0,
+  ),
+)
+
+/** Tablo sarmalayıcı genişliği — ölçüm sonrası scroll.x kararı için. */
+const tableViewportWidth = ref(0)
+
+/**
+ * Tablo genişliği: sütun minimumları ile konteyner genişliğinin büyük olanı.
+ * Her durumda en az container kadar genişlik; dar ekranda sütun toplamı aşılırsa yatay kaydırma.
+ */
+const tableScrollX = computed(() => {
+  const minW = tableColumnsMinWidth.value
+  const vw = tableViewportWidth.value
+  return Math.max(minW, vw > 0 ? vw : minW)
+})
+
+const tableScroll = computed(() => ({
+  x: tableScrollX.value,
+  y: tableScrollY.value,
+}))
+
+const pagination = computed<TablePaginationConfig>(() => ({
+  current: page.value,
+  pageSize: pageSize.value,
+  total: filtered.value.length,
+  showSizeChanger: !isMobile.value,
+  pageSizeOptions: ['10', '20', '50'],
+  showTotal: (total) => `${total} kayıt`,
+  onChange: (nextPage, nextSize) => {
+    query.patch({ page: nextPage, size: nextSize ?? pageSize.value })
+  },
+}))
+
+/* ---------------------------------------------- table sizing & helpers */
+
+const tableWrapRef = ref<HTMLElement | null>(null)
+const tableScrollY = ref(200)
+const tableHeadH = ref(40)
+const tablePaginationH = ref(56)
+let resizeObserver: ResizeObserver | null = null
+let mobileMq: MediaQueryList | null = null
+
+const tableWrapStyle = computed(() => ({
+  '--kp-table-head-h': `${tableHeadH.value}px`,
+  '--kp-table-pagination-h': `${tablePaginationH.value}px`,
+  '--kp-table-body-min-h': `${tableScrollY.value}px`,
+}))
+
+function cellValue(column: TableColumnType<T>, record: T, index: number): string {
+  return formatListCellValue(column, record as T & Record<string, unknown>, index)
+}
+
+function recordColor(record: T): string | undefined {
+  const raw = record as Record<string, unknown>
+  return typeof raw.color === 'string' ? raw.color : undefined
+}
+
+function onMobilePaginationChange(nextPage: number, nextSize?: number): void {
+  query.patch({ page: nextPage, size: nextSize ?? pageSize.value })
+}
+
+interface TableSorter {
+  columnKey?: string | number
+  order?: 'ascend' | 'descend' | false | null
+}
+
+function onTableChange(
+  _pagination: unknown,
+  _filters: unknown,
+  sorter: TableSorter | TableSorter[],
+): void {
+  const single = Array.isArray(sorter) ? sorter[0] : sorter
+  const order = (single?.order || '') as SortOrder
+  const key = single?.columnKey != null ? String(single.columnKey) : ''
+  if (!key || !order) {
+    query.patch({ sortKey: '', sortOrder: '' })
+    return
+  }
+  query.patch({ sortKey: key, sortOrder: order })
+}
+
+function onDesktopRowClick(record: T, event: MouseEvent): void {
+  if (isMobile.value) return
+  const target = event.target as HTMLElement
+  if (
+    target.closest('button') ||
+    target.closest('a') ||
+    target.closest('.ant-popconfirm') ||
+    target.closest('.ant-popover') ||
+    target.closest('.kp-list__row-actions')
+  ) {
+    return
+  }
+  if (hasRowAction.value) {
+    emit('row-click', record)
+  } else {
+    emit('edit', record)
+  }
+}
+
+function tableCustomRow(record: T): Record<string, unknown> {
+  return {
+    class: 'kp-list__row--clickable',
+    onClick: (event: MouseEvent) => onDesktopRowClick(record, event),
+  }
+}
+
+async function measureTableScroll(): Promise<void> {
+  if (isMobile.value) return
+  await nextTick()
+  const wrap = tableWrapRef.value
+  if (!wrap) return
+  const thead = wrap.querySelector<HTMLElement>('.ant-table-thead')
+  const paginationEl = wrap.querySelector<HTMLElement>('.ant-table-pagination')
+  tableHeadH.value = thead?.offsetHeight ?? 40
+  /**
+   * Pagination'a verdiğimiz `margin-top: 16px` + `padding-top: 4px`
+   * `offsetHeight` ile gelmez; `clientHeight - getBoundingClientRect()` farkından
+   * kaçınmak için margin'i sabit hesaba ekliyoruz.
+   */
+  const paginationOuter = paginationEl
+    ? paginationEl.offsetHeight + 16 /* margin-top */
+    : 56
+  tablePaginationH.value = paginationOuter
+  tableViewportWidth.value = wrap.clientWidth
+  const reserved = tableHeadH.value + tablePaginationH.value + 4
+  tableScrollY.value = Math.max(120, wrap.clientHeight - reserved)
+}
+
+function syncMobile(): void {
+  isMobile.value = mobileMq?.matches ?? false
+  void measureTableScroll()
+}
+
+function clearFilters(): void {
+  const raw: Record<string, string | undefined> = { bank: undefined, page: undefined }
+  for (const f of props.filters) {
+    if (f.kind === 'select') raw[f.key] = undefined
+    else {
+      raw[`${f.key}From`] = undefined
+      raw[`${f.key}To`] = undefined
+    }
+  }
+  query.rawPatch(raw)
+}
+
+onMounted(() => {
+  mobileMq = window.matchMedia(MOBILE_MQ)
+  syncMobile()
+  mobileMq.addEventListener('change', syncMobile)
+
+  resizeObserver = new ResizeObserver(() => {
+    void measureTableScroll()
+  })
+  if (tableWrapRef.value) resizeObserver.observe(tableWrapRef.value)
+  void measureTableScroll()
+  requestAnimationFrame(() => void measureTableScroll())
+})
+
+onUnmounted(() => {
+  mobileMq?.removeEventListener('change', syncMobile)
+  resizeObserver?.disconnect()
+})
+
+/**
+ * Filtre / arama değiştiğinde geçerli sayfa fazla olabilir; 1'e sabitle.
+ * (Sayfalama kontrolü zaten URL'de; burada toplam azaldıysa kullanıcıyı boş sayfada bırakmıyoruz.)
+ */
+watch(
+  () => filtered.value.length,
+  () => {
+    const totalPages = Math.max(1, Math.ceil(filtered.value.length / pageSize.value))
+    if (page.value > totalPages) query.patch({ page: 1 })
+    void measureTableScroll()
+  },
+)
+
+watch(() => props.loading, () => void measureTableScroll())
+watch(
+  () => [sortedItems.value.length, filtered.value.length, isMobile.value] as const,
+  () => void measureTableScroll(),
+)
+</script>
+
+<template>
+  <section class="kp-list">
+    <div
+      class="kp-list__toolbar"
+      :class="{ 'kp-list__toolbar--no-archive': !archiveFilter }"
+    >
+      <Segmented
+        v-if="archiveFilter"
+        v-model:value="archiveMode"
+        class="kp-list__archive"
+        :options="[
+          { label: 'Aktif', value: 'active' },
+          { label: 'Arşivli', value: 'archived' },
+          { label: 'Tümü', value: 'all' },
+        ]"
+      />
+
+      <div class="kp-list__search-group">
+        <Input
+          v-model:value="search"
+          :placeholder="searchPlaceholder"
+          allow-clear
+          class="kp-list__search"
+        >
+          <template #prefix><SearchOutlined /></template>
+        </Input>
+
+        <Popover
+          v-if="hasAnyFilter"
+          v-model:open="filtersOpen"
+          trigger="click"
+          placement="bottomLeft"
+          overlay-class-name="kp-list-filter-popover"
+          :destroy-tooltip-on-hide="false"
+        >
+          <template #content>
+            <div class="kp-list-filter">
+              <header class="kp-list-filter__head">Filtreler</header>
+
+              <div v-if="bankFilter" class="kp-list-filter__field">
+                <label class="kp-list-filter__label">Banka</label>
+                <Select
+                  :value="bankFilterId || undefined"
+                  class="kp-list-filter__control"
+                  placeholder="Tüm bankalar"
+                  allow-clear
+                  show-search
+                  :options="bankSelectOptions"
+                  :filter-option="filterSelectOption"
+                  @update:value="(v: unknown) => { bankFilterId = v == null ? '' : String(v) }"
+                />
+              </div>
+
+              <div
+                v-for="f in filters"
+                :key="f.key"
+                class="kp-list-filter__field"
+              >
+                <label class="kp-list-filter__label">{{ f.label }}</label>
+
+                <Select
+                  v-if="f.kind === 'select'"
+                  :value="getSelectValue(f.key) || undefined"
+                  class="kp-list-filter__control"
+                  :placeholder="f.placeholder ?? 'Hepsi'"
+                  allow-clear
+                  show-search
+                  :options="f.options"
+                  :filter-option="filterSelectOption"
+                  @update:value="(v: unknown) => setSelectValue(f.key, v == null ? undefined : String(v))"
+                />
+
+                <div v-else-if="f.kind === 'numberRange'" class="kp-list-filter__range">
+                  <LocaleInputNumber
+                    :value="getNumberRange(f.key).min ?? null"
+                    :kind="f.numberKind ?? 'currency'"
+                    :placeholder="f.minPlaceholder ?? 'Min'"
+                    class="kp-list-filter__range-input"
+                    @update:value="(v: number | null | undefined) => setNumberRange(f.key, 'min', v)"
+                  />
+                  <span class="kp-list-filter__range-sep">–</span>
+                  <LocaleInputNumber
+                    :value="getNumberRange(f.key).max ?? null"
+                    :kind="f.numberKind ?? 'currency'"
+                    :placeholder="f.maxPlaceholder ?? 'Maks'"
+                    class="kp-list-filter__range-input"
+                    @update:value="(v: number | null | undefined) => setNumberRange(f.key, 'max', v)"
+                  />
+                </div>
+
+                <DatePicker.RangePicker
+                  v-else
+                  :value="dateRangeValue(f.key) ?? undefined"
+                  class="kp-list-filter__control"
+                  format="DD.MM.YYYY"
+                  allow-clear
+                  @update:value="(v: unknown) => setDateRange(f.key, v as [Dayjs, Dayjs] | null)"
+                />
+              </div>
+
+              <footer class="kp-list-filter__foot">
+                <Button
+                  block
+                  :disabled="activeFilterCount === 0"
+                  @click="clearFilters"
+                >
+                  Filtreyi temizle
+                </Button>
+              </footer>
+            </div>
+          </template>
+          <Badge
+            :count="activeFilterCount"
+            :show-zero="false"
+            :offset="[-2, 2]"
+            size="small"
+          >
+            <Button
+              class="kp-list__filter-trigger"
+              :type="activeFilterCount > 0 ? 'primary' : 'default'"
+              :ghost="activeFilterCount > 0"
+              aria-label="Filtreler"
+            >
+              <template #icon><FilterOutlined /></template>
+            </Button>
+          </Badge>
+        </Popover>
+      </div>
+
+      <Button type="primary" class="kp-list__create" @click="emit('create')">
+        <template #icon><PlusOutlined /></template>
+        {{ createLabel }}
+      </Button>
+    </div>
+
+    <!-- Masaüstü: tablo -->
+    <div
+      ref="tableWrapRef"
+      class="kp-list__table kp-list__table--desktop"
+      :class="{
+        'kp-list__table--empty': showEmptyOverlay,
+        'kp-list__table--loading': loading,
+      }"
+      :style="tableWrapStyle"
+    >
+      <div v-if="loading" class="kp-list__loading" aria-busy="true" aria-live="polite">
+        <Spin size="large" />
+      </div>
+
+      <div v-else-if="showEmptyOverlay" class="kp-list__empty" role="status">
+        <Empty :description="emptyText" />
+      </div>
+
+      <Table
+        class="kp-list__table-inner"
+        :data-source="sortedItems"
+        :columns="allColumns"
+        :locale="tableLocale"
+        :loading="false"
+        :pagination="pagination"
+        :row-key="(record: T) => record.id"
+        :custom-row="tableCustomRow"
+        :show-sorter-tooltip="false"
+        size="middle"
+        table-layout="fixed"
+        :scroll="tableScroll"
+        @change="onTableChange"
+      >
+        <template #bodyCell="{ column, record }">
+          <template v-if="column.key === '__actions'">
+            <Space class="kp-list__row-actions" :size="4">
+              <KpTooltip v-if="hasRowAction" :title="rowActionLabel">
+                <Button
+                  type="text"
+                  size="small"
+                  @click.stop="emit('row-click', record as T)"
+                >
+                  <template #icon>
+                    <component :is="resolvedRowActionIcon" />
+                  </template>
+                </Button>
+              </KpTooltip>
+              <KpTooltip title="Düzenle">
+                <Button
+                  type="text"
+                  size="small"
+                  @click.stop="emit('edit', record as T)"
+                >
+                  <template #icon><EditOutlined /></template>
+                </Button>
+              </KpTooltip>
+              <Popconfirm
+                placement="topRight"
+                overlay-class-name="kp-popoverlay-edge"
+                title="Bu kayıt silinsin mi?"
+                ok-text="Sil"
+                cancel-text="Vazgeç"
+                :ok-button-props="{ danger: true }"
+                @confirm="emit('delete', record as T)"
+              >
+                <span @click.stop>
+                  <KpTooltip title="Sil">
+                    <Button type="text" size="small" danger>
+                      <template #icon><DeleteOutlined /></template>
+                    </Button>
+                  </KpTooltip>
+                </span>
+              </Popconfirm>
+            </Space>
+          </template>
+          <template v-else-if="column.key === 'color'">
+            <ColorSwatch :color="recordColor(record as T)" />
+          </template>
+          <template v-else-if="column.key === 'archived'">
+            <Tag v-if="(record as T).archived" color="default">Arşivli</Tag>
+            <Tag v-else color="green">Aktif</Tag>
+          </template>
+        </template>
+      </Table>
+    </div>
+
+    <!-- Mobil: kartlar -->
+    <div class="kp-list__cards kp-list__cards--mobile">
+      <div v-if="loading" class="kp-list__cards-loading" aria-busy="true" aria-live="polite">
+        <Spin size="large" />
+      </div>
+      <template v-else>
+        <div v-if="showEmptyCards" class="kp-list__cards-empty">
+          <Empty :description="emptyText" />
+        </div>
+        <ul v-else class="kp-list__cards-list">
+          <li
+            v-for="(item, index) in pagedItems"
+            :key="item.id"
+            class="kp-list-card"
+          >
+            <header class="kp-list-card__head">
+              <h3 v-if="primaryColumn" class="kp-list-card__title">
+                {{ cellValue(primaryColumn, item, index) }}
+              </h3>
+              <Space class="kp-list-card__actions" :size="4">
+                <Tag v-if="item.archived" color="default">Arşivli</Tag>
+                <Tag v-else color="green">Aktif</Tag>
+                <KpTooltip v-if="hasRowAction" :title="rowActionLabel">
+                  <Button type="text" size="small" @click="emit('row-click', item)">
+                    <template #icon>
+                      <component :is="resolvedRowActionIcon" />
+                    </template>
+                  </Button>
+                </KpTooltip>
+                <KpTooltip title="Düzenle">
+                  <Button type="text" size="small" @click="emit('edit', item)">
+                    <template #icon><EditOutlined /></template>
+                  </Button>
+                </KpTooltip>
+                <Popconfirm
+                  placement="topRight"
+                  overlay-class-name="kp-popoverlay-edge"
+                  title="Bu kayıt silinsin mi?"
+                  ok-text="Sil"
+                  cancel-text="Vazgeç"
+                  :ok-button-props="{ danger: true }"
+                  @confirm="emit('delete', item)"
+                >
+                  <span @click.stop>
+                    <KpTooltip title="Sil">
+                      <Button type="text" size="small" danger>
+                        <template #icon><DeleteOutlined /></template>
+                      </Button>
+                    </KpTooltip>
+                  </span>
+                </Popconfirm>
+              </Space>
+            </header>
+            <dl v-if="detailColumns.length" class="kp-list-card__fields">
+              <div
+                v-for="col in detailColumns"
+                :key="String(col.key ?? col.dataIndex)"
+                class="kp-list-card__field"
+              >
+                <dt>{{ col.title }}</dt>
+                <dd v-if="col.key === 'color'">
+                  <ColorSwatch :color="recordColor(item)" />
+                </dd>
+                <dd v-else>{{ cellValue(col, item, index) }}</dd>
+              </div>
+            </dl>
+          </li>
+        </ul>
+        <Pagination
+          v-if="filtered.length > 0"
+          class="kp-list__cards-pagination"
+          :current="page"
+          :page-size="pageSize"
+          :total="filtered.length"
+          :show-size-changer="false"
+          :show-total="(total: number) => `${total} kayıt`"
+          size="small"
+          @change="onMobilePaginationChange"
+        />
+      </template>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.kp-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+/** Masaüstü: arama+filtre (sol) · arşiv (satırın tam ortası) · yeni kayıt (sağ) */
+.kp-list__toolbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.kp-list__search-group {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.kp-list__search {
+  flex: 0 1 320px;
+  width: 100%;
+  max-width: 320px;
+  min-width: 200px;
+}
+
+.kp-list__filter-trigger {
+  flex-shrink: 0;
+}
+
+.kp-list__archive {
+  position: absolute;
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+}
+
+.kp-list__create {
+  position: relative;
+  z-index: 1;
+  margin-left: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.kp-list__table--desktop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.kp-list__table-inner {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.kp-list__cards--mobile {
+  display: none;
+}
+
+.kp-list__table--desktop :deep(.ant-table-wrapper) {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.kp-list__table--desktop :deep(.ant-spin-nested-loading),
+.kp-list__table--desktop :deep(.ant-spin-container) {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.kp-list__table--desktop :deep(.ant-table) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.kp-list__table--desktop :deep(.ant-table-container) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.kp-list__table--desktop :deep(.ant-table-header) {
+  flex-shrink: 0;
+}
+
+.kp-list__table--desktop :deep(.ant-table-body) {
+  flex: 1;
+  min-height: var(--kp-table-body-min-h, 120px);
+  /**
+   * AntDV varsayılan `overflow-y: scroll` sağda boş scrollbar şeridi bırakır;
+   * `auto` yalnızca gerektiğinde dikey scrollbar gösterir (başlık hizası korunur).
+   */
+  overflow: auto !important;
+  padding-bottom: 6px;
+}
+
+/** Başlık ve gövde aynı genişlikte kalsın. */
+.kp-list__table--desktop :deep(.ant-table-header),
+.kp-list__table--desktop :deep(.ant-table-body) {
+  width: 100% !important;
+}
+
+/**
+ * AntDV dikey scrollbar hizası için eklediği boş sütun — gereksiz sağ boşluk bırakır.
+ * Gövde `overflow: auto` ile kendi scrollbar'ını yönetir.
+ */
+.kp-list__table--desktop :deep(.ant-table-cell-scrollbar),
+.kp-list__table--desktop :deep(col.ant-table-cell-scrollbar) {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+}
+
+.kp-list__table--desktop :deep(.ant-table-pagination) {
+  flex-shrink: 0;
+  /** Body'nin (varsa) yatay scrollbar'ı ile pagination arası net boşluk. */
+  margin: 16px 0 0;
+  padding-top: 4px;
+}
+
+.kp-list__table--desktop :deep(tr.kp-list__row--clickable) {
+  cursor: pointer;
+}
+
+.kp-list__table--desktop :deep(tr.kp-list__row--clickable:hover > td) {
+  background: rgba(22, 119, 255, 0.04);
+}
+
+[data-theme='dark'] .kp-list__table--desktop :deep(tr.kp-list__row--clickable:hover > td) {
+  background: rgba(22, 119, 255, 0.1);
+}
+
+.kp-list__empty {
+  position: absolute;
+  top: var(--kp-table-head-h, 40px);
+  right: 0;
+  bottom: var(--kp-table-pagination-h, 56px);
+  left: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.kp-list__loading {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: var(--kp-table-pagination-h, 56px);
+  left: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.kp-list__table--empty :deep(tr.ant-table-placeholder),
+.kp-list__table--loading :deep(tr.ant-table-placeholder),
+.kp-list__table--loading :deep(.ant-table-placeholder .ant-empty) {
+  display: none;
+}
+
+/* Mobil: arşiv üstte ortada → arama+filtre → yeni kayıt; kart listesi */
+@media (max-width: 640px) {
+  .kp-list__toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'archive'
+      'search'
+      'create';
+  }
+
+  .kp-list__toolbar--no-archive {
+    grid-template-areas:
+      'search'
+      'create';
+  }
+
+  .kp-list__archive {
+    position: static;
+    grid-area: archive;
+    justify-self: center;
+    transform: none;
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .kp-list__search-group {
+    grid-area: search;
+    flex: none;
+    width: 100%;
+  }
+
+  .kp-list__search {
+    flex: 1;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .kp-list__create {
+    grid-area: create;
+    margin-left: 0;
+    justify-self: stretch;
+  }
+
+  .kp-list__table--desktop {
+    display: none;
+  }
+
+  .kp-list__cards--mobile {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .kp-list__cards--mobile :deep(.ant-spin-nested-loading),
+  .kp-list__cards--mobile :deep(.ant-spin-container) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .kp-list__cards-list {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .kp-list__cards-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 160px;
+  }
+
+  .kp-list__cards-pagination {
+    flex-shrink: 0;
+    margin-top: 12px;
+    text-align: center;
+  }
+}
+
+.kp-list-card {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: var(--kp-radius, 8px);
+  padding: 12px 14px;
+  background: #fff;
+}
+
+[data-theme='dark'] .kp-list-card {
+  background: #1f1f1f;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.kp-list-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.kp-list-card__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.kp-list-card__actions {
+  flex-shrink: 0;
+}
+
+.kp-list-card__fields {
+  margin: 0;
+  display: grid;
+  gap: 6px 12px;
+}
+
+.kp-list-card__field {
+  display: grid;
+  grid-template-columns: minmax(88px, 38%) 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.kp-list-card__field dt {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.kp-list-card__field dd {
+  margin: 0;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+[data-theme='dark'] .kp-list-card__field dt {
+  color: rgba(255, 255, 255, 0.55);
+}
+</style>

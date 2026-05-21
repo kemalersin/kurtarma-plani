@@ -1,5 +1,15 @@
 :root {
   --kp-radius: 8px;
+  /** Oturumlu sayfa içeriği (liste/form); dar kartlar (kurulum) hariç */
+  --kp-page-max-width: 800px;
+  --kp-page-padding-x: 16px;
+  --kp-page-padding-x-wide: 24px;
+  /** AppShell, drawer, tooltip (768px) */
+  --kp-mobile-viewport-max: 768px;
+  /** EntityListPage: tablo ↔ kart kırılımı */
+  --kp-list-mobile-max: 640px;
+  /** Sağ kenara yaslanmış popconfirm / popover / dropdown */
+  --kp-popoverlay-edge-margin: 12px;
 }
 
 html,
@@ -53,6 +63,36 @@ body {
   max-width: 520px;
 }
 
+/** AppShell içi sayfa gövdesi — varsayılan ortalanmış dar sütun */
+.kp-page {
+  width: 100%;
+  max-width: var(--kp-page-max-width);
+  margin: 0 auto;
+  padding-inline: var(--kp-page-padding-x);
+  box-sizing: border-box;
+}
+
+/** Liste / tablo sayfaları: içerik alanı yatayda tam genişlik */
+.kp-page--wide {
+  max-width: none;
+  margin: 0;
+  padding-inline: var(--kp-page-padding-x-wide);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/** Yönetim sekmesi: liste dikey alanı doldurur */
+/** Liste sayfası içeren `<a-tabs>` paneli: EntityListPage'in tam viewport'u doldurması için. */
+.kp-list-tab-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
 .kp-toolbar {
   display: flex;
   align-items: center;
@@ -71,8 +111,345 @@ body {
   color: rgba(255, 255, 255, 0.55);
 }
 
+/** Bakiye gösterimleri (liste sütunu / drawer özeti) — tabular sayılar + negatif ton. */
+.kp-balance {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.kp-balance--negative {
+  color: var(--ant-color-error, #d4380d);
+  font-weight: 600;
+}
+
+[data-theme='dark'] .kp-balance--negative {
+  color: var(--ant-color-error, #ff7875);
+}
+
 @media (max-width: 640px) {
   .kp-center-page {
     padding: 12px;
+  }
+}
+
+/* Mobil: tooltip yok; form drawer tam ekran (ui-patterns.mdc) */
+@media (max-width: 768px) {
+  .ant-tooltip {
+    display: none !important;
+    pointer-events: none !important;
+  }
+
+  .kp-form-drawer.ant-drawer .ant-drawer-content-wrapper {
+    width: 100% !important;
+    max-width: 100vw;
+  }
+
+  .kp-form-drawer.ant-drawer .ant-drawer-content {
+    height: 100%;
+    height: 100dvh;
+    border-radius: 0;
+  }
+
+  .kp-form-drawer.ant-drawer .ant-drawer-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .kp-form-drawer .kp-form-drawer__body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .kp-form-drawer.ant-drawer:has(.kp-drawer-table-page) .kp-form-drawer__body {
+    overflow: hidden;
+  }
+}
+
+/* Drawer içi tablo: üst içerik sabit, tablo kalan dikey alanı doldurur */
+.kp-form-drawer.ant-drawer:has(.kp-drawer-table-page) .ant-drawer-content-wrapper {
+  height: 100%;
+  max-height: 100dvh;
+}
+
+.kp-form-drawer.ant-drawer:has(.kp-drawer-table-page) .ant-drawer-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.kp-form-drawer.ant-drawer:has(.kp-drawer-table-page) .ant-drawer-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.kp-form-drawer.ant-drawer:has(.kp-drawer-table-page) .kp-form-drawer__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.kp-drawer-table-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  gap: 20px;
+}
+
+.kp-drawer-table-page > :not(.kp-drawer-table) {
+  flex-shrink: 0;
+}
+
+.kp-drawer-table .kp-schedule-row--clickable,
+.kp-drawer-table .kp-txn-row-clickable {
+  cursor: pointer;
+}
+
+.kp-drawer-table .kp-schedule-row--clickable:hover > td,
+.kp-drawer-table .kp-txn-row-clickable:hover > td {
+  background: rgba(22, 119, 255, 0.04);
+}
+
+[data-theme='dark'] .kp-drawer-table .kp-schedule-row--clickable:hover > td,
+[data-theme='dark'] .kp-drawer-table .kp-txn-row-clickable:hover > td {
+  background: rgba(22, 119, 255, 0.1);
+}
+
+/** Form drawer: tehlikeli aksiyon (sil / ödemeyi kaldır) — header (#extra) içinde değil, form altında */
+.kp-form-drawer-danger-row {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 8px;
+  border-top: 1px dashed var(--ant-color-border-secondary, rgba(0, 0, 0, 0.06));
+}
+
+/* JSON sözdizimi renkleri (JsonCodeBlock, v-html) */
+.kp-json__key {
+  color: #881391;
+}
+
+.kp-json__string {
+  color: #0b7500;
+}
+
+.kp-json__number {
+  color: #1a01cc;
+}
+
+.kp-json__boolean {
+  color: #0d47a1;
+}
+
+.kp-json__null {
+  color: #808080;
+}
+
+[data-theme='dark'] .kp-json__key {
+  color: #c792ea;
+}
+
+[data-theme='dark'] .kp-json__string {
+  color: #c3e88d;
+}
+
+[data-theme='dark'] .kp-json__number {
+  color: #f78c6c;
+}
+
+[data-theme='dark'] .kp-json__boolean {
+  color: #82aaff;
+}
+
+[data-theme='dark'] .kp-json__null {
+  color: #9399b2;
+}
+
+/*
+ * Kaydırma çubukları: `body` hariç tüm kaydırılabilir alanlarda
+ * çubuk yalnızca hover'da görünür (kural: ui-patterns.mdc).
+ */
+body {
+  scrollbar-width: auto;
+  scrollbar-color: auto;
+}
+
+*:not(html):not(body) {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+*:not(html):not(body):hover {
+  scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
+}
+
+[data-theme='dark'] *:not(html):not(body):hover {
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+}
+
+*:not(html):not(body)::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+*:not(html):not(body)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*:not(html):not(body)::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 4px;
+}
+
+*:not(html):not(body):hover::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.22);
+}
+
+[data-theme='dark'] *:not(html):not(body):hover::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.22);
+}
+
+/* Modal: kullanılabilir alanın dikey ortasında */
+.ant-modal-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ant-modal-wrap .ant-modal {
+  top: 0;
+  padding-bottom: 0;
+  margin: 16px auto;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+}
+
+.ant-modal-wrap .ant-modal-content {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+}
+
+.ant-modal-wrap .ant-modal-body {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/*
+ * Sağ kenara dayalı açılır katmanlar: viewport'tan boşluk; kısa onay metni tek satır.
+ * `overlay-class-name="kp-popoverlay-edge"` veya *Right placement ile birlikte kullanılır.
+ */
+.ant-popover-placement-topRight,
+.ant-popover-placement-bottomRight,
+.ant-dropdown-placement-topRight,
+.ant-dropdown-placement-bottomRight,
+.kp-popoverlay-edge.ant-popover {
+  margin-inline-end: var(--kp-popoverlay-edge-margin);
+}
+
+.kp-popoverlay-edge .ant-popconfirm-message-title,
+.kp-popoverlay-edge .ant-popconfirm-description,
+.kp-popoverlay-edge .ant-popconfirm-buttons {
+  white-space: nowrap;
+}
+
+.kp-popoverlay-edge .ant-popconfirm-buttons {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+
+/* Liste filtre popover'ı (EntityListPage) */
+.kp-list-filter-popover.ant-popover .ant-popover-inner {
+  padding: 0;
+  min-width: 280px;
+}
+
+.kp-list-filter-popover.ant-popover .ant-popover-inner-content {
+  padding: 0;
+}
+
+.kp-list-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 12px;
+  min-width: 260px;
+  max-width: 320px;
+}
+
+.kp-list-filter__head {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.kp-list-filter__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kp-list-filter__label {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+[data-theme='dark'] .kp-list-filter__label {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.kp-list-filter__control,
+.kp-list-filter__control.ant-select,
+.kp-list-filter__control.ant-picker {
+  width: 100%;
+}
+
+.kp-list-filter__range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kp-list-filter__range-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.kp-list-filter__range-sep {
+  color: rgba(0, 0, 0, 0.4);
+  font-size: 14px;
+}
+
+[data-theme='dark'] .kp-list-filter__range-sep {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.kp-list-filter__foot {
+  margin-top: 4px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: 10px;
+}
+
+[data-theme='dark'] .kp-list-filter__foot {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Mobil: popover sağ kenara taşmasın */
+@media (max-width: 640px) {
+  .kp-list-filter-popover.ant-popover {
+    max-width: calc(100vw - 16px);
+  }
+  .kp-list-filter {
+    max-width: none;
   }
 }
