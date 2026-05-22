@@ -5,12 +5,17 @@ import {
   FormItem,
   Input,
   Textarea,
-  Switch,
   Space,
   Button,
   message,
 } from 'ant-design-vue'
 import FormDrawer from '@/components/FormDrawer.vue'
+import SensitiveRecordSwitch from '@/components/SensitiveRecordSwitch.vue'
+import {
+  emptySensitiveFields,
+  readSensitiveDraft,
+  sensitiveSaveOptions,
+} from '@/composables/useSensitiveEntityForm'
 import { useEntitiesStore } from '@/stores/entities'
 import type { Bank } from '@/core/types/entities'
 
@@ -34,6 +39,7 @@ interface Form {
   branchCode: string
   notes: string
   archived: boolean
+  sensitive: boolean
 }
 
 const draft = reactive<Form>(emptyForm())
@@ -47,6 +53,7 @@ function emptyForm(): Form {
     branchCode: '',
     notes: '',
     archived: false,
+    ...emptySensitiveFields(),
   }
 }
 
@@ -62,6 +69,7 @@ watch(
         branchCode: props.bank.branchCode ?? '',
         notes: props.bank.notes ?? '',
         archived: !!props.bank.archived,
+        sensitive: readSensitiveDraft('bank', props.bank.id),
       })
     } else {
       Object.assign(draft, emptyForm())
@@ -84,7 +92,7 @@ async function submit(): Promise<void> {
       branchCode: draft.branchCode.trim() || undefined,
       notes: draft.notes.trim() || undefined,
       archived: draft.archived || undefined,
-    })
+    }, sensitiveSaveOptions(draft))
     message.success(props.bank ? 'Banka güncellendi.' : 'Banka eklendi.')
     emit('saved', saved)
     emit('update:open', false)
@@ -126,9 +134,7 @@ function close(): void {
       <FormItem label="Notlar">
         <Textarea v-model:value="draft.notes" :rows="3" />
       </FormItem>
-      <FormItem label="Arşivli">
-        <Switch v-model:checked="draft.archived" />
-      </FormItem>
+      <SensitiveRecordSwitch v-model:sensitive="draft.sensitive" v-model:archived="draft.archived" />
     </Form>
 
     <template #extra>

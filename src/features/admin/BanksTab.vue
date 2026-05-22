@@ -5,46 +5,91 @@ import type { TableColumnType } from 'ant-design-vue'
 import EntityListPage, { type ListFilter } from '@/components/EntityListPage.vue'
 import BankFormDrawer from '@/features/admin/BankFormDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
+import { useProfileStore } from '@/stores/profile'
+import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
+import { debtTotalsByBankId } from '@/features/analytics/snapshot'
 import type {
   Account,
   Bank,
   CashAdvanceAccount,
+  CashAdvanceTransaction,
   CreditCard,
+  CreditCardTransaction,
   InstallmentCashAdvance,
+  InstallmentCashAdvancePayment,
   Loan,
+  LoanPayment,
 } from '@/core/types/entities'
+import type { EntityType } from '@/core/db/profile-db'
 import { adminPrimaryNameColumn } from '@/features/admin/admin-list-columns'
 
 const entities = useEntitiesStore()
+const profileStore = useProfileStore()
+const { formatCurrency } = useLocaleFormatters()
 const banks = entities.list<Bank>('bank')
 const accounts = entities.list<Account>('account')
 const loans = entities.list<Loan>('loan')
+const loanPayments = entities.list<LoanPayment>('loanPayment')
 const cards = entities.list<CreditCard>('creditCard')
+const cardTxns = entities.list<CreditCardTransaction>('creditCardTransaction')
 const cashAdv = entities.list<CashAdvanceAccount>('cashAdvanceAccount')
+const cashAdvTxns = entities.list<CashAdvanceTransaction>('cashAdvanceTransaction')
 const installAdv = entities.list<InstallmentCashAdvance>('installmentCashAdvance')
+const installAdvPayments = entities.list<InstallmentCashAdvancePayment>(
+  'installmentCashAdvancePayment',
+)
 const loading = entities.loading('bank')
+
+const localCurrency = computed(
+  () => profileStore.activeProfile?.localeSettings.currency ?? 'TRY',
+)
 
 const drawerOpen = ref(false)
 const editing = ref<Bank | null>(null)
 
 onMounted(async () => {
   const tasks: Promise<unknown>[] = []
-  if (!entities.loaded('bank').value)
-    tasks.push(entities.load<Bank>('bank').catch(() => undefined))
-  if (!entities.loaded('account').value)
-    tasks.push(entities.load<Account>('account').catch(() => undefined))
-  if (!entities.loaded('loan').value)
-    tasks.push(entities.load<Loan>('loan').catch(() => undefined))
-  if (!entities.loaded('creditCard').value)
-    tasks.push(entities.load<CreditCard>('creditCard').catch(() => undefined))
-  if (!entities.loaded('cashAdvanceAccount').value)
-    tasks.push(entities.load<CashAdvanceAccount>('cashAdvanceAccount').catch(() => undefined))
-  if (!entities.loaded('installmentCashAdvance').value)
-    tasks.push(
-      entities.load<InstallmentCashAdvance>('installmentCashAdvance').catch(() => undefined),
-    )
+  const loads: Array<[EntityType, () => Promise<unknown>]> = [
+    ['bank', () => entities.load<Bank>('bank')],
+    ['account', () => entities.load<Account>('account')],
+    ['loan', () => entities.load<Loan>('loan')],
+    ['loanPayment', () => entities.load<LoanPayment>('loanPayment')],
+    ['creditCard', () => entities.load<CreditCard>('creditCard')],
+    ['creditCardTransaction', () => entities.load<CreditCardTransaction>('creditCardTransaction')],
+    ['cashAdvanceAccount', () => entities.load<CashAdvanceAccount>('cashAdvanceAccount')],
+    ['cashAdvanceTransaction', () => entities.load<CashAdvanceTransaction>('cashAdvanceTransaction')],
+    [
+      'installmentCashAdvance',
+      () => entities.load<InstallmentCashAdvance>('installmentCashAdvance'),
+    ],
+    [
+      'installmentCashAdvancePayment',
+      () => entities.load<InstallmentCashAdvancePayment>('installmentCashAdvancePayment'),
+    ],
+  ]
+  for (const [key, load] of loads) {
+    if (!entities.loaded(key).value) tasks.push(load().catch(() => undefined))
+  }
   if (tasks.length) await Promise.all(tasks)
 })
+
+const debtByBank = computed(() =>
+  debtTotalsByBankId({
+    loans: loans.value,
+    loanPayments: loanPayments.value,
+    creditCards: cards.value,
+    creditCardTransactions: cardTxns.value,
+    cashAdvanceAccounts: cashAdv.value,
+    cashAdvanceTransactions: cashAdvTxns.value,
+    installmentAdvances: installAdv.value,
+    installmentAdvancePayments: installAdvPayments.value,
+    localCurrency: localCurrency.value,
+  }),
+)
+
+function bankDebtTotal(bankId: string): string {
+  return debtByBank.value.get(bankId) ?? '0'
+}
 
 const usedBankIds = computed<Set<string>>(() => {
   const set = new Set<string>()
@@ -67,6 +112,13 @@ const filters = computed<ListFilter<Bank>[]>(() => [
       { value: 'unused', label: 'Kullanılmıyor' },
     ],
     getValue: (bank) => (usedBankIds.value.has(bank.id) ? 'used' : 'unused'),
+  },
+  {
+    kind: 'numberRange',
+    key: 'totalDebt',
+    label: 'Toplam borç',
+    numberKind: 'currency',
+    getValue: (bank) => Number(bankDebtTotal(bank.id)),
   },
 ])
 
@@ -95,6 +147,14 @@ const columns = computed<TableColumnType<Bank>[]>(() => [
     key: 'shortName',
     title: 'Kısa ad',
     dataIndex: 'shortName',
+  },
+  {
+    key: 'totalDebt',
+    title: 'Toplam borç',
+    align: 'right',
+    customRender: ({ record }) =>
+      formatCurrency(bankDebtTotal((record as Bank).id), localCurrency.value),
+    sorter: (a, b) => Number(bankDebtTotal(a.id)) - Number(bankDebtTotal(b.id)),
   },
   {
     key: 'bicSwift',

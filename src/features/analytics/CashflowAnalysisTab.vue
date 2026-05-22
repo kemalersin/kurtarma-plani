@@ -4,13 +4,16 @@ import { Card, Table, Row, Col } from 'ant-design-vue'
 import type { ColumnsType } from 'ant-design-vue/es/table'
 import type { EChartsOption } from 'echarts/types/dist/echarts'
 import KpChart from '@/components/KpChart.vue'
+import AnalyticsFilterBar from '@/features/analytics/AnalyticsFilterBar.vue'
 import { buildDonutOption } from '@/features/analytics/chartOptions'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
+import type { AnalyticsFilterState } from '@/composables/useAnalyticsFilters'
 import type { AnalyticsData } from '@/features/analytics/useAnalyticsData'
 import type { CashflowMonthRow } from '@/features/analytics/reports'
 
 const props = defineProps<{
   data: AnalyticsData
+  filters: AnalyticsFilterState
 }>()
 
 const { formatCurrency, formatNumber } = useLocaleFormatters()
@@ -149,6 +152,9 @@ const isCashflowEmpty = computed(
     </Row>
 
     <Card title="Aylık özet tablosu" size="small" class="kp-analytics-tab__table-card">
+      <template #extra>
+        <AnalyticsFilterBar :filters="filters" :data="data" show-category />
+      </template>
       <Table
         :columns="columns"
         :data-source="data.cashflowRows"

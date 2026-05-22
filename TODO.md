@@ -85,14 +85,17 @@
 
 - [x] **M7.1 — Analiz motoru + Dashboard:** `src/features/analytics/` saf TS (`snapshot.ts` asset/debt/netWorth, `series.ts` cashflow/category/upcomingDebt, `useDashboardData.ts` reaktif composable); `KpChart.vue` ECharts wrapper (tree-shaken core + Canvas + Bar/Line/Pie + Grid/Legend/Title/Tooltip/DataZoom, responsive, tema-uyumlu); Panel (HomeView) 5 stat + 4 grafik (aylık nakit akışı / borç dağılımı / gider kategorileri / yaklaşan vadeler); 18 yeni Vitest (93/93)
 - [x] **M7.2 — Analiz / rapor sayfası:** `/analytics` sekmeli (borç analizi, nakit akışı, hesap geçmişi); declarative filtreler (tarih aralığı, banka, hesap, kategori); tablo + grafik aynı sayfada; `reports.ts` + `useAnalyticsFilters` + 5 Vitest (98/98)
-- [ ] **M7.3 — Export (UI only):** görünen tablo → Excel (`write-excel-file` ~40 KB); görünen tablo + grafik → PDF (tarayıcı print API + `@media print` özel CSS, 0 KB ek bağımlılık)
+- [ ] **M7.3 — Export (UI only):** görünen tablo → Excel (`write-excel-file` ~40 KB); görünen tablo + grafik → PDF (tarayıcı print API + `@media print` özel CSS, 0 KB ek bağımlılık) — **ertelendi**
 
 ## M8 — AI
 
-- [ ] models.dev build embed script
-- [ ] Provider adapters + stream
-- [ ] Sohbet kalıcılığı + usage ledger
-- [ ] Snapshot’tan hassas + secrets filtreleme
+- [x] **models.dev build embed script** (`scripts/fetch-models-catalog.ts`; `bundled.json` + isteğe bağlı `generated.json`; `FETCH_MODELS=1 npm run build`; **UI'dan güncelleme** → IndexedDB `modelsCatalog`, gömülü listeyi ezer)
+- [x] **Provider adapters + stream** (Anthropic, OpenAI, Gemini, DeepSeek, Ollama, vLLM; SSE stream + anlık token/maliyet)
+- [x] **Sohbet kalıcılığı + usage ledger** (`chatSession`, `aiUsage` entity; sohbet temizlense bile usage kalır)
+- [x] **Snapshot'tan hassas + secrets filtreleme** (`buildAiFinanceSnapshot`; AI ayarları/API anahtarları hariç)
+- [x] **Sohbete görsel yükleme** (vision/multimodal; dosya + yapıştır; OpenAI/Anthropic/Gemini adapter)
+- [x] **Sohbete dosya ekleri** (PDF, TXT, CSV, JSON + görseller; provider bazlı format)
+- [x] **AI kayıt önerisi** (`kp-proposals` JSON → parse/resolve/apply; `AiProposalPanel`)
 
 ## M9 — Sertleştirme
 

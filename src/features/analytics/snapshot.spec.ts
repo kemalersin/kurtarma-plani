@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assetSnapshot, debtSnapshot, netWorth } from './snapshot'
+import { assetSnapshot, debtSnapshot, debtTotalsByBankId, netWorth } from './snapshot'
 import type { AccountMovement } from '@/features/cashflow/movements'
 import type {
   Account,
@@ -140,6 +140,79 @@ describe('debtSnapshot', () => {
       localCurrency: 'TRY',
     })
     expect(snap.total).toBe('0')
+  })
+})
+
+describe('debtTotalsByBankId', () => {
+  it('banka başına kredi kalanını toplar', () => {
+    const loan: Loan = {
+      id: 'l1',
+      bankId: 'b1',
+      name: 'Test kredi',
+      currency: 'TRY',
+      principal: 12000,
+      interestRate: 0.04,
+      interestPeriod: 'monthly',
+      termMonths: 12,
+      startDate: '2026-02-01',
+      firstInstallmentDate: '2026-03-01',
+      createdAt: ISO,
+      updatedAt: ISO,
+    } as Loan
+    const loan2: Loan = {
+      ...loan,
+      id: 'l2',
+      bankId: 'b2',
+      name: 'Diğer',
+      principal: 5000,
+    } as Loan
+    const totals = debtTotalsByBankId({
+      loans: [loan, loan2],
+      loanPayments: [],
+      creditCards: [],
+      creditCardTransactions: [],
+      cashAdvanceAccounts: [],
+      cashAdvanceTransactions: [],
+      installmentAdvances: [],
+      installmentAdvancePayments: [],
+      localCurrency: 'TRY',
+    })
+    expect(Number(totals.get('b1') ?? '0')).toBeGreaterThan(0)
+    expect(Number(totals.get('b2') ?? '0')).toBeGreaterThan(0)
+    expect(Number(totals.get('b1') ?? '0')).toBeGreaterThan(Number(totals.get('b2') ?? '0'))
+  })
+
+  it('debtSnapshot toplamı banka toplamlarının birleşimine eşit', () => {
+    const loan: Loan = {
+      id: 'l1',
+      bankId: 'b1',
+      name: 'Test kredi',
+      currency: 'TRY',
+      principal: 8000,
+      interestRate: 0.04,
+      interestPeriod: 'monthly',
+      termMonths: 12,
+      startDate: '2026-02-01',
+      firstInstallmentDate: '2026-03-01',
+      createdAt: ISO,
+      updatedAt: ISO,
+    } as Loan
+    const input = {
+      loans: [loan],
+      loanPayments: [],
+      creditCards: [],
+      creditCardTransactions: [],
+      cashAdvanceAccounts: [],
+      cashAdvanceTransactions: [],
+      installmentAdvances: [],
+      installmentAdvancePayments: [],
+      localCurrency: 'TRY',
+    }
+    const snap = debtSnapshot(input)
+    const byBank = debtTotalsByBankId(input)
+    let sum = 0
+    for (const total of byBank.values()) sum += Number(total)
+    expect(sum).toBeCloseTo(Number(snap.total), 2)
   })
 })
 

@@ -4,7 +4,28 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 ## [Unreleased]
 
-### Added — M7.2 Analiz / rapor sayfası
+### Added — M8 AI asistan
+
+- **AI sohbet görsel desteği:** Composer'dan ekran görüntüsü yükleme (dosya seçici, yapıştırma); önizleme ve kaldırma; kullanıcı balonunda görüntüleme. OpenAI uyumlu, Anthropic ve Gemini sağlayıcıları multimodal API formatına uyarlanır. Görseller finans snapshot'ına dahil edilmez.
+- **AI sohbet dosya ekleri:** PDF, TXT, CSV, JSON + görseller; metin dosyaları tüm sağlayıcılarda, PDF Anthropic/Gemini'de native; ataç simgesi ile yükleme.
+- **AI kayıt önerisi (`kp-proposals`):** Asistan yanıtlarında DB uyumlu JSON blokları; tüm finans entity tipleri; ref/bankName ile ilişki çözümleme; sohbet balonunda «Kayıtları ekle» ile IndexedDB'ye yazma.
+- **Görsel sağlayıcı uyumu:** Ollama görsel mesajları yerel `/api/chat` + `images[]` formatına taşındı; DeepSeek/vLLM için görsel ön kontrol ve Türkçe hata mesajı.
+- **AI CORS (geliştirme):** Vite dev proxy (`/kp-ai-proxy/*`) — Anthropic, OpenAI, Gemini, DeepSeek istekleri localhost'tan CORS'suz gider; kayıtlı varsayılan bulut URL'leri dev'de otomatik proxy'ye yönlendirilir.
+- **Anthropic tarayıcı erişimi:** `anthropic-dangerous-direct-browser-access: true` header'ı eklendi (CORS zorunluluğu).
+
+- **`scripts/fetch-models-catalog.ts`:** Build sırasında [models.dev](https://models.dev) kataloğundan Anthropic, OpenAI, Gemini, DeepSeek modellerini çeker; `src/data/models-catalog/bundled.json` (fallback) + isteğe bağlı `generated.json` (`FETCH_MODELS=1`).
+- **Model kataloğu IndexedDB:** Meta DB `modelsCatalog` store; okuma önceliği IndexedDB > gömülü katalog. Ayarlar → AI → «Kataloğu güncelle» (çevrimiçi, models.dev); «Gömülüye sıfırla».
+- **Provider adapter'ları:** SSE stream — Anthropic Messages, OpenAI uyumlu (OpenAI, DeepSeek, Ollama, vLLM), Gemini `streamGenerateContent`; anlık token + USD maliyet (`models.dev` 1M token fiyatları).
+- **Kalıcılık:** `chatSession` (aktif sohbet, sayfa yenilemede devam) + `aiUsage` ledger (sohbet temizlense bile kalır); `aiSettings` profil DB'de.
+- **AI snapshot:** `buildAiFinanceSnapshot` — hassas kayıtlar, `aiSettings`/`aiUsage`/`chatSession` ve gizli alanlar (apiKey vb.) sistem promptuna dahil edilmez.
+- **UI:** `/ai` sohbet sayfası (çevrimdışı devre dışı + açıklama); Ayarlar → AI sekmesi (sağlayıcı CRUD, model seçimi, Ollama/vLLM uzak model listesi, kullanım tablosu); sol menü «AI Asistan».
+- **7 yeni Vitest** (`cost.spec.ts`) — toplam 107/107.
+- **2 yeni Vitest** (`catalog-extract.spec.ts`) — toplam 109/109.
+
+### Deferred — M7.3 Export (UI)
+
+- Excel/PDF export ertelendi; M9 veya ayrı iterasyonda ele alınacak.
+
 
 - **`/analytics` route** (`pageLayout: 'wide'`) — sekmeli sayfa: Borç analizi, Nakit akışı, Hesap geçmişi; URL'de `?tab=` + filtreler (`from`, `to`, `bank`, `endpoint`, `category`).
 - **`reports.ts`:** Saf TS rapor sorguları — `debtInstallmentRows`, `cashflowMonthRows`, `movementRows`, `debtInstallmentMonthlySeries`, `filterCashflowRecords`, `categoryOptions`.

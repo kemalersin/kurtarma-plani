@@ -4,12 +4,15 @@ import { Card, Table, Tag } from 'ant-design-vue'
 import type { ColumnsType } from 'ant-design-vue/es/table'
 import type { EChartsOption } from 'echarts/types/dist/echarts'
 import KpChart from '@/components/KpChart.vue'
+import AnalyticsFilterBar from '@/features/analytics/AnalyticsFilterBar.vue'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
+import type { AnalyticsFilterState } from '@/composables/useAnalyticsFilters'
 import type { AnalyticsData } from '@/features/analytics/useAnalyticsData'
 import type { DebtInstallmentRow } from '@/features/analytics/reports'
 
 const props = defineProps<{
   data: AnalyticsData
+  filters: AnalyticsFilterState
 }>()
 
 const { formatCurrency, formatDate, formatNumber } = useLocaleFormatters()
@@ -147,6 +150,14 @@ const isChartEmpty = computed(
       <KpChart :option="chartOption" :height="280" :is-empty="isChartEmpty" />
     </Card>
     <Card title="Taksit listesi" size="small" class="kp-analytics-tab__table-card">
+      <template #extra>
+        <AnalyticsFilterBar
+          :filters="filters"
+          :data="data"
+          :show-endpoint="false"
+          :show-category="false"
+        />
+      </template>
       <Table
         :columns="columns"
         :data-source="data.debtRows"

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useRoutedTabs } from '@/composables/useRoutedTabs'
 import {
   Card,
@@ -12,17 +13,21 @@ import {
   Input,
   Tabs,
   TabPane,
+  Popconfirm,
 } from 'ant-design-vue'
+import { DeleteOutlined } from '@ant-design/icons-vue'
 import LocaleSettingsForm from '@/components/LocaleSettingsForm.vue'
 import PasswordSection from '@/components/PasswordSection.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import BankingPresetSection from '@/components/BankingPresetSection.vue'
+import AiSettingsSection from '@/features/ai/AiSettingsSection.vue'
 import DataBackupSection from '@/components/DataBackupSection.vue'
 import { useProfileStore } from '@/stores/profile'
 import { saveProfile } from '@/core/db/meta'
 import type { LocaleSettings, ProfileMeta } from '@/core/types/profile'
 
 const profileStore = useProfileStore()
+const router = useRouter()
 const profile = computed<ProfileMeta | null>(() => profileStore.activeProfile)
 
 const localeDraft = ref<LocaleSettings>({
@@ -34,7 +39,8 @@ const localeDraft = ref<LocaleSettings>({
 const nameDraft = ref('')
 const savingName = ref(false)
 const savingLocale = ref(false)
-const SETTINGS_TABS = ['profile', 'locale', 'security', 'banking', 'data'] as const
+const deletingProfile = ref(false)
+const SETTINGS_TABS = ['profile', 'locale', 'security', 'banking', 'ai', 'data'] as const
 const { activeTab } = useRoutedTabs(SETTINGS_TABS, 'profile')
 
 watch(
@@ -91,6 +97,27 @@ async function saveLocale(): Promise<void> {
     savingLocale.value = false
   }
 }
+
+async function deleteCurrentProfile(): Promise<void> {
+  if (!profile.value) return
+  const name = profile.value.name
+  const id = profile.value.id
+  deletingProfile.value = true
+  try {
+    await profileStore.removeProfile(id)
+    message.success(`Profil silindi: ${name}`)
+    if (profileStore.hasAnyProfile) {
+      await router.push({ name: 'select' })
+    } else {
+      await router.push({ name: 'setup' })
+    }
+  } catch (error) {
+    console.error(error)
+    message.error('Profil silinemedi.')
+  } finally {
+    deletingProfile.value = false
+  }
+}
 </script>
 
 <template>
@@ -111,6 +138,25 @@ async function saveLocale(): Promise<void> {
           <Space>
             <Button type="primary" :loading="savingName" @click="saveName">Kaydet</Button>
           </Space>
+        </Card>
+
+        <Card title="Profili sil" class="kp-settings__danger-card">
+          <Typography.Paragraph class="kp-text-muted">
+            Bu profildeki tüm kayıtlar (bankalar, borçlar, nakit akışı, AI sohbeti vb.)
+            cihazınızdan kalıcı olarak silinir. Geri alınamaz; önce yedek almanız önerilir.
+          </Typography.Paragraph>
+          <Popconfirm
+            :title="`「${profile?.name ?? 'Profil'}」 ve tüm verileri silinsin mi?`"
+            ok-text="Sil"
+            cancel-text="Vazgeç"
+            ok-type="danger"
+            @confirm="deleteCurrentProfile"
+          >
+            <Button danger :loading="deletingProfile">
+              <DeleteOutlined />
+              Profili sil
+            </Button>
+          </Popconfirm>
         </Card>
       </TabPane>
 
@@ -143,6 +189,12 @@ async function saveLocale(): Promise<void> {
         </Card>
       </TabPane>
 
+      <TabPane key="ai" tab="AI">
+        <Card title="AI sağlayıcıları">
+          <AiSettingsSection />
+        </Card>
+      </TabPane>
+
       <TabPane key="data" tab="Veri">
         <Card title="Yedek ve içe aktarma">
           <DataBackupSection />
@@ -155,5 +207,17 @@ async function saveLocale(): Promise<void> {
 <style scoped>
 .kp-settings :deep(.ant-tabs-nav) {
   margin-bottom: 16px;
+}
+
+.kp-settings__danger-card {
+  margin-top: 16px;
+}
+
+.kp-text-muted {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+[data-theme='dark'] .kp-text-muted {
+  color: rgba(255, 255, 255, 0.55);
 }
 </style>

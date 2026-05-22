@@ -17,6 +17,7 @@ import {
 } from '@/core/db/meta'
 import { closeProfileDb, deleteProfileDb } from '@/core/db/profile-db'
 import { reencryptAll } from '@/core/db/encrypted-repo'
+import { seedSampleProfileData } from '@/core/services/sample-data'
 import { DEFAULT_LOCALE_SETTINGS } from '@/core/locale/defaults'
 import type {
   AppMeta,
@@ -146,15 +147,28 @@ export const useProfileStore = defineStore('profile', () => {
     // Profil önbelleklerini sıfırla; başka profile geçildiğinde reload tetiklenir.
     const { useEntitiesStore } = await import('@/stores/entities')
     useEntitiesStore().reset()
+    const { useAiStore } = await import('@/stores/ai')
+    useAiStore().reset()
   }
 
   async function removeProfile(id: string): Promise<void> {
     if (activeProfileId.value === id) {
       await lock()
+    } else {
+      await closeProfileDb(id)
     }
     await deleteProfileDb(id)
     await import('@/core/db/meta').then((m) => m.deleteProfile(id))
     profiles.value = await listProfiles()
+  }
+
+  async function seedActiveProfileSampleData(): Promise<number> {
+    if (!activeProfileId.value) throw new Error('Aktif profil yok.')
+    const currency = activeProfile.value?.localeSettings.currency ?? 'TRY'
+    const count = await seedSampleProfileData(activeProfileId.value, dataKey.value, currency)
+    const { useEntitiesStore } = await import('@/stores/entities')
+    useEntitiesStore().reset()
+    return count
   }
 
   /**
@@ -252,6 +266,7 @@ export const useProfileStore = defineStore('profile', () => {
     selectProfile,
     lock,
     removeProfile,
+    seedActiveProfileSampleData,
     setPassword,
     clearPassword,
   }

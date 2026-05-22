@@ -4,12 +4,15 @@ import { Card, Table } from 'ant-design-vue'
 import type { ColumnsType } from 'ant-design-vue/es/table'
 import type { EChartsOption } from 'echarts/types/dist/echarts'
 import KpChart from '@/components/KpChart.vue'
+import AnalyticsFilterBar from '@/features/analytics/AnalyticsFilterBar.vue'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
+import type { AnalyticsFilterState } from '@/composables/useAnalyticsFilters'
 import type { AnalyticsData } from '@/features/analytics/useAnalyticsData'
 import type { MovementRow } from '@/features/analytics/reports'
 
 const props = defineProps<{
   data: AnalyticsData
+  filters: AnalyticsFilterState
 }>()
 
 const { formatCurrency, formatDate, formatNumber } = useLocaleFormatters()
@@ -105,6 +108,9 @@ const isTrendEmpty = computed(() => props.data.assetTrend.values.every((v) => v 
       <KpChart :option="trendOption" :height="280" :is-empty="isTrendEmpty" />
     </Card>
     <Card title="Hareket listesi" size="small" class="kp-analytics-tab__table-card">
+      <template #extra>
+        <AnalyticsFilterBar :filters="filters" :data="data" :show-category="false" />
+      </template>
       <Table
         :columns="columns"
         :data-source="data.movementRows"

@@ -2,7 +2,7 @@
 /**
  * ECharts ortak sarıcı — **tree-shaken** core + ihtiyaç duyulan chart/komponent
  * kayıtları. Dashboard ve analiz sayfalarındaki tüm grafikler bu bileşenden
- * geçer; ek bir grafik tipi gerektiğinde alttaki `use([...])` çağrısına eklenir.
+ * geçer; ek bir grafik tipi gerektiğinde `src/core/echarts/setup.ts` kayıtlarına eklenir.
  *
  * - Responsive: `ResizeObserver` ile container boyut değişiminde `resize()`.
  * - Tema duyarlı: `data-theme="dark"` → `'dark'` ECharts teması; `useUiStore`
@@ -12,31 +12,13 @@
  * - Veri akışı: `option` prop'u her değiştiğinde `setOption(..., { notMerge: false })`
  *   ile diff yapılır; container ref dispose'unda chart instance temizlenir.
  */
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { use, init, dispose, type EChartsType } from 'echarts/core'
-import { CanvasRenderer } from 'echarts/renderers'
-import { BarChart, LineChart, PieChart } from 'echarts/charts'
-import {
-  GridComponent,
-  LegendComponent,
-  TitleComponent,
-  TooltipComponent,
-  DataZoomComponent,
-} from 'echarts/components'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { init, dispose, type EChartsType } from 'echarts/core'
 import type { EChartsOption } from 'echarts/types/dist/echarts'
+import { registerEcharts } from '@/core/echarts/setup'
 import { useUiStore } from '@/stores/ui'
 
-use([
-  CanvasRenderer,
-  BarChart,
-  LineChart,
-  PieChart,
-  GridComponent,
-  LegendComponent,
-  TitleComponent,
-  TooltipComponent,
-  DataZoomComponent,
-])
+registerEcharts()
 
 const props = withDefaults(
   defineProps<{
@@ -65,7 +47,8 @@ const heightStyle = computed(() =>
 )
 
 function initChart(): void {
-  if (!container.value) return
+  if (!container.value || props.isEmpty) return
+  registerEcharts()
   if (chart) {
     dispose(chart)
     chart = null
@@ -81,16 +64,27 @@ function initChart(): void {
   }
 }
 
+async function ensureChart(): Promise<void> {
+  if (props.isEmpty) return
+  if (!chart) {
+    await nextTick()
+    initChart()
+  }
+}
+
 onMounted(() => {
-  if (!props.isEmpty) initChart()
+  void ensureChart()
 })
 
 watch(
   () => props.option,
   (next) => {
     if (props.isEmpty) return
-    if (!chart) initChart()
-    else chart.setOption(next, { notMerge: false })
+    if (!chart) {
+      void ensureChart()
+      return
+    }
+    chart.setOption(next, { notMerge: false })
   },
   { deep: true },
 )
@@ -102,7 +96,7 @@ watch(
       dispose(chart)
       chart = null
     } else if (!empty) {
-      initChart()
+      void ensureChart()
     }
   },
 )

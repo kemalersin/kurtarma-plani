@@ -9,7 +9,6 @@ import {
   decryptJson,
   deriveFileKey,
   encryptBytes,
-  importRawKey,
   type EncryptedPayload,
 } from '@/core/crypto/aes'
 import { fromBase64, randomBytes, toBase64 } from '@/core/crypto/codec'
@@ -19,7 +18,6 @@ import { EncryptedRepo } from '@/core/db/encrypted-repo'
 import {
   openProfileDb,
   type EntityType,
-  type ProfileEntityRow,
 } from '@/core/db/profile-db'
 import {
   ENCRYPTED_FILE_MAGIC,
@@ -30,9 +28,9 @@ import {
   type ExportSnapshot,
   type PlainFileEnvelope,
   type ProfileEntityForExport,
-  type ProfileExportBundle,
 } from '@/core/types/export'
 import { loadActiveBankingPreset } from '@/core/services/banking-preset'
+import { resolveUniqueProfileName } from '@/core/services/snapshot-import'
 import { newId } from '@/core/util/id'
 import type { ProfileMeta } from '@/core/types/profile'
 
@@ -42,70 +40,36 @@ interface ActiveProfileContext {
 }
 
 /**
- * Snapshot dosyasını üret. Yalnız aktif (kilidi açık) profilin entity'leri okunabilir;
- * diğer profiller meta + parolasız ise entity'leri eklenir, parolalı + kilitliyse
- * yalnız meta export edilir.
+ * Snapshot dosyasını üret — yalnızca aktif (kilidi açık) profil.
  *
  * `includeSecrets=false` iken AI ayarları gibi gizli alanlar (apiKey/baseUrl)
  * çıkarılır. `includeSensitive=false` iken `sensitive: true` işaretli kayıtlar atlanır.
  */
 export async function buildSnapshot(
   options: ExportOptions,
-  active: ActiveProfileContext | null,
+  active: ActiveProfileContext,
 ): Promise<ExportSnapshot> {
-  const allProfiles = await metaDb.profiles.toArray()
-  const bundles: ProfileExportBundle[] = []
+  const profile = active.profile
+  const key = active.key
+  const entities: ProfileEntityForExport[] = []
+  const repo = new EncryptedRepo(profile.id, key)
+  const rows = await repo.exportAllRaw()
+  for (const row of rows) {
+    if (!options.includeSensitive && row.sensitive) continue
+    const data = row.encrypted
+      ? key
+        ? await decryptJson(key, row.payload as EncryptedPayload)
+        : null
+      : row.payload
+    if (data === null) continue
 
-  for (const profile of allProfiles) {
-    const isActive = active?.profile.id === profile.id
-    const canRead = isActive
-      ? true
-      : !profile.password.enabled && profile.password.dataKey !== undefined
-
-    let entities: ProfileEntityForExport[] = []
-    if (canRead) {
-      let key: CryptoKey | null = null
-      if (isActive) {
-        key = active!.key
-      } else {
-        // Parolasız profilin dataKey'i metadata'da raw saklı; AES-GCM olarak içe al.
-        const dataKey = profile.password.dataKey
-        if (dataKey) {
-          key = await importRawKey(dataKey)
-        }
-      }
-      const repo = new EncryptedRepo(profile.id, key)
-      const rows = await repo.exportAllRaw()
-      for (const row of rows) {
-        if (!options.includeSensitive && row.sensitive) continue
-        const data = row.encrypted
-          ? key
-            ? await decryptJson(key, row.payload as EncryptedPayload)
-            : null
-          : row.payload
-        if (data === null) continue
-
-        const cleaned = options.includeSecrets ? data : stripSecrets(row.type, data)
-        entities.push({
-          id: row.id,
-          type: row.type,
-          updatedAt: row.updatedAt,
-          sensitive: row.sensitive,
-          data: cleaned,
-        })
-      }
-    }
-
-    bundles.push({
-      profile: {
-        id: profile.id,
-        name: profile.name,
-        createdAt: profile.createdAt,
-        updatedAt: profile.updatedAt,
-        lastOpenedAt: profile.lastOpenedAt,
-        localeSettings: profile.localeSettings,
-      },
-      entities,
+    const cleaned = options.includeSecrets ? data : stripSecrets(row.type, data)
+    entities.push({
+      id: row.id,
+      type: row.type,
+      updatedAt: row.updatedAt,
+      sensitive: row.sensitive,
+      data: cleaned,
     })
   }
 
@@ -121,7 +85,19 @@ export async function buildSnapshot(
       includeSecrets: options.includeSecrets,
     },
     bankingPreset: presetWrapper.preset,
-    profiles: bundles,
+    profiles: [
+      {
+        profile: {
+          id: profile.id,
+          name: profile.name,
+          createdAt: profile.createdAt,
+          updatedAt: profile.updatedAt,
+          lastOpenedAt: profile.lastOpenedAt,
+          localeSettings: profile.localeSettings,
+        },
+        entities,
+      },
+    ],
   }
   return snapshot
 }
@@ -255,10 +231,24 @@ export interface ImportSummary {
   importedProfiles: number
   importedEntities: number
   skippedProfiles: number
+  overwritten?: boolean
+}
+
+export interface ImportSnapshotOptions {
+  /** Verilirse dosyadaki profil bu kaydın üzerine yazılır (id ve parola korunur). */
+  overwriteProfileId?: string
+  /** Üzerine yazma modunda entity şifreleme anahtarı. */
+  dataKey?: CryptoKey | null
 }
 
 /** İçe aktarma başarı mesajı; kayıt yoksa yalnızca profil sayısı belirtilir. */
 export function formatImportSummaryMessage(summary: ImportSummary): string {
+  if (summary.overwritten) {
+    if (summary.importedEntities > 0) {
+      return `Aktif profil güncellendi (${summary.importedEntities} kayıt).`
+    }
+    return 'Aktif profil güncellendi.'
+  }
   const { importedProfiles, importedEntities } = summary
   if (importedEntities > 0) {
     return `${importedProfiles} profil ve ${importedEntities} kayıt içe aktarıldı.`
@@ -266,44 +256,95 @@ export function formatImportSummaryMessage(summary: ImportSummary): string {
   return `${importedProfiles} profil içe aktarıldı.`
 }
 
+async function writeImportedEntities(
+  profileId: string,
+  key: CryptoKey | null,
+  entities: ProfileEntityForExport[],
+): Promise<number> {
+  const db = openProfileDb(profileId)
+  await db.entities.clear()
+  if (entities.length === 0) return 0
+
+  const repo = new EncryptedRepo(profileId, key)
+  for (const entity of entities) {
+    await repo.put({
+      id: entity.id,
+      type: entity.type as EntityType,
+      updatedAt: entity.updatedAt,
+      data: entity.data,
+      sensitive: entity.sensitive,
+    })
+  }
+  return entities.length
+}
+
 /**
- * Snapshot'taki profilleri yeni parolasız profiller olarak ekler.
- * Çakışan id'ler için yeni id üretilir; kullanıcı sonra parola atayabilir.
+ * Snapshot'taki profilleri içe aktarır.
+ * Varsayılan: yeni profil; aynı isim varsa "Ad 2", "Ad 3" …
+ * `overwriteProfileId` ile aktif profilin verisi değiştirilir.
  */
-export async function importSnapshot(snapshot: ExportSnapshot): Promise<ImportSummary> {
+export async function importSnapshot(
+  snapshot: ExportSnapshot,
+  options: ImportSnapshotOptions = {},
+): Promise<ImportSummary> {
+  if (snapshot.profiles.length === 0) {
+    return { importedProfiles: 0, importedEntities: 0, skippedProfiles: 0 }
+  }
+
+  const bundle = snapshot.profiles[0]!
+  const now = new Date().toISOString()
+
+  if (options.overwriteProfileId) {
+    const existing = await metaDb.profiles.get(options.overwriteProfileId)
+    if (!existing) {
+      throw new Error('Üzerine yazılacak profil bulunamadı.')
+    }
+
+    const importedEntities = await writeImportedEntities(
+      options.overwriteProfileId,
+      options.dataKey ?? null,
+      bundle.entities,
+    )
+
+    const updated: ProfileMeta = {
+      ...existing,
+      name: bundle.profile.name,
+      localeSettings: bundle.profile.localeSettings as ProfileMeta['localeSettings'],
+      updatedAt: now,
+    }
+    await saveProfile(updated)
+
+    return {
+      importedProfiles: 1,
+      importedEntities,
+      skippedProfiles: 0,
+      overwritten: true,
+    }
+  }
+
   let importedProfiles = 0
   let importedEntities = 0
+  const existingNames = (await metaDb.profiles.toArray()).map((p) => p.name)
 
-  for (const bundle of snapshot.profiles) {
-    const existing = await metaDb.profiles.get(bundle.profile.id)
-    const targetId = existing ? newId() : bundle.profile.id
-    const now = new Date().toISOString()
+  for (const item of snapshot.profiles) {
+    const existingById = await metaDb.profiles.get(item.profile.id)
+    const targetId = existingById ? newId() : item.profile.id
+    const name = resolveUniqueProfileName(item.profile.name, existingNames)
+    existingNames.push(name)
+
     const { info } = await buildPasswordInfo(undefined)
-    const namedSuffix = existing ? ' (içe aktarıldı)' : ''
     const profile: ProfileMeta = {
       id: targetId,
-      name: `${bundle.profile.name}${namedSuffix}`,
-      createdAt: bundle.profile.createdAt,
+      name,
+      createdAt: item.profile.createdAt,
       updatedAt: now,
       lastOpenedAt: undefined,
-      localeSettings: bundle.profile.localeSettings as ProfileMeta['localeSettings'],
+      localeSettings: item.profile.localeSettings as ProfileMeta['localeSettings'],
       password: info,
     }
     await saveProfile(profile)
 
-    if (bundle.entities.length > 0) {
-      const db = openProfileDb(targetId)
-      const rows: ProfileEntityRow[] = bundle.entities.map((e) => ({
-        id: e.id,
-        type: e.type as EntityType,
-        updatedAt: e.updatedAt,
-        encrypted: false,
-        payload: JSON.parse(JSON.stringify(e.data)),
-        sensitive: e.sensitive,
-      }))
-      await db.entities.bulkPut(rows)
-      importedEntities += rows.length
-    }
+    importedEntities += await writeImportedEntities(targetId, null, item.entities)
     importedProfiles += 1
   }
 

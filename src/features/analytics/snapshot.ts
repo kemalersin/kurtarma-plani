@@ -103,6 +103,141 @@ interface DebtSnapshotInput {
   asOf?: string
 }
 
+export type { DebtSnapshotInput }
+
+function remainingLoanDebt(loan: Loan, loanPayments: LoanPayment[]): string {
+  const schedule = buildScheduleForLoan(loan)
+  const own = loanPayments.filter((p) => p.loanId === loan.id)
+  const idx = paidThroughIndex(own)
+  return idx === 0
+    ? schedule.rows[0]?.beginningBalance ?? '0'
+    : idx >= schedule.rows.length
+      ? '0'
+      : schedule.rows[idx - 1]?.endingBalance ?? '0'
+}
+
+function loanOverdueCount(loan: Loan, loanPayments: LoanPayment[], asOf: string): number {
+  const schedule = buildScheduleForLoan(loan)
+  const own = loanPayments.filter((p) => p.loanId === loan.id)
+  const idx = paidThroughIndex(own)
+  const today = new Date(asOf)
+  let count = 0
+  for (const row of schedule.rows) {
+    if (row.index <= idx) continue
+    if (new Date(row.dueDate).getTime() < today.getTime()) count++
+  }
+  return count
+}
+
+function creditCardDebtBalance(
+  card: CreditCard,
+  creditCardTransactions: CreditCardTransaction[],
+): string {
+  const txns = creditCardTransactions.filter((t) => t.cardId === card.id)
+  const statement = creditCardStatement({
+    openingBalance: 0,
+    transactions: txns.map((t) => ({
+      date: t.date,
+      amount: t.amount,
+      type: t.type,
+    })),
+    limit: card.limit,
+  })
+  return statement.endingBalance
+}
+
+function cashAdvanceDebtTotal(
+  acc: CashAdvanceAccount,
+  cashAdvanceTransactions: CashAdvanceTransaction[],
+  asOf: string,
+): string {
+  const txns = cashAdvanceTransactions.filter((t) => t.accountId === acc.id)
+  const ledger = runRevolvingLedger({
+    openingBalance: acc.openingBalance ?? 0,
+    openingDate: acc.openingDate,
+    transactions: txns.map((t) => ({
+      date: t.date,
+      amount: t.amount,
+      type: t.type,
+    })),
+    apr: { value: acc.interestRate, period: acc.interestPeriod },
+    asOf,
+  })
+  return ledger.total
+}
+
+function remainingInstallmentAdvanceDebt(
+  adv: InstallmentCashAdvance,
+  installmentAdvancePayments: InstallmentCashAdvancePayment[],
+): string {
+  const schedule = buildScheduleForInstallmentAdvance(adv)
+  const own = installmentAdvancePayments.filter((p) => p.installmentAdvanceId === adv.id)
+  const idx = advancePaidThroughIndex(own)
+  return idx === 0
+    ? schedule.rows[0]?.beginningBalance ?? '0'
+    : idx >= schedule.rows.length
+      ? '0'
+      : schedule.rows[idx - 1]?.endingBalance ?? '0'
+}
+
+function installmentAdvanceOverdueCount(
+  adv: InstallmentCashAdvance,
+  installmentAdvancePayments: InstallmentCashAdvancePayment[],
+  asOf: string,
+): number {
+  const schedule = buildScheduleForInstallmentAdvance(adv)
+  const own = installmentAdvancePayments.filter((p) => p.installmentAdvanceId === adv.id)
+  const idx = advancePaidThroughIndex(own)
+  const today = new Date(asOf)
+  let count = 0
+  for (const row of schedule.rows) {
+    if (row.index <= idx) continue
+    if (new Date(row.dueDate).getTime() < today.getTime()) count++
+  }
+  return count
+}
+
+/** Banka başına toplam kalan borç (profil para birimi). */
+export function debtTotalsByBankId(input: DebtSnapshotInput): Map<string, string> {
+  const asOf = input.asOf ?? new Date().toISOString()
+  const totals = new Map<string, ReturnType<typeof D>>()
+
+  function add(bankId: string | undefined, amount: DecimalInput): void {
+    if (!bankId) return
+    totals.set(bankId, (totals.get(bankId) ?? D(0)).plus(amount))
+  }
+
+  for (const loan of input.loans) {
+    if (loan.archived) continue
+    if (loan.currency !== input.localCurrency) continue
+    add(loan.bankId, remainingLoanDebt(loan, input.loanPayments))
+  }
+
+  for (const card of input.creditCards) {
+    if (card.archived) continue
+    if (card.currency !== input.localCurrency) continue
+    add(card.bankId, creditCardDebtBalance(card, input.creditCardTransactions))
+  }
+
+  for (const acc of input.cashAdvanceAccounts) {
+    if (acc.archived) continue
+    if (acc.currency !== input.localCurrency) continue
+    add(acc.bankId, cashAdvanceDebtTotal(acc, input.cashAdvanceTransactions, asOf))
+  }
+
+  for (const adv of input.installmentAdvances) {
+    if (adv.archived) continue
+    if (adv.currency !== input.localCurrency) continue
+    add(adv.bankId, remainingInstallmentAdvanceDebt(adv, input.installmentAdvancePayments))
+  }
+
+  const result = new Map<string, string>()
+  for (const [bankId, sum] of totals) {
+    result.set(bankId, roundMoney(sum).toString())
+  }
+  return result
+}
+
 /**
  * Tüm borç türleri için kalan bakiye toplayıcı. Her tip için uygun finans
  * motoru çağrılır (kredi anüite kalan, kart dönem sonu, KMH revolving ledger,
@@ -120,81 +255,35 @@ export function debtSnapshot(input: DebtSnapshotInput): DebtSnapshot {
   for (const loan of input.loans) {
     if (loan.archived) continue
     if (loan.currency !== input.localCurrency) continue
-    const schedule = buildScheduleForLoan(loan)
-    const own = input.loanPayments.filter((p) => p.loanId === loan.id)
-    const idx = paidThroughIndex(own)
-    const remaining =
-      idx === 0
-        ? schedule.rows[0]?.beginningBalance ?? '0'
-        : idx >= schedule.rows.length
-          ? '0'
-          : schedule.rows[idx - 1]?.endingBalance ?? '0'
-    loansTotal = loansTotal.plus(remaining)
-    const today = new Date(asOf)
-    for (const row of schedule.rows) {
-      if (row.index <= idx) continue
-      if (new Date(row.dueDate).getTime() < today.getTime()) overdueCount++
-    }
+    loansTotal = loansTotal.plus(remainingLoanDebt(loan, input.loanPayments))
+    overdueCount += loanOverdueCount(loan, input.loanPayments, asOf)
   }
 
   for (const card of input.creditCards) {
     if (card.archived) continue
     if (card.currency !== input.localCurrency) continue
-    const txns = input.creditCardTransactions.filter(
-      (t) => t.cardId === card.id,
-    )
-    const statement = creditCardStatement({
-      openingBalance: 0,
-      transactions: txns.map((t) => ({
-        date: t.date,
-        amount: t.amount,
-        type: t.type,
-      })),
-      limit: card.limit,
-    })
-    cardsTotal = cardsTotal.plus(statement.endingBalance)
+    cardsTotal = cardsTotal.plus(creditCardDebtBalance(card, input.creditCardTransactions))
   }
 
   for (const acc of input.cashAdvanceAccounts) {
     if (acc.archived) continue
     if (acc.currency !== input.localCurrency) continue
-    const txns = input.cashAdvanceTransactions.filter(
-      (t) => t.accountId === acc.id,
+    caTotal = caTotal.plus(
+      cashAdvanceDebtTotal(acc, input.cashAdvanceTransactions, asOf),
     )
-    const ledger = runRevolvingLedger({
-      openingBalance: acc.openingBalance ?? 0,
-      openingDate: acc.openingDate,
-      transactions: txns.map((t) => ({
-        date: t.date,
-        amount: t.amount,
-        type: t.type,
-      })),
-      apr: { value: acc.interestRate, period: acc.interestPeriod },
-      asOf,
-    })
-    caTotal = caTotal.plus(ledger.total)
   }
 
   for (const adv of input.installmentAdvances) {
     if (adv.archived) continue
     if (adv.currency !== input.localCurrency) continue
-    const schedule = buildScheduleForInstallmentAdvance(adv)
-    const own = input.installmentAdvancePayments.filter(
-      (p) => p.installmentAdvanceId === adv.id,
+    iaTotal = iaTotal.plus(
+      remainingInstallmentAdvanceDebt(adv, input.installmentAdvancePayments),
     )
-    const idx = advancePaidThroughIndex(own)
-    const remaining =
-      idx === 0
-        ? schedule.rows[0]?.beginningBalance ?? '0'
-        : idx >= schedule.rows.length
-          ? '0'
-          : schedule.rows[idx - 1]?.endingBalance ?? '0'
-    iaTotal = iaTotal.plus(remaining)
-    const today = new Date(asOf)
-    for (const row of schedule.rows) {
-      if (row.index <= idx) continue
-      if (new Date(row.dueDate).getTime() < today.getTime()) overdueCount++
-    }
+    overdueCount += installmentAdvanceOverdueCount(
+      adv,
+      input.installmentAdvancePayments,
+      asOf,
+    )
   }
 
   const total = loansTotal.plus(cardsTotal).plus(caTotal).plus(iaTotal)

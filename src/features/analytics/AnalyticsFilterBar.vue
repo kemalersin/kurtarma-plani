@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import dayjs, { type Dayjs } from 'dayjs'
-import { Space, Select, DatePicker, Button } from 'ant-design-vue'
-import { FilterOutlined, ClearOutlined } from '@ant-design/icons-vue'
+import { Popover, Badge, Button, Select, DatePicker } from 'ant-design-vue'
+import { FilterOutlined } from '@ant-design/icons-vue'
 import type { AnalyticsFilterState } from '@/composables/useAnalyticsFilters'
 import type { AnalyticsData } from '@/features/analytics/useAnalyticsData'
 
@@ -13,12 +13,14 @@ const props = defineProps<{
   showEndpoint?: boolean
 }>()
 
+const open = ref(false)
+
 const rangeValue = computed<[Dayjs, Dayjs]>(() => [
   dayjs(props.filters.range.value.from),
   dayjs(props.filters.range.value.to),
 ])
 
-function onRangeChange(dates: [Dayjs, Dayjs] | [Dayjs, Dayjs] | null): void {
+function onRangeChange(dates: [Dayjs, Dayjs] | null): void {
   if (!dates?.[0] || !dates[1]) return
   props.filters.patch({
     from: dates[0].format('YYYY-MM-DD'),
@@ -34,12 +36,10 @@ const endpointOptions = computed(() => {
   const accounts = props.data.accounts.map((a) => ({
     value: `acc:${a.id}`,
     label: a.name,
-    group: 'Hesaplar',
   }))
   const registers = props.data.registers.map((r) => ({
     value: `reg:${r.id}`,
     label: r.name,
-    group: 'Kasalar',
   }))
   return [...accounts, ...registers]
 })
@@ -60,75 +60,97 @@ const categoryOptions = computed(() => {
 const activeFilterCount = computed(() => {
   let n = 0
   if (props.filters.bankId.value) n++
-  if (props.filters.endpointId.value) n++
-  if (props.filters.categoryId.value) n++
+  if (props.showEndpoint !== false && props.filters.endpointId.value) n++
+  if (props.showCategory && props.filters.categoryId.value) n++
   return n
 })
+
+function clearFilters(): void {
+  props.filters.reset()
+}
 </script>
 
 <template>
-  <div class="kp-analytics-filters">
-    <Space wrap :size="12" align="center">
-      <DatePicker.RangePicker
-        :value="rangeValue"
-        format="DD.MM.YYYY"
-        :allow-clear="false"
-        @update:value="(v: unknown) => onRangeChange(v as [Dayjs, Dayjs] | null)"
-      />
-      <Select
-        :value="filters.bankId.value || undefined"
-        placeholder="Banka"
-        allow-clear
-        show-search
-        option-filter-prop="label"
-        style="min-width: 160px"
-        :options="bankOptions"
-        @update:value="(v) => (filters.bankId.value = String(v ?? ''))"
-      />
-      <Select
-        v-if="showEndpoint !== false"
-        :value="filters.endpointId.value || undefined"
-        placeholder="Hesap / kasa"
-        allow-clear
-        show-search
-        option-filter-prop="label"
-        style="min-width: 180px"
-        :options="endpointOptions"
-        @update:value="(v) => (filters.endpointId.value = String(v ?? ''))"
-      />
-      <Select
-        v-if="showCategory"
-        :value="filters.categoryId.value || undefined"
-        placeholder="Kategori"
-        allow-clear
-        show-search
-        option-filter-prop="label"
-        style="min-width: 160px"
-        :options="categoryOptions"
-        @update:value="(v) => (filters.categoryId.value = String(v ?? ''))"
-      />
-      <Button v-if="activeFilterCount > 0" type="link" size="small" @click="filters.reset()">
-        <template #icon><ClearOutlined /></template>
-        Filtreleri temizle
+  <Popover
+    v-model:open="open"
+    trigger="click"
+    placement="bottomRight"
+    overlay-class-name="kp-list-filter-popover"
+    :destroy-tooltip-on-hide="false"
+  >
+    <template #content>
+      <div class="kp-list-filter">
+        <header class="kp-list-filter__head">Filtreler</header>
+
+        <div class="kp-list-filter__field">
+          <label class="kp-list-filter__label">Tarih aralığı</label>
+          <DatePicker.RangePicker
+            :value="rangeValue"
+            class="kp-list-filter__control"
+            format="DD.MM.YYYY"
+            :allow-clear="false"
+            @update:value="(v: unknown) => onRangeChange(v as [Dayjs, Dayjs] | null)"
+          />
+        </div>
+
+        <div class="kp-list-filter__field">
+          <label class="kp-list-filter__label">Banka</label>
+          <Select
+            :value="filters.bankId.value || undefined"
+            class="kp-list-filter__control"
+            placeholder="Tüm bankalar"
+            allow-clear
+            show-search
+            option-filter-prop="label"
+            :options="bankOptions"
+            @update:value="(v) => (filters.bankId.value = String(v ?? ''))"
+          />
+        </div>
+
+        <div v-if="showEndpoint !== false" class="kp-list-filter__field">
+          <label class="kp-list-filter__label">Hesap / kasa</label>
+          <Select
+            :value="filters.endpointId.value || undefined"
+            class="kp-list-filter__control"
+            placeholder="Tümü"
+            allow-clear
+            show-search
+            option-filter-prop="label"
+            :options="endpointOptions"
+            @update:value="(v) => (filters.endpointId.value = String(v ?? ''))"
+          />
+        </div>
+
+        <div v-if="showCategory" class="kp-list-filter__field">
+          <label class="kp-list-filter__label">Kategori</label>
+          <Select
+            :value="filters.categoryId.value || undefined"
+            class="kp-list-filter__control"
+            placeholder="Tümü"
+            allow-clear
+            show-search
+            option-filter-prop="label"
+            :options="categoryOptions"
+            @update:value="(v) => (filters.categoryId.value = String(v ?? ''))"
+          />
+        </div>
+
+        <footer class="kp-list-filter__foot">
+          <Button block :disabled="activeFilterCount === 0" @click="clearFilters">
+            Filtreyi temizle
+          </Button>
+        </footer>
+      </div>
+    </template>
+
+    <Badge :count="activeFilterCount" :show-zero="false" :offset="[-2, 2]" size="small">
+      <Button
+        :type="activeFilterCount > 0 ? 'primary' : 'default'"
+        :ghost="activeFilterCount > 0"
+        aria-label="Filtreler"
+      >
+        <template #icon><FilterOutlined /></template>
       </Button>
-      <span v-if="activeFilterCount > 0" class="kp-analytics-filters__badge">
-        <FilterOutlined />
-        {{ activeFilterCount }} filtre
-      </span>
-    </Space>
-  </div>
+    </Badge>
+  </Popover>
 </template>
-
-<style scoped>
-.kp-analytics-filters {
-  margin-bottom: 16px;
-}
-
-.kp-analytics-filters__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--ant-color-primary);
-}
-</style>

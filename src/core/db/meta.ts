@@ -2,6 +2,7 @@ import Dexie, { type Table } from 'dexie'
 import { APP_VERSION, META_DB_NAME, SCHEMA_VERSION } from '@/core/constants'
 import type { AppMeta, ProfileMeta } from '@/core/types/profile'
 import type { BankingPresetRow } from '@/core/types/banking-preset'
+import type { ModelsCatalogRow } from '@/core/types/ai-catalog'
 
 const APP_META_KEY = 'app'
 
@@ -26,6 +27,7 @@ class MetaDatabase extends Dexie {
   appMeta!: Table<AppMetaRow, string>
   profiles!: Table<ProfileMeta, string>
   bankingPreset!: Table<BankingPresetRow, string>
+  modelsCatalog!: Table<ModelsCatalogRow, string>
 
   constructor() {
     super(META_DB_NAME)
@@ -37,6 +39,12 @@ class MetaDatabase extends Dexie {
       appMeta: '&key',
       profiles: '&id, name, lastOpenedAt',
       bankingPreset: '&id',
+    })
+    this.version(3).stores({
+      appMeta: '&key',
+      profiles: '&id, name, lastOpenedAt',
+      bankingPreset: '&id',
+      modelsCatalog: '&id',
     })
   }
 }
@@ -53,6 +61,18 @@ export async function putActiveBankingPresetRow(row: BankingPresetRow): Promise<
 
 export async function clearActiveBankingPreset(): Promise<void> {
   await metaDb.bankingPreset.delete('active')
+}
+
+export async function getActiveModelsCatalogRow(): Promise<ModelsCatalogRow | undefined> {
+  return metaDb.modelsCatalog.get('active')
+}
+
+export async function putActiveModelsCatalogRow(row: ModelsCatalogRow): Promise<void> {
+  await metaDb.modelsCatalog.put(toPlain(row))
+}
+
+export async function clearActiveModelsCatalogRow(): Promise<void> {
+  await metaDb.modelsCatalog.delete('active')
 }
 
 export async function getAppMeta(): Promise<AppMeta> {

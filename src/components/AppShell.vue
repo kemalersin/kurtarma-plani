@@ -21,6 +21,7 @@ import {
   CreditCardOutlined,
   SwapOutlined,
   LineChartOutlined,
+  RobotOutlined,
   SettingOutlined,
   LockOutlined,
 } from '@ant-design/icons-vue'
@@ -136,7 +137,7 @@ function gotoCrumb(name?: string): void {
             KİŞİSEL FİNANSAL PLAN
           </Typography.Text>
         </div>
-        <Tooltip v-if="!isMobileShell && !ui.sidebarPinned" title="Menüyü sabitle">
+        <KpTooltip v-if="!isMobileShell && !ui.sidebarPinned" title="Menüyü sabitle">
           <Button
             type="text"
             size="small"
@@ -146,7 +147,7 @@ function gotoCrumb(name?: string): void {
           >
             <PushpinOutlined />
           </Button>
-        </Tooltip>
+        </KpTooltip>
       </div>
 
       <div v-if="profileStore.activeProfile" class="kp-sider__profile">
@@ -188,6 +189,10 @@ function gotoCrumb(name?: string): void {
         <MenuItem key="analytics">
           <template #icon><LineChartOutlined /></template>
           <span>Analiz & rapor</span>
+        </MenuItem>
+        <MenuItem key="ai">
+          <template #icon><RobotOutlined /></template>
+          <span>AI Asistan</span>
         </MenuItem>
         <MenuItem key="settings">
           <template #icon><SettingOutlined /></template>

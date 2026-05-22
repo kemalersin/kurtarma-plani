@@ -16,6 +16,12 @@ import KpStatRow, { type KpStat } from '@/components/KpStatRow.vue'
 import { InfoCircleOutlined } from '@ant-design/icons-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
+import SensitiveRecordSwitch from '@/components/SensitiveRecordSwitch.vue'
+import {
+  emptySensitiveFields,
+  readSensitiveDraft,
+  sensitiveSaveOptions,
+} from '@/composables/useSensitiveEntityForm'
 import KpTooltip from '@/components/KpTooltip.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
@@ -73,6 +79,7 @@ interface Form {
   earlyPayoffWithoutInterest: boolean
   notes: string
   archived: boolean
+  sensitive: boolean
 }
 
 function emptyForm(): Form {
@@ -93,6 +100,7 @@ function emptyForm(): Form {
     earlyPayoffWithoutInterest: false,
     notes: '',
     archived: false,
+    ...emptySensitiveFields(),
   }
 }
 
@@ -173,6 +181,7 @@ watch(
         earlyPayoffWithoutInterest: !!props.advance.earlyPayoffWithoutInterest,
         notes: props.advance.notes ?? '',
         archived: !!props.advance.archived,
+        sensitive: readSensitiveDraft('installmentCashAdvance', props.advance.id),
       })
     } else {
       Object.assign(draft, emptyForm())
@@ -282,7 +291,7 @@ async function submit(): Promise<void> {
       earlyPayoffWithoutInterest: draft.earlyPayoffWithoutInterest || undefined,
       notes: draft.notes.trim() || undefined,
       archived: draft.archived || undefined,
-    })
+    }, sensitiveSaveOptions(draft))
     message.success(props.advance ? 'Avans güncellendi.' : 'Avans eklendi.')
     emit('saved', saved)
     emit('update:open', false)
@@ -406,9 +415,7 @@ function close(): void {
       <FormItem label="Notlar">
         <Textarea v-model:value="draft.notes" :rows="2" />
       </FormItem>
-      <FormItem label="Arşivli">
-        <Switch v-model:checked="draft.archived" />
-      </FormItem>
+      <SensitiveRecordSwitch v-model:sensitive="draft.sensitive" v-model:archived="draft.archived" />
     </Form>
 
     <div v-if="preview" class="kp-loan-preview">

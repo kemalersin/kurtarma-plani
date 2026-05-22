@@ -72,7 +72,7 @@ export class EncryptedRepo {
       updatedAt: record.updatedAt,
       encrypted,
       payload,
-      sensitive: record.sensitive,
+      ...(record.sensitive ? { sensitive: true } : {}),
     }
     await this.table().put(row)
   }
@@ -98,6 +98,22 @@ export class EncryptedRepo {
 
   async exportAllRaw(): Promise<ProfileEntityRow[]> {
     return this.table().toArray()
+  }
+
+  /** AI snapshot / export öncesi: tüm kayıtları çözülmüş veri olarak döner. */
+  async exportAllDecoded(): Promise<
+    Array<{ id: string; type: EntityType; sensitive?: boolean; updatedAt: string; data: unknown }>
+  > {
+    const rows = await this.table().toArray()
+    return Promise.all(
+      rows.map(async (row) => ({
+        id: row.id,
+        type: row.type,
+        sensitive: row.sensitive,
+        updatedAt: row.updatedAt,
+        data: await this.decode(row),
+      })),
+    )
   }
 
   private async toRecord<T>(row: ProfileEntityRow): Promise<EntityRecord<T>> {

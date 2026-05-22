@@ -7,12 +7,13 @@ import { newId } from '@/core/util/id'
 
 interface CollectionState<T> {
   items: T[]
+  sensitiveById: Record<string, boolean>
   loaded: boolean
   loading: boolean
 }
 
 function emptyState<T>(): CollectionState<T> {
-  return { items: [], loaded: false, loading: false }
+  return { items: [], sensitiveById: {}, loaded: false, loading: false }
 }
 
 /**
@@ -45,7 +46,12 @@ export const useEntitiesStore = defineStore('entities', () => {
     lastError.value = null
     try {
       const records = await getRepo().list<T>(type)
+      const sensitiveById: Record<string, boolean> = {}
+      for (const record of records) {
+        if (record.sensitive) sensitiveById[record.id] = true
+      }
       state.items = records.map((r) => r.data)
+      state.sensitiveById = sensitiveById
       state.loaded = true
       collections.value = { ...collections.value }
       return state.items
@@ -73,6 +79,18 @@ export const useEntitiesStore = defineStore('entities', () => {
     return computed<boolean>(() => collections.value[type]?.loading ?? false)
   }
 
+  function isSensitive(type: EntityType, id: string): boolean {
+    const state = collections.value[type]
+    return !!state?.sensitiveById[id]
+  }
+
+  function isSensitiveById(id: string): boolean {
+    for (const state of Object.values(collections.value)) {
+      if (state?.sensitiveById[id]) return true
+    }
+    return false
+  }
+
   async function save<T extends { id: string; updatedAt: string; createdAt: string }>(
     type: EntityType,
     draft: Omit<T, 'id' | 'createdAt' | 'updatedAt'> & { id?: string },
@@ -97,8 +115,13 @@ export const useEntitiesStore = defineStore('entities', () => {
       type,
       updatedAt: now,
       data,
-      sensitive: options?.sensitive,
+      sensitive: options?.sensitive ? true : undefined,
     } satisfies EntityRecord<T>)
+
+    const sensitiveById = { ...state.sensitiveById }
+    if (options?.sensitive) sensitiveById[id] = true
+    else delete sensitiveById[id]
+    state.sensitiveById = sensitiveById
 
     if (existing) {
       state.items = state.items.map((item) => (item.id === id ? data : item))
@@ -114,6 +137,10 @@ export const useEntitiesStore = defineStore('entities', () => {
     const state = collections.value[type]
     if (state) {
       state.items = state.items.filter((item) => (item as { id: string }).id !== id)
+      if (state.sensitiveById[id]) {
+        const { [id]: _removed, ...rest } = state.sensitiveById
+        state.sensitiveById = rest
+      }
       collections.value = { ...collections.value }
     }
   }
@@ -133,5 +160,7 @@ export const useEntitiesStore = defineStore('entities', () => {
     save,
     remove,
     reset,
+    isSensitive,
+    isSensitiveById,
   }
 })

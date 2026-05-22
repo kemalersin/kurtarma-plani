@@ -51,6 +51,12 @@ const routes: RouteRecordRaw[] = [
         meta: { pageLayout: 'wide' },
       },
       {
+        path: 'ai',
+        name: 'ai',
+        component: () => import('@/features/ai/AiView.vue'),
+        meta: { pageLayout: 'wide-fill' },
+      },
+      {
         path: 'settings',
         name: 'settings',
         component: () => import('@/features/settings/SettingsView.vue'),

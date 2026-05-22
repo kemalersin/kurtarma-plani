@@ -48,4 +48,4 @@ Desktop.ini
 .cache/
 
 # models.dev build embed (isteğe bağlı üretilir)
-# src/generated/models-catalog.ts
+src/data/models-catalog/generated.json

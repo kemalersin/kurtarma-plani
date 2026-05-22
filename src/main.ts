@@ -4,6 +4,7 @@ import App from '@/App.vue'
 import { router } from '@/router'
 import '@/app.css'
 import 'ant-design-vue/dist/reset.css'
+import '@/core/echarts/setup'
 
 const app = createApp(App)
 app.use(createPinia())

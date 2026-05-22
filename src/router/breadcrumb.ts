@@ -13,6 +13,7 @@ const ROUTE_LABELS: Record<string, string> = {
   debts: 'Borçlar',
   cashflow: 'Nakit akışı',
   analytics: 'Analiz & rapor',
+  ai: 'AI Asistan',
   settings: 'Ayarlar',
 }
 

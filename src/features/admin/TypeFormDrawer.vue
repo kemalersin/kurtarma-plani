@@ -5,13 +5,18 @@ import {
   FormItem,
   Input,
   Textarea,
-  Switch,
   Space,
   Button,
   message,
 } from 'ant-design-vue'
 import ColorPickerInput from '@/components/ColorPickerInput.vue'
 import FormDrawer from '@/components/FormDrawer.vue'
+import SensitiveRecordSwitch from '@/components/SensitiveRecordSwitch.vue'
+import {
+  emptySensitiveFields,
+  readSensitiveDraft,
+  sensitiveSaveOptions,
+} from '@/composables/useSensitiveEntityForm'
 import { normalizeHexColor } from '@/core/util/color'
 import { useEntitiesStore } from '@/stores/entities'
 import type { EntityType } from '@/core/db/profile-db'
@@ -39,10 +44,11 @@ interface Form {
   color: string
   notes: string
   archived: boolean
+  sensitive: boolean
 }
 
 function emptyForm(): Form {
-  return { name: '', color: '', notes: '', archived: false }
+  return { name: '', color: '', notes: '', archived: false, ...emptySensitiveFields() }
 }
 
 const draft = reactive<Form>(emptyForm())
@@ -58,6 +64,7 @@ watch(
         color: props.item.color ?? '',
         notes: props.item.notes ?? '',
         archived: !!props.item.archived,
+        sensitive: readSensitiveDraft(props.entityType, props.item.id),
       })
     } else {
       Object.assign(draft, emptyForm())
@@ -78,7 +85,7 @@ async function submit(): Promise<void> {
       color: normalizeHexColor(draft.color),
       notes: draft.notes.trim() || undefined,
       archived: draft.archived || undefined,
-    })
+    }, sensitiveSaveOptions(draft))
     message.success(props.item ? 'Güncellendi.' : 'Eklendi.')
     emit('saved', saved)
     emit('update:open', false)
@@ -114,9 +121,7 @@ function close(): void {
       <FormItem label="Notlar">
         <Textarea v-model:value="draft.notes" :rows="3" />
       </FormItem>
-      <FormItem label="Arşivli">
-        <Switch v-model:checked="draft.archived" />
-      </FormItem>
+      <SensitiveRecordSwitch v-model:sensitive="draft.sensitive" v-model:archived="draft.archived" />
     </Form>
 
     <template #extra>

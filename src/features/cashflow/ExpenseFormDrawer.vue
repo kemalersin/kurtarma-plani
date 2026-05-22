@@ -14,6 +14,12 @@ import {
 } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
+import SensitiveRecordSwitch from '@/components/SensitiveRecordSwitch.vue'
+import {
+  emptySensitiveFields,
+  readSensitiveDraft,
+  sensitiveSaveOptions,
+} from '@/composables/useSensitiveEntityForm'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
 import AccountFormDrawer from '@/features/admin/AccountFormDrawer.vue'
@@ -60,6 +66,7 @@ interface Form {
   description: string
   notes: string
   archived: boolean
+  sensitive: boolean
 }
 
 function emptyForm(): Form {
@@ -75,6 +82,7 @@ function emptyForm(): Form {
     description: '',
     notes: '',
     archived: false,
+    ...emptySensitiveFields(),
   }
 }
 
@@ -105,6 +113,7 @@ watch(
         description: props.expense.description ?? '',
         notes: props.expense.notes ?? '',
         archived: !!props.expense.archived,
+        sensitive: readSensitiveDraft('expense', props.expense.id),
       })
     } else {
       Object.assign(draft, emptyForm())
@@ -172,7 +181,7 @@ async function submit(): Promise<void> {
       description: draft.description.trim() || undefined,
       notes: draft.notes.trim() || undefined,
       archived: draft.archived || undefined,
-    })
+    }, sensitiveSaveOptions(draft))
     message.success(props.expense ? 'Gider güncellendi.' : 'Gider eklendi.')
     emit('saved', saved)
     emit('update:open', false)
@@ -260,9 +269,7 @@ function close(): void {
         <Textarea v-model:value="draft.notes" :rows="2" />
       </FormItem>
 
-      <FormItem label="Arşivli">
-        <Switch v-model:checked="draft.archived" />
-      </FormItem>
+      <SensitiveRecordSwitch v-model:sensitive="draft.sensitive" v-model:archived="draft.archived" />
     </Form>
 
     <template #extra>

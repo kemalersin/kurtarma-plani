@@ -5,7 +5,6 @@ import {
   FormItem,
   Input,
   Textarea,
-  Switch,
   DatePicker,
   Select,
   Space,
@@ -16,6 +15,12 @@ import KpStatRow, { type KpStat } from '@/components/KpStatRow.vue'
 import { InfoCircleOutlined } from '@ant-design/icons-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
+import SensitiveRecordSwitch from '@/components/SensitiveRecordSwitch.vue'
+import {
+  emptySensitiveFields,
+  readSensitiveDraft,
+  sensitiveSaveOptions,
+} from '@/composables/useSensitiveEntityForm'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import KpTooltip from '@/components/KpTooltip.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
@@ -65,6 +70,7 @@ interface Form {
   taxRateMonthly: number | undefined
   notes: string
   archived: boolean
+  sensitive: boolean
 }
 
 function emptyForm(): Form {
@@ -83,6 +89,7 @@ function emptyForm(): Form {
     taxRateMonthly: undefined,
     notes: '',
     archived: false,
+    ...emptySensitiveFields(),
   }
 }
 
@@ -160,6 +167,7 @@ watch(
             : undefined,
         notes: props.loan.notes ?? '',
         archived: !!props.loan.archived,
+        sensitive: readSensitiveDraft('loan', props.loan.id),
       })
     } else {
       Object.assign(draft, emptyForm())
@@ -248,7 +256,7 @@ async function submit(): Promise<void> {
           : undefined,
       notes: draft.notes.trim() || undefined,
       archived: draft.archived || undefined,
-    })
+    }, sensitiveSaveOptions(draft))
     message.success(props.loan ? 'Kredi güncellendi.' : 'Kredi eklendi.')
     emit('saved', saved)
     emit('update:open', false)
@@ -362,9 +370,7 @@ function close(): void {
       <FormItem label="Notlar">
         <Textarea v-model:value="draft.notes" :rows="2" />
       </FormItem>
-      <FormItem label="Arşivli">
-        <Switch v-model:checked="draft.archived" />
-      </FormItem>
+      <SensitiveRecordSwitch v-model:sensitive="draft.sensitive" v-model:archived="draft.archived" />
     </Form>
 
     <div v-if="preview" class="kp-loan-preview">
