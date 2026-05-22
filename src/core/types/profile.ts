@@ -17,9 +17,15 @@ export interface LocaleSettings {
 
 export interface ProfilePasswordInfo {
   enabled: boolean
-  hash?: string
+  /** Parolasız profilde AES dataKey doğrudan base64 raw olarak saklanır. */
+  dataKey?: string
+  /** Parolalı profilde AES dataKey, PBKDF2 türetilmiş wrappingKey ile sarılır. */
+  wrappedKey?: string
+  wrapIv?: string
   salt?: string
   iterations?: number
+  /** Yalnızca M1 (legacy) profillerini açmak için saklanır; M2 itibarıyla yeni profillerde yer almaz. */
+  legacyHash?: string
 }
 
 export interface ProfileMeta {

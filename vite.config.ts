@@ -1,5 +1,5 @@
 import { fileURLToPath, URL } from 'node:url'
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import { viteSingleFile } from 'vite-plugin-singlefile'
 
@@ -24,5 +24,9 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: false,
+  },
+  test: {
+    environment: 'node',
+    include: ['src/**/*.spec.ts'],
   },
 })

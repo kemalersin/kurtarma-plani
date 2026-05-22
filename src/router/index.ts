@@ -24,6 +24,31 @@ const routes: RouteRecordRaw[] = [
         path: 'home',
         name: 'home',
         component: () => import('@/features/home/HomeView.vue'),
+        meta: { pageLayout: 'wide' },
+      },
+      {
+        path: 'admin',
+        name: 'admin',
+        component: () => import('@/features/admin/AdminView.vue'),
+        meta: { pageLayout: 'wide-fill' },
+      },
+      {
+        path: 'debts',
+        name: 'debts',
+        component: () => import('@/features/debts/DebtsView.vue'),
+        meta: { pageLayout: 'wide-fill' },
+      },
+      {
+        path: 'cashflow',
+        name: 'cashflow',
+        component: () => import('@/features/cashflow/CashflowView.vue'),
+        meta: { pageLayout: 'wide-fill' },
+      },
+      {
+        path: 'analytics',
+        name: 'analytics',
+        component: () => import('@/features/analytics/AnalyticsView.vue'),
+        meta: { pageLayout: 'wide' },
       },
       {
         path: 'settings',

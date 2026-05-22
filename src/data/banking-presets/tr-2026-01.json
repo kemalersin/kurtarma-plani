@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "tr-2026-01",
+  "label": "TCMB/BDDK referans — Ocak 2026",
+  "effectiveFrom": "2026-01-01",
+  "source": "bundled",
+  "creditCard": {
+    "maxRatesByBalanceTier": [
+      { "maxBalance": 30000, "purchaseAprMonthly": 0.0325, "lateAprMonthly": 0.0355 },
+      { "maxBalance": 180000, "purchaseAprMonthly": 0.0375, "lateAprMonthly": 0.0405 },
+      { "maxBalance": null, "purchaseAprMonthly": 0.0425, "lateAprMonthly": 0.0455 }
+    ],
+    "cashAdvanceAprMonthly": 0.0425,
+    "cashAdvanceLateAprMonthly": 0.0455,
+    "minPaymentRateUnder25k": 0.2,
+    "minPaymentRateOver25k": 0.4,
+    "minPaymentLimitThreshold": 25000
+  },
+  "cashAdvance": {
+    "monthlyAprCeiling": 0.0425,
+    "lateAprCeiling": 0.0455
+  },
+  "consumerLoan": {
+    "note": "Vergi ve vade limitleri bankaya göre değişir; gecikme faizi sözleşmede belirtilir.",
+    "taxRateKkdf": 0.15,
+    "taxRateBsmv": 0.15
+  }
+}

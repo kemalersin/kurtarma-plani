@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRoutedTabs } from '@/composables/useRoutedTabs'
 import {
   Card,
   Typography,
@@ -15,6 +16,8 @@ import {
 import LocaleSettingsForm from '@/components/LocaleSettingsForm.vue'
 import PasswordSection from '@/components/PasswordSection.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import BankingPresetSection from '@/components/BankingPresetSection.vue'
+import DataBackupSection from '@/components/DataBackupSection.vue'
 import { useProfileStore } from '@/stores/profile'
 import { saveProfile } from '@/core/db/meta'
 import type { LocaleSettings, ProfileMeta } from '@/core/types/profile'
@@ -31,7 +34,8 @@ const localeDraft = ref<LocaleSettings>({
 const nameDraft = ref('')
 const savingName = ref(false)
 const savingLocale = ref(false)
-const activeTab = ref<'profile' | 'locale' | 'security'>('profile')
+const SETTINGS_TABS = ['profile', 'locale', 'security', 'banking', 'data'] as const
+const { activeTab } = useRoutedTabs(SETTINGS_TABS, 'profile')
 
 watch(
   profile,
@@ -127,17 +131,28 @@ async function saveLocale(): Promise<void> {
           <PasswordSection />
         </Card>
       </TabPane>
+
+      <TabPane key="banking" tab="Bankacılık">
+        <Card title="Bankacılık referansı">
+          <Typography.Paragraph class="kp-text-muted">
+            Kredi kartı, nakit avans ve tüketici kredisi hesaplamalarında varsayılan
+            olarak kullanılan referans oranlar. Sözleşmeniz farklıysa kayıt açarken
+            kendi oranınızı her zaman override edebilirsiniz.
+          </Typography.Paragraph>
+          <BankingPresetSection />
+        </Card>
+      </TabPane>
+
+      <TabPane key="data" tab="Veri">
+        <Card title="Yedek ve içe aktarma">
+          <DataBackupSection />
+        </Card>
+      </TabPane>
     </Tabs>
   </div>
 </template>
 
 <style scoped>
-.kp-settings {
-  max-width: 720px;
-  margin: 0 auto;
-  width: 100%;
-}
-
 .kp-settings :deep(.ant-tabs-nav) {
   margin-bottom: 16px;
 }

@@ -25,7 +25,8 @@ alwaysApply: false
 
 ## Form kullanımı
 
-- "Referansla doldur" yalnızca preset okur; kullanıcı alanları sonra düzenler
+- Düğme metni daima **"Referansla doldur"** (kullanıcıya `preset` terimini gösterme); örn. `LoanFormDrawer` KKDF+BSMV alanı
+- Yalnızca preset okur; kullanıcı alanları sonra düzenler
 - Hesap motoru kullanıcı/sözleşme oranını kullanır, preset'i değil
 
 ## Şema

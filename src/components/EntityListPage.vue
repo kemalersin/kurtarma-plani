@@ -477,6 +477,8 @@ const tableWrapStyle = computed(() => ({
 }))
 
 function cellValue(column: TableColumnType<T>, record: T, index: number): string {
+  const kpCol = column as TableColumnType<T> & { kpDisplay?: (row: T) => string }
+  if (kpCol.kpDisplay) return kpCol.kpDisplay(record)
   return formatListCellValue(column, record as T & Record<string, unknown>, index)
 }
 

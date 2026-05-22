@@ -4,6 +4,7 @@
   --kp-page-max-width: 800px;
   --kp-page-padding-x: 16px;
   --kp-page-padding-x-wide: 24px;
+  --kp-page-padding-bottom: 32px;
   /** AppShell, drawer, tooltip (768px) */
   --kp-mobile-viewport-max: 768px;
   /** EntityListPage: tablo ↔ kart kırılımı */
@@ -69,6 +70,7 @@ body {
   max-width: var(--kp-page-max-width);
   margin: 0 auto;
   padding-inline: var(--kp-page-padding-x);
+  padding-bottom: var(--kp-page-padding-bottom);
   box-sizing: border-box;
 }
 
@@ -77,10 +79,25 @@ body {
   max-width: none;
   margin: 0;
   padding-inline: var(--kp-page-padding-x-wide);
+  padding-bottom: var(--kp-page-padding-bottom);
+  box-sizing: border-box;
+}
+
+/** Liste sekmeli sayfalar: viewport yüksekliğini doldur (tablo scroll) */
+.kp-page--fill {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/** Veri yüklenirken tam sayfa ortalanmış spinner */
+.kp-page-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: min(480px, calc(100vh - 160px));
+  padding: 48px 16px;
 }
 
 /** Yönetim sekmesi: liste dikey alanı doldurur */
@@ -115,6 +132,10 @@ body {
 .kp-balance {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
+}
+
+[data-theme='dark'] .kp-balance {
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .kp-balance--negative {

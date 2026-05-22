@@ -4,6 +4,52 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 ## [Unreleased]
 
+### Added — M7.2 Analiz / rapor sayfası
+
+- **`/analytics` route** (`pageLayout: 'wide'`) — sekmeli sayfa: Borç analizi, Nakit akışı, Hesap geçmişi; URL'de `?tab=` + filtreler (`from`, `to`, `bank`, `endpoint`, `category`).
+- **`reports.ts`:** Saf TS rapor sorguları — `debtInstallmentRows`, `cashflowMonthRows`, `movementRows`, `debtInstallmentMonthlySeries`, `filterCashflowRecords`, `categoryOptions`.
+- **`useAnalyticsFilters` / `useAnalyticsData`:** URL senkron filtreler + entity yükleme composable'ları.
+- **`AnalyticsFilterBar`:** Tarih aralığı, banka, hesap/kasa, kategori (nakit akışı sekmesinde) filtreleri.
+- **Sekme bileşenleri:** Her sekmede grafik + tablo — borç vadeleri (stacked bar + taksit listesi), nakit akışı (bar/line + donut + aylık tablo), hesap geçmişi (bakiye trendi + hareket listesi).
+- **Menü:** Sol menüde «Analiz & rapor» (`LineChartOutlined`); breadcrumb güncellendi.
+- **5 yeni Vitest** (`reports.spec.ts`) — toplam 98/98.
+
+### Changed — Bildirim (notice) yapısı
+
+- **`KpNotice.vue`:** AntDV `Alert` banner yerine kompakt, kart benzeri bildirim — ikon + başlık + isteğe bağlı detay + inline aksiyon + sağ üst kapat. `info` / `warning` / `error` / `legal` tonları; AntDV token renkleri; mobil uyumlu.
+- **`AppDisclaimer`:** `KpNotice` (`legal`) ile yeniden yapılandırıldı — tam genişlik banner kaldırıldı.
+- **Panel uyarıları:** Eksiye düşen bakiye ve gecikmiş nakit akışı `kp-dashboard__notices` bölümünde gruplandı; her biri `KpNotice` + alt satırda aksiyon düğmesi.
+
+### Changed — Dövizli hesap tutarlarında doğru para birimi simgesi
+
+- **Panel → En yüksek bakiyeli hesaplar:** Bakiyeler artık hesap/kasanın kendi `currency` koduna göre formatlanır (USD hesapta ₺ yerine $).
+- **`assetSnapshot` / `useDashboardData`:** `perAccount`, `perRegister` ve `topAccounts` kayıtlarına `currency` alanı eklendi.
+- **Hesaplar / Kasalar listesi (mobil kart):** `EntityListPage` `kpDisplay` desteği — bakiye sütunları mobilde de doğru para birimiyle gösterilir.
+- **AccountsTab / CashRegistersTab:** `useLocaleFormatters` ile tutarlı formatlama.
+
+### Changed — Panel (Dashboard) genişletildi
+
+- **`AppDisclaimer`:** Üst banner artık kapatılabilir (`closable` + `localStorage` `kp.disclaimerBannerDismissed.v1`); kısa mesaj _"Bu uygulama yalnızca bilgilendirme ve kişisel planlama amaçlıdır."_ + açıklama; «Detay» ile tam yasal modal açılır. Panel'de en üstte gösterilir.
+- **`/home` route:** `pageLayout: 'wide'` — panel tam genişlikte.
+- **Panel içeriği zenginleştirildi:** 8 özet metrik (2 satır: finansal özet + borç karşılama / ortalamalar / vade dikkati); varlık trendi (90 gün line+area); 30 gün borç karşılama gauge (`computeDebtCoverage`); gelir kategorileri donut; gecikmiş nakit akışı uyarısı + hızlı link; en yüksek bakiyeli hesap/kasa listesi; borç türleri dökümü; hızlı erişim (Borçlar / Nakit akışı / Yönetim).
+- **`useDashboardData`:** `assetTrend`, `debtCoverage30`, `cashflowAttention`, `currentMonth`, `topAccounts` alanları eklendi.
+
+### Added — M7.1: Analiz motoru + Dashboard (Panel) [ECharts]
+
+- **Yeni modül `src/features/analytics/`** (saf TS, Vue bağımsız) — UI'dan ayrık analitik motor.
+  - `snapshot.ts`: `assetSnapshot` (hesap + kasa toplamı; dövizli olanı toplama almaz, listede gösterir), `debtSnapshot` (kredi anüite kalan + kart `endingBalance` + KMH revolving `total` + taksitli avans kalan + overdue sayısı + donut breakdown), `netWorth` (varlık − borç + ratio).
+  - `series.ts`: `monthlyCashflowSeries` (`plan` / `actual` / `effective` basis), `incomeByType` / `expenseByType` (donut için), `assetTrendSeries` (günlük kümülatif bakiye — 90+ gün için 7'şer adım), `upcomingDebtSeries` (ileriye doğru aylık vade toplamı).
+  - `useDashboardData.ts`: tüm gerekli store'ları (`account`, `cashRegister`, `income`, `expense`, `loan`/`loanPayment`, `creditCard`/`creditCardTransaction`, `cashAdvanceAccount`/`cashAdvanceTransaction`, `installmentCashAdvance`/`installmentCashAdvancePayment`, `transfer`, `incomeType`, `expenseType`) paralel yükler, snapshot + serileri reaktif birleştirir, `localCurrency` farkındalığı.
+- **`src/components/KpChart.vue`** — ECharts ortak sarıcı: **tree-shaken** core (`echarts/core` + `CanvasRenderer` + `BarChart` / `LineChart` / `PieChart` + `Grid` / `Legend` / `Title` / `Tooltip` / `DataZoom`); `ResizeObserver` ile responsive resize; `useUiStore.isDark` izleyip tema değişimde re-init; `isEmpty` durumunda boş-mesaj overlay (dispose + re-init).
+- **`HomeView` (Panel) yenilendi**: `PageHeader` + `KpStatRow` (Toplam varlık / Toplam borç + vade dikkati / Net varlık + borç-varlık oranı / 6 aylık ort. gelir / 6 aylık ort. gider) + 4 grafik:
+  1. **Aylık nakit akışı (13 ay)** — Bar (gelir/gider) + Line (net).
+  2. **Borç dağılımı** — Pie (kredi / kart / KMH / taksitli avans).
+  3. **Gider kategorileri (13 ay)** — Pie (`expenseByType`).
+  4. **Yaklaşan borç vadeleri (6 ay)** — Bar (`upcomingDebtSeries`).
+- Boş durumlar her grafik için açıklayıcı mesajla geçilir; hesap bakiyesi eksiye düşmüşse üstte uyarı `Alert`.
+- **Bağımlılık:** `echarts@5.x`; build artışı ~620 KB (gzip ~190 KB). M9 bundle optimizasyonunda izlenecek.
+- **Vitest:** 18 yeni test (`series.spec.ts` + `snapshot.spec.ts`) — `monthsBetween`, `monthlyCashflowSeries` (3 basis), kategori breakdown, vade serisi, asset/debt snapshot currency filtreleri, netWorth. **Toplam 93/93 geçti.**
+
 ### Changed — Drawer içi tablolar (liste kuralları)
 
 - **`PaymentSourcePicker`:** `account` ve `cashRegister` koleksiyonları drawer açılmadan önce yüklenir — kredi kartı / nakit avans / taksitli avans / kredi ödeme formlarında hesap-kasa listesi boş kalma sorunu giderildi.

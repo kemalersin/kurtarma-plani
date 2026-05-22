@@ -1,25 +1,11 @@
 import { PBKDF2_HASH, PBKDF2_ITERATIONS, PBKDF2_KEY_BITS } from '@/core/constants'
+import { fromBase64, randomBytes, toBase64 } from '@/core/crypto/codec'
 
-function toBase64(bytes: Uint8Array): string {
-  let binary = ''
-  for (const b of bytes) binary += String.fromCharCode(b)
-  return btoa(binary)
-}
-
-function fromBase64(value: string): Uint8Array {
-  const binary = atob(value)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-  return bytes
-}
-
-function randomBytes(length: number): Uint8Array {
-  const bytes = new Uint8Array(length)
-  crypto.getRandomValues(bytes)
-  return bytes
-}
-
-async function deriveBits(password: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
+async function deriveBits(
+  password: string,
+  salt: Uint8Array,
+  iterations: number,
+): Promise<Uint8Array> {
   const baseKey = await crypto.subtle.importKey(
     'raw',
     new TextEncoder().encode(password),
@@ -41,6 +27,7 @@ export interface PasswordHashResult {
   iterations: number
 }
 
+/** @deprecated M2'den itibaren parola doğrulaması AES unwrap üzerinden yapılır. */
 export async function hashPassword(password: string): Promise<PasswordHashResult> {
   const salt = randomBytes(16)
   const bits = await deriveBits(password, salt, PBKDF2_ITERATIONS)
@@ -51,6 +38,11 @@ export async function hashPassword(password: string): Promise<PasswordHashResult
   }
 }
 
+/**
+ * M1 profillerini (yalnızca PBKDF2 hash ile saklananları) açabilmek için
+ * korunur. M2 itibarıyla parola doğru ise AES `unwrapDataKey` başarılı olur;
+ * bu fonksiyon yalnızca legacy fallback'tir.
+ */
 export async function verifyPassword(
   password: string,
   expectedHash: string,

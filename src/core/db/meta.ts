@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie'
 import { APP_VERSION, META_DB_NAME, SCHEMA_VERSION } from '@/core/constants'
 import type { AppMeta, ProfileMeta } from '@/core/types/profile'
+import type { BankingPresetRow } from '@/core/types/banking-preset'
 
 const APP_META_KEY = 'app'
 
@@ -24,6 +25,7 @@ function toPlain<T>(value: T): T {
 class MetaDatabase extends Dexie {
   appMeta!: Table<AppMetaRow, string>
   profiles!: Table<ProfileMeta, string>
+  bankingPreset!: Table<BankingPresetRow, string>
 
   constructor() {
     super(META_DB_NAME)
@@ -31,10 +33,27 @@ class MetaDatabase extends Dexie {
       appMeta: '&key',
       profiles: '&id, name, lastOpenedAt',
     })
+    this.version(2).stores({
+      appMeta: '&key',
+      profiles: '&id, name, lastOpenedAt',
+      bankingPreset: '&id',
+    })
   }
 }
 
 export const metaDb = new MetaDatabase()
+
+export async function getActiveBankingPresetRow(): Promise<BankingPresetRow | undefined> {
+  return metaDb.bankingPreset.get('active')
+}
+
+export async function putActiveBankingPresetRow(row: BankingPresetRow): Promise<void> {
+  await metaDb.bankingPreset.put(toPlain(row))
+}
+
+export async function clearActiveBankingPreset(): Promise<void> {
+  await metaDb.bankingPreset.delete('active')
+}
 
 export async function getAppMeta(): Promise<AppMeta> {
   const row = await metaDb.appMeta.get(APP_META_KEY)
