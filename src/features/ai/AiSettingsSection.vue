@@ -28,7 +28,6 @@ import { isCloudCatalogProvider } from '@/core/types/ai-catalog'
 import type { AiProviderConfig, AiProviderId } from '@/core/types/ai-settings'
 import { DEFAULT_BASE_URLS, fetchOllamaModels, fetchVllmModels } from '@/features/ai/providers'
 import {
-  CLOUD_CORS_HINT,
   usesDevAiProxy,
 } from '@/features/ai/providers/proxy-url'
 import { formatCostUsd } from '@/features/ai/cost'
@@ -339,14 +338,6 @@ async function resetCatalog(): Promise<void> {
       show-icon
       message="Geliştirme proxy'si aktif"
       description="Bulut API istekleri otomatik olarak yerel Vite proxy (/kp-ai-proxy) üzerinden gider; CORS engeli oluşmaz."
-      class="kp-ai-settings__alert"
-    />
-    <Alert
-      v-else-if="hasCloudProvider"
-      type="warning"
-      show-icon
-      message="Bulut sağlayıcı ve CORS"
-      :description="CLOUD_CORS_HINT"
       class="kp-ai-settings__alert"
     />
 
