@@ -102,3 +102,14 @@
 - [x] Vitest finans motoru testleri (M4 ile geldi; kart/avans testleri M5+)
 - [ ] E2E kritik akışlar
 - [ ] Bundle boyutu optimizasyonu
+
+## M10 — Otomatik senkron dosyası
+
+Tasarım: [docs/SYNC.md](./docs/SYNC.md). Açılıp kapatılabilir; backend yok; mevcut snapshot zarfı + `KP-SYNC1` meta.
+
+- [x] **S1:** Tipler + Zod + `SyncSettingsSection` (toggle + ayarlar, I/O yok)
+- [x] **S2:** `sync-file` / `sync-engine` — manuel «Senkronize et» (File System Access)
+- [x] **S3:** Debounced push + pull (focus / profil kilidi)
+- [x] **S4:** Çakışma modal + durum rozeti
+- [ ] **S5:** Manuel fallback (Safari / `file://`)
+- [ ] **S6:** (Opsiyonel) WebDAV transport
