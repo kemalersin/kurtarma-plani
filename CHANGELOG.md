@@ -4,6 +4,10 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 ## [Unreleased]
 
+### Added — gömülü favicon
+
+- Sekme ikonu SVG data URI olarak koda gömülü; `file://` ve tek dosya build'de harici favicon dosyası gerekmez.
+
 ### Fixed — profil parolası
 
 - Parolasız profilde «Parola ekle» kayıtlar zaten AES ile şifreliyken `reencryptAll(null, …)` hatası veriyordu; yalnızca düz kayıtlar varsa yeniden şifreleme yapılır.

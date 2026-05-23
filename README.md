@@ -3,11 +3,13 @@
 [![Sürüm](https://img.shields.io/badge/sürüm-0.1.1-blue)](package.json)
 [![Vue 3](https://img.shields.io/badge/Vue-3-42b883)](https://vuejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)](https://www.typescriptlang.org/)
+[![Kahve Ismarla](https://img.shields.io/badge/☕-Kahve_Ismarla-FFDD00)](https://polar.sh/checkout/polar_c_haAJ3cBdBFOHt7slvqdZ7kiN3MVY9g3AKebj91C72HB)
 
 Borçları kayıt altına alan, gelir-gider dengesini izleyen ve analiz eden **tek dosyalık statik SPA**. Backend yok; tüm veriler tarayıcıda **IndexedDB** üzerinde tutulur. Production çıktısı tek bir HTML dosyasıdır (`file://` ile açılabilir, çevrimdışı çalışır).
 
 **Depo:** [github.com/kemalersin/kurtarma-plani](https://github.com/kemalersin/kurtarma-plani)  
-**Hazır derleme:** [dist/index.html](https://github.com/kemalersin/kurtarma-plani/tree/main/dist) (repoda commit edilir)
+**Hazır derleme:** [dist/index.html](https://github.com/kemalersin/kurtarma-plani/tree/main/dist) (repoda commit edilir)  
+**Kahve Ismarla:** [polar.sh](https://polar.sh/checkout/polar_c_haAJ3cBdBFOHt7slvqdZ7kiN3MVY9g3AKebj91C72HB)
 
 ---
 
@@ -174,4 +176,4 @@ dist/               Production tek dosya (index.html)
 
 ## Katkı & destek
 
-Hata bildirimi ve öneriler [GitHub Issues](https://github.com/kemalersin/kurtarma-plani/issues) üzerinden yapılabilir. Projeyi beğendiyseniz uygulama içi **Hakkında → Kahve Ismarla** bağlantısını kullanabilirsiniz.
+Hata bildirimi ve öneriler [GitHub Issues](https://github.com/kemalersin/kurtarma-plani/issues) üzerinden yapılabilir. Projeyi beğendiyseniz [Kahve Ismarla](https://polar.sh/checkout/polar_c_haAJ3cBdBFOHt7slvqdZ7kiN3MVY9g3AKebj91C72HB) ile destekleyebilirsiniz (uygulama içi: **Hakkında**).
