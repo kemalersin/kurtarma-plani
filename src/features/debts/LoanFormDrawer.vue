@@ -192,19 +192,6 @@ function applyReferenceRate(): void {
   }
 }
 
-function fillLateFromContract(): void {
-  if (!draft.interestRate || draft.interestRate <= 0) {
-    message.info('Önce sözleşme faizini girin.')
-    return
-  }
-  const late = draft.interestRate * 1.3
-  draft.lateInterestRate = late
-  draft.lateInterestPeriod = draft.interestPeriod
-  message.success(
-    `Gecikme faizi sözleşmeden hesaplandı (× 1.3 → ${late.toFixed(2)}%).`,
-  )
-}
-
 function openBankDrawer(): void {
   bankDrawerOpen.value = true
 }
@@ -344,7 +331,6 @@ function close(): void {
             style="flex: 1; min-width: 0"
           />
           <Select v-model:value="draft.lateInterestPeriod" :options="PERIOD_OPTIONS" style="width: 110px" />
-          <Button @click="fillLateFromContract">Sözleşmeden hesapla</Button>
         </Space.Compact>
       </FormItem>
       <FormItem>

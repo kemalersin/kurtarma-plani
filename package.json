@@ -10,6 +10,7 @@
     "build:models": "FETCH_MODELS=1 vite-node scripts/fetch-models-catalog.ts && vue-tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc -b",
+    "sync:banking-feed": "vite-node scripts/sync-banking-preset-feed.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
