@@ -8,13 +8,8 @@
 Borçları kayıt altına alan, gelir-gider dengesini izleyen ve analiz eden **tek dosyalık statik SPA**. Backend yok; tüm veriler tarayıcıda **IndexedDB** üzerinde tutulur. Production çıktısı tek bir HTML dosyasıdır (`file://` ile açılabilir, çevrimdışı çalışır). Kurulum veya dosya indirme gerekmeden GitHub Pages üzerinde deneyebilirsiniz.
 
 <p align="center">
-  <a
-    href="https://kemalersin.github.io/kurtarma-plani/"
-    target="_blank"
-    rel="noopener noreferrer"
-    style="display: inline-block; padding: 0.75em 1.5em; font-size: 1.05em; font-weight: 600; color: #ffffff; background-color: #1677ff; border-radius: 6px; text-decoration: none;"
-  >
-    Canlı demo →
+  <a href="https://kemalersin.github.io/kurtarma-plani/">
+    <img alt="Canlı demo — GitHub Pages" src="https://img.shields.io/badge/Canlı_demo-→-1677ff?style=for-the-badge&logo=github&logoColor=white">
   </a>
 </p>
 
