@@ -19,6 +19,20 @@ Borçları kayıt altına alan, gelir-gider dengesini izleyen ve analiz eden **t
 
 ---
 
+## Ekran görüntüleri
+
+| Panel | Borçlar — taksit planı |
+| --- | --- |
+| Net varlık, varlık trendi ve aylık nakit akışı özeti | Kredi taksit tablosu, gecikme durumu ve erken kapama tahmini |
+| ![Panel — finansal durum özeti](docs/screenshots/ss-00.png) | ![Borçlar — taksit planı](docs/screenshots/ss-01.png) |
+
+| Analiz & rapor | AI Asistan |
+| --- | --- |
+| Aylık nakit akışı, gelir ve gider dağılımı grafikleri | Finans özetine dayalı sohbet ve kurtarma stratejisi önerisi |
+| ![Analiz & rapor — nakit akışı](docs/screenshots/ss-02.png) | ![AI Asistan — sohbet](docs/screenshots/ss-03.png) |
+
+---
+
 ## Hızlı başlangıç
 
 1. Yukarıdaki **Canlı demo** düğmesinden uygulamayı açın — sunucu gerekmez.

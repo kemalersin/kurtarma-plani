@@ -34,7 +34,7 @@ import KpTooltip from '@/components/KpTooltip.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import SyncStatusBadge from '@/components/SyncStatusBadge.vue'
 import SyncConflictModal from '@/components/SyncConflictModal.vue'
-import { KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/composables/useMatchMedia'
+import { KP_HOVER_CAPABLE_MQ, KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/composables/useMatchMedia'
 import BrandMark from '@/components/icons/BrandMark.vue'
 import { APP_NAME, APP_VERSION } from '@/core/constants'
 import { buildBreadcrumb } from '@/router/breadcrumb'
@@ -47,6 +47,11 @@ const route = useRoute()
 const router = useRouter()
 
 const isMobileShell = useMatchMedia(KP_MOBILE_VIEWPORT_MQ)
+const hoverCapable = useMatchMedia(KP_HOVER_CAPABLE_MQ)
+
+const hoverPeekEnabled = computed(
+  () => !isMobileShell.value && hoverCapable.value && !ui.sidebarPinned,
+)
 
 const menuOpen = computed(() =>
   isMobileShell.value ? ui.sidebarPeeking : ui.sidebarVisible,
@@ -54,6 +59,9 @@ const menuOpen = computed(() =>
 
 const hamburgerTooltip = computed(() => {
   if (isMobileShell.value) {
+    return ui.sidebarPeeking ? 'Menüyü kapat' : 'Menüyü aç'
+  }
+  if (!hoverCapable.value && !ui.sidebarPinned) {
     return ui.sidebarPeeking ? 'Menüyü kapat' : 'Menüyü aç'
   }
   return ui.sidebarPinned ? 'Menüyü gizle' : 'Menüyü sabitle (üzerine gel: aç)'
@@ -86,21 +94,25 @@ function onHamburgerClick(): void {
     ui.setSidebarPeeking(!ui.sidebarPeeking)
     return
   }
+  if (!hoverCapable.value && !ui.sidebarPinned) {
+    ui.setSidebarPeeking(!ui.sidebarPeeking)
+    return
+  }
   ui.toggleSidebarPin()
 }
 
 function onHamburgerEnter(): void {
-  if (isMobileShell.value || ui.sidebarPinned) return
+  if (!hoverPeekEnabled.value) return
   ui.setSidebarPeeking(true)
 }
 
 function onSidebarEnter(): void {
-  if (isMobileShell.value || ui.sidebarPinned) return
+  if (!hoverPeekEnabled.value) return
   ui.setSidebarPeeking(true)
 }
 
 function onSidebarLeave(): void {
-  if (isMobileShell.value || ui.sidebarPinned) return
+  if (!hoverPeekEnabled.value) return
   ui.setSidebarPeeking(false)
 }
 
@@ -139,8 +151,8 @@ function gotoCrumb(name?: string): void {
         'kp-sider--floating': isMobileShell || !ui.sidebarPinned,
         'kp-sider--visible': menuOpen,
       }"
-      @mouseenter="onSidebarEnter"
-      @mouseleave="onSidebarLeave"
+      @mouseenter="hoverPeekEnabled ? onSidebarEnter : undefined"
+      @mouseleave="hoverPeekEnabled ? onSidebarLeave : undefined"
     >
       <div class="kp-sider__brand">
         <div class="kp-sider__brand-text">
@@ -237,7 +249,7 @@ function gotoCrumb(name?: string): void {
             class="kp-header__hamburger"
             :aria-label="isMobileShell && ui.sidebarPeeking ? 'Menüyü kapat' : 'Menüyü aç'"
             @click="onHamburgerClick"
-            @mouseenter="onHamburgerEnter"
+            @mouseenter="hoverPeekEnabled ? onHamburgerEnter : undefined"
           >
             <MenuFoldOutlined
               v-if="!isMobileShell && ui.sidebarPinned"
