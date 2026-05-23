@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { FormItem, RadioGroup, Space, message } from 'ant-design-vue'
+import BankAccountSelect from '@/components/BankAccountSelect.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
 import AccountFormDrawer from '@/features/admin/AccountFormDrawer.vue'
 import CashRegisterFormDrawer from '@/features/admin/CashRegisterFormDrawer.vue'
@@ -215,10 +216,10 @@ const combinedHint = computed(() =>
         :options="endpointOptions"
         @update:value="(v) => onEndpointChange(v as Endpoint)"
       />
-      <SelectWithCreate
+      <BankAccountSelect
         v-if="endpoint === 'account'"
         :value="accountId"
-        :options="compatibleAccounts"
+        :accounts="compatibleAccounts"
         :placeholder="sourcesLoading ? 'Hesaplar yükleniyor…' : 'Hesap seçin'"
         :disabled="sourcesLoading"
         create-label="Yeni hesap"

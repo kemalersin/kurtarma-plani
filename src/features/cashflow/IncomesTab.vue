@@ -9,6 +9,10 @@ import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import { ADMIN_PRIMARY_NAME_COLUMN_WIDTH } from '@/features/admin/admin-list-columns'
 import { cashflowStatus, type CashflowStatus } from '@/finance/cashflow'
+import {
+  CASHFLOW_STATUS_LABELS,
+  cashflowStatusLabel,
+} from '@/features/cashflow/cashflowLabels'
 import type {
   Account,
   CashRegister,
@@ -91,11 +95,10 @@ function typeName(i: Income): string {
   return types.value.find((t) => t.id === i.incomeTypeId)?.name ?? '—'
 }
 
-const STATUS_LABELS: Record<CashflowStatus, string> = {
-  realized: 'Gerçekleşti',
-  overdue: 'Vadesi geçti',
-  due: 'Yaklaşan',
-  upcoming: 'Planlı',
+const STATUS_LABELS = CASHFLOW_STATUS_LABELS
+
+function statusLabel(i: Income): string {
+  return cashflowStatusLabel(i)
 }
 
 function targetId(i: Income): string {
@@ -218,7 +221,7 @@ const columns = computed<TableColumnType<Income>[]>(() => [
   {
     key: 'status',
     title: 'Durum',
-    customRender: ({ record }) => STATUS_LABELS[cashflowStatus(record as Income)],
+    customRender: ({ record }) => statusLabel(record as Income),
   },
   {
     key: '__realize',
@@ -227,6 +230,7 @@ const columns = computed<TableColumnType<Income>[]>(() => [
     width: 110,
     customRender: ({ record }) => {
       const row = record as Income
+      if (row.recurrence) return null
       if (!row.actualDate) {
         return h(
           Popconfirm,

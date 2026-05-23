@@ -7,6 +7,7 @@ import type {
   LoanPayment,
   Transfer,
 } from '@/core/types/entities'
+import { expandRecurrenceOccurrences } from '@/finance/recurrence'
 
 /**
  * Bir hesap/kasa bakiyesine yansıyan **gerçekleşmiş** tekil hareket.
@@ -57,7 +58,21 @@ export function collectMovements(input: CollectInput): AccountMovement[] {
   const out: AccountMovement[] = []
 
   for (const inc of input.incomes ?? []) {
-    if (!inc.actualDate || inc.archived) continue
+    if (inc.archived) continue
+    if (inc.recurrence) {
+      for (const occ of expandRecurrenceOccurrences(inc, { to: new Date().toISOString() })) {
+        out.push({
+          date: occ.date,
+          amount: Number(occ.amount),
+          accountId: inc.accountId,
+          cashRegisterId: inc.cashRegisterId,
+          source: 'income',
+          sourceId: inc.id,
+        })
+      }
+      continue
+    }
+    if (!inc.actualDate) continue
     out.push({
       date: inc.actualDate,
       amount: inc.amount,
@@ -69,7 +84,21 @@ export function collectMovements(input: CollectInput): AccountMovement[] {
   }
 
   for (const exp of input.expenses ?? []) {
-    if (!exp.actualDate || exp.archived) continue
+    if (exp.archived) continue
+    if (exp.recurrence) {
+      for (const occ of expandRecurrenceOccurrences(exp, { to: new Date().toISOString() })) {
+        out.push({
+          date: occ.date,
+          amount: -Number(occ.amount),
+          accountId: exp.accountId,
+          cashRegisterId: exp.cashRegisterId,
+          source: 'expense',
+          sourceId: exp.id,
+        })
+      }
+      continue
+    }
+    if (!exp.actualDate) continue
     out.push({
       date: exp.actualDate,
       amount: -exp.amount,

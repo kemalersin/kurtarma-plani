@@ -18,6 +18,7 @@ import { adminPrimaryNameColumn } from '@/features/admin/admin-list-columns'
 import {
   advancePaidThroughIndex,
   buildScheduleForInstallmentAdvance,
+  remainingDebtForInstallmentAdvance,
 } from './installmentAdvanceHelpers'
 
 const entities = useEntitiesStore()
@@ -93,12 +94,7 @@ const summaryCache = computed<Map<string, AdvanceSummary>>(() => {
     const schedule = buildScheduleForInstallmentAdvance(adv)
     const own = payments.value.filter((p) => p.installmentAdvanceId === adv.id)
     const idx = advancePaidThroughIndex(own)
-    const remaining =
-      idx === 0
-        ? schedule.rows[0]!.beginningBalance
-        : idx >= schedule.rows.length
-          ? '0'
-          : schedule.rows[idx - 1]!.endingBalance
+    const remaining = remainingDebtForInstallmentAdvance(adv, schedule, idx, undefined, own)
 
     const today = new Date()
     const overdue = schedule.rows.filter((r) => {
@@ -166,7 +162,7 @@ const filters = computed<ListFilter<InstallmentCashAdvance>[]>(() => [
   {
     kind: 'numberRange',
     key: 'remaining',
-    label: 'Kalan',
+    label: 'Kalan borç',
     numberKind: 'currency',
     getValue: (adv) => Number(summary(adv).remaining),
   },
@@ -223,7 +219,7 @@ const columns = computed<TableColumnType<InstallmentCashAdvance>[]>(() => [
   },
   {
     key: 'remaining',
-    title: 'Kalan',
+    title: 'Kalan borç',
     align: 'right',
     customRender: ({ record }) =>
       formatCurrency(

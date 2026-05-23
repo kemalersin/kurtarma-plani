@@ -30,6 +30,8 @@ export const ChatMessageSchema = z.object({
   attachments: z.array(ChatAttachmentSchema).optional(),
   /** @deprecated attachments kullanın */
   images: z.array(ChatAttachmentSchema).optional(),
+  /** Bu mesajdaki proposal bloklarından veritabanına yazılanların `proposalBundleKey` değerleri */
+  appliedProposalKeys: z.array(z.string()).optional(),
   createdAt: Iso,
 })
 export type ChatMessage = z.infer<typeof ChatMessageSchema>

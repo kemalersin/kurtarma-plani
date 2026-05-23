@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { extractProposalBundles, stripProposalBlocks } from '@/features/ai/proposals/parse'
+import {
+  extractProposalBundles,
+  proposalBundleKey,
+  stripProposalBlocks,
+} from '@/features/ai/proposals/parse'
 
 const SAMPLE = `\`\`\`kp-proposals
 {
@@ -15,6 +19,12 @@ describe('extractProposalBundles', () => {
     const bundles = extractProposalBundles(`Açıklama\n${SAMPLE}`)
     expect(bundles).toHaveLength(1)
     expect(bundles[0]?.items[0]?.type).toBe('bank')
+  })
+
+  it('uses stable bundle keys for the same parsed content', () => {
+    const bundlesA = extractProposalBundles(`Açıklama\n${SAMPLE}`)
+    const bundlesB = extractProposalBundles(`Açıklama\n${SAMPLE}`)
+    expect(proposalBundleKey(bundlesA[0]!)).toBe(proposalBundleKey(bundlesB[0]!))
   })
 
   it('expands nested payments on installmentCashAdvance', () => {

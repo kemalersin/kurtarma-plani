@@ -1,4 +1,4 @@
-import type { ProposableEntityType } from '@/features/ai/proposals/types'
+import type { AiProposalItem, ProposableEntityType } from '@/features/ai/proposals/types'
 
 export const ENTITY_TYPE_LABELS: Record<ProposableEntityType, string> = {
   bank: 'Banka',
@@ -31,4 +31,37 @@ export function proposalItemLabel(
     : undefined
   const base = ENTITY_TYPE_LABELS[type]
   return name ? `${base}: ${name}` : base
+}
+
+export interface ProposalSummaryLine {
+  key: string
+  label: string
+}
+
+/** Ardışık aynı etiketli kayıtları «Etiket x N» olarak özetler. */
+export function summarizeProposalItems(items: AiProposalItem[]): ProposalSummaryLine[] {
+  const lines: ProposalSummaryLine[] = []
+  let index = 0
+
+  while (index < items.length) {
+    const item = items[index]!
+    const label = proposalItemLabel(item.type, item.data)
+    let count = 1
+    let next = index + 1
+
+    while (next < items.length) {
+      const candidate = items[next]!
+      if (proposalItemLabel(candidate.type, candidate.data) !== label) break
+      count += 1
+      next += 1
+    }
+
+    lines.push({
+      key: `${item.type}-${index}-${count}`,
+      label: count > 1 ? `${label} x ${count}` : label,
+    })
+    index = next
+  }
+
+  return lines
 }

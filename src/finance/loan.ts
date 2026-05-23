@@ -161,23 +161,59 @@ export function computeLateFee(
   return roundMoney(fee).toString()
 }
 
-/**
- * Kalan borcu vadeden önce kapatma tutarı.
- *
- * Türk tüketici kredisi mevzuatına göre erken kapama tahsil edilebilecek
- * yapılandırma ücreti vardır; biz burada **saf finansal** kalan anaparayı
- * döneriz: o ana kadar tahakkuk eden faiz (kısmi ay) + anapara.
- *
- * UI tarafında kullanıcı sözleşmesine göre erken kapama komisyonu eklenebilir.
- */
-export function payoffAmount(params: {
+export interface RemainingDebtParams {
   schedule: LoanSchedule
   /** Hangi taksit numarasına kadar ödenmiş (0 ise hiç ödenmemiş) */
   paidThroughIndex: number
   /** Bugün (ISO) */
   asOfDate: string
-}): string {
-  const { schedule, paidThroughIndex, asOfDate } = params
+  contractRate: RateInput
+  lateRate?: RateInput
+  /** Ödenmemiş taksitler için kullanıcı override (index → tutar) */
+  installmentOverrides?: ReadonlyMap<number, number>
+}
+
+/** Plan taksiti veya override tutarı. */
+export function effectiveInstallmentForRow(
+  row: ScheduleRow,
+  overrides?: ReadonlyMap<number, number>,
+): string {
+  const override = overrides?.get(row.index)
+  return override != null ? String(override) : row.installment
+}
+
+function accruedPayoffInterest(
+  lastPaidEnd: Decimal,
+  nextDueDate: string,
+  asOfDate: string,
+  dailyMonthly: Decimal,
+): Decimal {
+  const daysToNext = differenceInCalendarDays(parseISO(nextDueDate), parseISO(asOfDate))
+  const daily = toDailyFromMonthly(dailyMonthly)
+
+  if (daysToNext > 0 && daysToNext < 30) {
+    return lastPaidEnd.times(daily).times(30 - daysToNext)
+  }
+  if (daysToNext <= 0) {
+    const daysOverdue = lateDays(nextDueDate, asOfDate)
+    if (daysOverdue > 0) {
+      return lastPaidEnd.times(daily).times(daysOverdue)
+    }
+  }
+  return ZERO
+}
+
+/**
+ * Kalan borcu vadeden önce kapatma tutarı.
+ *
+ * Türk tüketici kredisi mevzuatına göre erken kapama tahsil edilebilecek
+ * yapılandırma ücreti vardır; biz burada **saf finansal** tahmini döneriz:
+ * kalan anapara + kısmi dönem faizi + biriken gecikme faizi (vadesi geçmiş taksitler).
+ *
+ * UI tarafında kullanıcı sözleşmesine göre erken kapama komisyonu eklenebilir.
+ */
+export function payoffAmount(params: RemainingDebtParams): string {
+  const { schedule, paidThroughIndex, asOfDate, contractRate, lateRate } = params
   const remaining = schedule.rows.filter((r) => r.index > paidThroughIndex)
   if (remaining.length === 0) return '0'
 
@@ -186,19 +222,73 @@ export function payoffAmount(params: {
       ? D(schedule.rows[paidThroughIndex - 1]!.endingBalance)
       : D(schedule.rows[0]!.beginningBalance)
 
-  // Bir sonraki taksitin vade tarihinden önce kısmi ay faizi
   const nextRow = remaining[0]!
-  const nextDue = parseISO(nextRow.dueDate)
-  const today = parseISO(asOfDate)
-  const dailyMonthly = D(schedule.effectiveMonthlyRate)
-  let partialInterest = ZERO
-  const daysToNext = differenceInCalendarDays(nextDue, today)
-  if (daysToNext > 0 && daysToNext < 30) {
-    const daysAccrued = 30 - daysToNext
-    if (daysAccrued > 0) {
-      partialInterest = lastPaidEnd.times(toDailyFromMonthly(dailyMonthly)).times(daysAccrued)
-    }
-  }
+  const partialInterest = accruedPayoffInterest(
+    lastPaidEnd,
+    nextRow.dueDate,
+    asOfDate,
+    D(schedule.effectiveMonthlyRate),
+  )
 
-  return roundMoney(lastPaidEnd.plus(partialInterest)).toString()
+  const lateFees = outstandingLateFeesTotal({
+    schedule,
+    paidThroughIndex,
+    asOfDate,
+    contractRate,
+    lateRate,
+    installmentOverrides: params.installmentOverrides,
+  })
+
+  return roundMoney(lastPaidEnd.plus(partialInterest).plus(lateFees)).toString()
+}
+
+/** Ödenmemiş ve vadesi geçmiş taksitler için bugüne kadar biriken gecikme faizi. */
+export function outstandingLateFeesTotal(params: RemainingDebtParams): string {
+  const { schedule, paidThroughIndex, asOfDate, contractRate, lateRate, installmentOverrides } =
+    params
+  let total = ZERO
+  for (const row of schedule.rows) {
+    if (row.index <= paidThroughIndex) continue
+    const days = lateDays(row.dueDate, asOfDate)
+    if (days <= 0) continue
+    const installment = effectiveInstallmentForRow(row, installmentOverrides)
+    total = total.plus(computeLateFee(installment, days, contractRate, lateRate))
+  }
+  return roundMoney(total).toString()
+}
+
+/** Kalan borç = ödenmemiş taksit tutarları + biriken gecikme faizi. */
+export function remainingDebtTotal(params: RemainingDebtParams): string {
+  const installments = remainingInstallmentsTotal(
+    params.schedule,
+    params.paidThroughIndex,
+    params.installmentOverrides,
+  )
+  const lateFees = outstandingLateFeesTotal(params)
+  return roundMoney(D(installments).plus(lateFees)).toString()
+}
+
+/** Plana göre kalan anapara bakiyesi (son ödenen taksit sonrası). */
+export function remainingPrincipalBalance(
+  schedule: LoanSchedule,
+  paidThroughIndex: number,
+): string {
+  if (paidThroughIndex >= schedule.rows.length) return '0'
+  if (paidThroughIndex === 0) return schedule.rows[0]!.beginningBalance
+  return schedule.rows[paidThroughIndex - 1]!.endingBalance
+}
+
+/** Ödenmemiş taksitlerin tutarları toplamı (override dahil). */
+export function remainingInstallmentsTotal(
+  schedule: LoanSchedule,
+  paidThroughIndex: number,
+  installmentOverrides?: ReadonlyMap<number, number>,
+): string {
+  const total = schedule.rows
+    .filter((r) => r.index > paidThroughIndex)
+    .reduce(
+      (acc, row) => acc.plus(D(effectiveInstallmentForRow(row, installmentOverrides))),
+      ZERO,
+    )
+  return roundMoney(total).toString()
 }

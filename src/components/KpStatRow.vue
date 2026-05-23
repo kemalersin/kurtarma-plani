@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { InfoCircleOutlined } from '@ant-design/icons-vue'
+import KpTooltip from '@/components/KpTooltip.vue'
 
 /**
  * Tek satırda gösterilen istatistik/özet kartı.
@@ -26,6 +28,8 @@ export interface KpStat {
   value: string | number
   /** Değerin altında küçük yardımcı not (opsiyonel) */
   hint?: string
+  /** Etiket yanında bilgi ikonu tooltip metni (masaüstü; mobilde aria-label) */
+  labelTooltip?: string
   /** Renk vurgusu — default `default` */
   tone?: StatTone
 }
@@ -53,7 +57,14 @@ const gridStyle = computed(() => ({
       class="kp-stat"
       :data-tone="item.tone ?? 'default'"
     >
-      <span class="kp-stat__label" :title="item.label">{{ item.label }}</span>
+      <span class="kp-stat__label-row">
+        <span class="kp-stat__label" :title="item.labelTooltip ? undefined : item.label">{{
+          item.label
+        }}</span>
+        <KpTooltip v-if="item.labelTooltip" :title="item.labelTooltip">
+          <InfoCircleOutlined class="kp-stat__info" role="img" aria-label="Bilgi" />
+        </KpTooltip>
+      </span>
       <span class="kp-stat__value" :title="String(item.value)">{{ item.value }}</span>
       <span v-if="item.hint" class="kp-stat__hint">{{ item.hint }}</span>
     </div>
@@ -83,6 +94,14 @@ const gridStyle = computed(() => ({
   background: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
 }
 
+.kp-stat__label-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .kp-stat__label {
   font-size: 12px;
   line-height: 1.2;
@@ -91,6 +110,18 @@ const gridStyle = computed(() => ({
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.kp-stat__info {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25));
+  cursor: help;
+}
+
+.kp-stat__info:hover {
+  color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
 }
 
 .kp-stat__value {
@@ -161,6 +192,14 @@ const gridStyle = computed(() => ({
 
 [data-theme='dark'] .kp-stat:hover {
   background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme='dark'] .kp-stat__info {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+[data-theme='dark'] .kp-stat__info:hover {
+  color: rgba(255, 255, 255, 0.45);
 }
 
 [data-theme='dark'] .kp-stat__label {

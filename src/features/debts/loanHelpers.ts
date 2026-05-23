@@ -1,5 +1,6 @@
 import type { Loan, LoanPayment } from '@/core/types/entities'
-import { buildAnnuitySchedule, type LoanSchedule } from '@/finance/loan'
+import { unpaidInstallmentOverrides } from './installmentDisplay'
+import { buildAnnuitySchedule, payoffAmount, remainingDebtTotal, remainingPrincipalBalance, type LoanSchedule } from '@/finance/loan'
 
 export function buildScheduleForLoan(loan: Loan): LoanSchedule {
   return buildAnnuitySchedule({
@@ -40,3 +41,49 @@ export function paidThroughIndex(payments: LoanPayment[]): number {
   while (paid.has(last + 1)) last++
   return last
 }
+
+function loanRateInput(loan: Loan) {
+  return {
+    contractRate: { value: loan.interestRate, period: loan.interestPeriod },
+    lateRate:
+      loan.lateInterestRate !== undefined && loan.lateInterestPeriod
+        ? { value: loan.lateInterestRate, period: loan.lateInterestPeriod }
+        : undefined,
+  }
+}
+
+/** Kalan borç = ödenmemiş taksitler + biriken gecikme faizi. */
+export function remainingDebtForLoan(
+  loan: Loan,
+  schedule: LoanSchedule,
+  paidThroughIndex: number,
+  asOfDate = new Date().toISOString(),
+  payments: LoanPayment[] = [],
+): string {
+  return remainingDebtTotal({
+    schedule,
+    paidThroughIndex,
+    asOfDate,
+    installmentOverrides: unpaidInstallmentOverrides(payments),
+    ...loanRateInput(loan),
+  })
+}
+
+/** Erken kapama tahmini (anapara + kısmi faiz + gecikme faizi). */
+export function payoffForLoan(
+  loan: Loan,
+  schedule: LoanSchedule,
+  paidThroughIndex: number,
+  asOfDate = new Date().toISOString(),
+  payments: LoanPayment[] = [],
+): string {
+  return payoffAmount({
+    schedule,
+    paidThroughIndex,
+    asOfDate,
+    installmentOverrides: unpaidInstallmentOverrides(payments),
+    ...loanRateInput(loan),
+  })
+}
+
+export { remainingPrincipalBalance }

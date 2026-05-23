@@ -21,6 +21,7 @@ import {
   sensitiveSaveOptions,
 } from '@/composables/useSensitiveEntityForm'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
+import BankAccountSelect from '@/components/BankAccountSelect.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
 import { disableFutureDates } from '@/core/util/datepicker'
 import AccountFormDrawer from '@/features/admin/AccountFormDrawer.vue'
@@ -308,9 +309,9 @@ function close(): void {
       </FormItem>
 
       <FormItem v-if="draft.fromKind === 'account'" label="Kaynak hesap" required>
-        <SelectWithCreate
+        <BankAccountSelect
           v-model:value="draft.fromAccountId"
-          :options="accounts"
+          :accounts="accounts"
           placeholder="Hesap seçin"
           create-label="Yeni hesap"
           @create="fromAccountDrawerOpen = true"
@@ -331,9 +332,9 @@ function close(): void {
       </FormItem>
 
       <FormItem v-if="draft.toKind === 'account'" label="Hedef hesap" required>
-        <SelectWithCreate
+        <BankAccountSelect
           v-model:value="draft.toAccountId"
-          :options="accounts"
+          :accounts="accounts"
           placeholder="Hesap seçin"
           create-label="Yeni hesap"
           @create="toAccountDrawerOpen = true"

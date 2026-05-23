@@ -4,6 +4,21 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 ## [Unreleased]
 
+### Changed — banka hesabı seçimi
+
+- Banka hesabı combobox'ları banka adına göre gruplu; arama hesap ve banka adında çalışır (gelir/gider, transfer, borç ödemesi, analiz filtresi).
+
+### Changed — kalan borç (taksit planı)
+
+- Kalan borç = ödenmemiş taksit tutarları toplamı + vadesi geçmiş taksitler için biriken gecikme faizi (kredi, taksitli avans plan drawer ve listeler).
+- Erken kapama tahmini gecikmiş taksitlerde vadesi geçmiş dönem faizi + biriken gecikme faizini de içerir.
+
+### Added — yinelenen gelir/gider
+
+- Gelir ve gider formlarında **Yinelenen** seçeneği (günlük / haftalık / aylık / yıllık); plan tarihi ilk yinelenme.
+- Yinelenen kayıtlar otomatik **gerçekleşmiş** sayılır; bakiye, panel grafikleri ve borç karşılama projeksiyonunda genişletilir.
+- Borç karşılama vadeleri kredi + taksitli avans + kredi kartı asgari ödemesini kapsar.
+
 ### Added — gömülü favicon
 
 - Sekme ikonu SVG data URI olarak koda gömülü; `file://` ve tek dosya build'de harici favicon dosyası gerekmez.

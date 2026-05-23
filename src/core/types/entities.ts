@@ -1,3 +1,4 @@
+import { RecurrenceIntervals } from '@/core/types/recurrence'
 import { z } from 'zod'
 
 const Iso = z.string().min(1)
@@ -321,6 +322,8 @@ export const IncomeSchema = z
     plannedDate: Iso,
     /** Gerçek tahsil tarihi (ISO) — doluysa "gerçekleşti" */
     actualDate: Iso.optional(),
+    /** Yinelenme aralığı; doluysa kayıt otomatik gerçekleşmiş sayılır. */
+    recurrence: z.enum(RecurrenceIntervals).optional(),
     description: z.string().optional(),
     notes: z.string().optional(),
     archived: z.boolean().optional(),
@@ -342,6 +345,7 @@ export const ExpenseSchema = z
     amount: z.number().positive(),
     plannedDate: Iso,
     actualDate: Iso.optional(),
+    recurrence: z.enum(RecurrenceIntervals).optional(),
     description: z.string().optional(),
     notes: z.string().optional(),
     archived: z.boolean().optional(),

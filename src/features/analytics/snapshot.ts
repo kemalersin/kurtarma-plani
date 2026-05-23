@@ -27,10 +27,12 @@ import type { AccountMovement } from '@/features/cashflow/movements'
 import {
   buildScheduleForLoan,
   paidThroughIndex,
+  remainingDebtForLoan,
 } from '@/features/debts/loanHelpers'
 import {
   advancePaidThroughIndex,
   buildScheduleForInstallmentAdvance,
+  remainingDebtForInstallmentAdvance,
 } from '@/features/debts/installmentAdvanceHelpers'
 
 export interface AssetSnapshot {
@@ -105,15 +107,15 @@ interface DebtSnapshotInput {
 
 export type { DebtSnapshotInput }
 
-function remainingLoanDebt(loan: Loan, loanPayments: LoanPayment[]): string {
+function remainingLoanDebt(
+  loan: Loan,
+  loanPayments: LoanPayment[],
+  asOf: string,
+): string {
   const schedule = buildScheduleForLoan(loan)
   const own = loanPayments.filter((p) => p.loanId === loan.id)
   const idx = paidThroughIndex(own)
-  return idx === 0
-    ? schedule.rows[0]?.beginningBalance ?? '0'
-    : idx >= schedule.rows.length
-      ? '0'
-      : schedule.rows[idx - 1]?.endingBalance ?? '0'
+  return remainingDebtForLoan(loan, schedule, idx, asOf, own)
 }
 
 function loanOverdueCount(loan: Loan, loanPayments: LoanPayment[], asOf: string): number {
@@ -169,15 +171,12 @@ function cashAdvanceDebtTotal(
 function remainingInstallmentAdvanceDebt(
   adv: InstallmentCashAdvance,
   installmentAdvancePayments: InstallmentCashAdvancePayment[],
+  asOf: string,
 ): string {
   const schedule = buildScheduleForInstallmentAdvance(adv)
   const own = installmentAdvancePayments.filter((p) => p.installmentAdvanceId === adv.id)
   const idx = advancePaidThroughIndex(own)
-  return idx === 0
-    ? schedule.rows[0]?.beginningBalance ?? '0'
-    : idx >= schedule.rows.length
-      ? '0'
-      : schedule.rows[idx - 1]?.endingBalance ?? '0'
+  return remainingDebtForInstallmentAdvance(adv, schedule, idx, asOf, own)
 }
 
 function installmentAdvanceOverdueCount(
@@ -210,7 +209,7 @@ export function debtTotalsByBankId(input: DebtSnapshotInput): Map<string, string
   for (const loan of input.loans) {
     if (loan.archived) continue
     if (loan.currency !== input.localCurrency) continue
-    add(loan.bankId, remainingLoanDebt(loan, input.loanPayments))
+    add(loan.bankId, remainingLoanDebt(loan, input.loanPayments, asOf))
   }
 
   for (const card of input.creditCards) {
@@ -228,7 +227,7 @@ export function debtTotalsByBankId(input: DebtSnapshotInput): Map<string, string
   for (const adv of input.installmentAdvances) {
     if (adv.archived) continue
     if (adv.currency !== input.localCurrency) continue
-    add(adv.bankId, remainingInstallmentAdvanceDebt(adv, input.installmentAdvancePayments))
+    add(adv.bankId, remainingInstallmentAdvanceDebt(adv, input.installmentAdvancePayments, asOf))
   }
 
   const result = new Map<string, string>()
@@ -240,8 +239,7 @@ export function debtTotalsByBankId(input: DebtSnapshotInput): Map<string, string
 
 /**
  * Tüm borç türleri için kalan bakiye toplayıcı. Her tip için uygun finans
- * motoru çağrılır (kredi anüite kalan, kart dönem sonu, KMH revolving ledger,
- * taksitli avans anüite kalan).
+ * motoru çağrılır (kredi/taksitli avans kalan borç, kart dönem sonu, KMH revolving ledger).
  */
 export function debtSnapshot(input: DebtSnapshotInput): DebtSnapshot {
   const asOf = input.asOf ?? new Date().toISOString()
@@ -255,7 +253,7 @@ export function debtSnapshot(input: DebtSnapshotInput): DebtSnapshot {
   for (const loan of input.loans) {
     if (loan.archived) continue
     if (loan.currency !== input.localCurrency) continue
-    loansTotal = loansTotal.plus(remainingLoanDebt(loan, input.loanPayments))
+    loansTotal = loansTotal.plus(remainingLoanDebt(loan, input.loanPayments, asOf))
     overdueCount += loanOverdueCount(loan, input.loanPayments, asOf)
   }
 
@@ -277,7 +275,7 @@ export function debtSnapshot(input: DebtSnapshotInput): DebtSnapshot {
     if (adv.archived) continue
     if (adv.currency !== input.localCurrency) continue
     iaTotal = iaTotal.plus(
-      remainingInstallmentAdvanceDebt(adv, input.installmentAdvancePayments),
+      remainingInstallmentAdvanceDebt(adv, input.installmentAdvancePayments, asOf),
     )
     overdueCount += installmentAdvanceOverdueCount(
       adv,

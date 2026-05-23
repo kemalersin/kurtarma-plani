@@ -5,6 +5,10 @@ import { Popover, Badge, Button, Select, DatePicker } from 'ant-design-vue'
 import { FilterOutlined } from '@ant-design/icons-vue'
 import type { AnalyticsFilterState } from '@/composables/useAnalyticsFilters'
 import type { AnalyticsData } from '@/features/analytics/useAnalyticsData'
+import {
+  buildBankGroupedAccountOptions,
+  filterBankGroupedAccountOption,
+} from '@/features/admin/accountSelectOptions'
 
 const props = defineProps<{
   filters: AnalyticsFilterState
@@ -33,15 +37,27 @@ const bankOptions = computed(() =>
 )
 
 const endpointOptions = computed(() => {
-  const accounts = props.data.accounts.map((a) => ({
-    value: `acc:${a.id}`,
-    label: a.name,
+  const accountGroups = buildBankGroupedAccountOptions(
+    props.data.accounts,
+    props.data.banks,
+  ).map((group) => ({
+    label: group.label,
+    options: group.options.map((opt) => ({
+      value: `acc:${opt.value}`,
+      label: opt.label,
+      bankName: opt.bankName,
+    })),
   }))
-  const registers = props.data.registers.map((r) => ({
-    value: `reg:${r.id}`,
-    label: r.name,
-  }))
-  return [...accounts, ...registers]
+  const registerGroup = {
+    label: 'Kasalar',
+    options: props.data.registers.map((r) => ({
+      value: `reg:${r.id}`,
+      label: r.name,
+    })),
+  }
+  return registerGroup.options.length > 0
+    ? [...accountGroups, registerGroup]
+    : accountGroups
 })
 
 const categoryOptions = computed(() => {
@@ -115,7 +131,7 @@ function clearFilters(): void {
             placeholder="Tümü"
             allow-clear
             show-search
-            option-filter-prop="label"
+            :filter-option="filterBankGroupedAccountOption"
             :options="endpointOptions"
             @update:value="(v) => (filters.endpointId.value = String(v ?? ''))"
           />

@@ -6,7 +6,6 @@ import {
   Input,
   Textarea,
   DatePicker,
-  Switch,
   RadioGroup,
   Space,
   Button,
@@ -21,6 +20,8 @@ import {
   sensitiveSaveOptions,
 } from '@/composables/useSensitiveEntityForm'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
+import RecurrenceFormFields from '@/components/RecurrenceFormFields.vue'
+import BankAccountSelect from '@/components/BankAccountSelect.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
 import AccountFormDrawer from '@/features/admin/AccountFormDrawer.vue'
 import CashRegisterFormDrawer from '@/features/admin/CashRegisterFormDrawer.vue'
@@ -34,6 +35,7 @@ import type {
   Expense,
   ExpenseType,
 } from '@/core/types/entities'
+import type { RecurrenceInterval } from '@/core/types/recurrence'
 
 interface Props {
   open: boolean
@@ -67,6 +69,8 @@ interface Form {
   notes: string
   archived: boolean
   sensitive: boolean
+  recurring: boolean
+  recurrence: RecurrenceInterval | undefined
 }
 
 function emptyForm(): Form {
@@ -82,6 +86,8 @@ function emptyForm(): Form {
     description: '',
     notes: '',
     archived: false,
+    recurring: false,
+    recurrence: undefined,
     ...emptySensitiveFields(),
   }
 }
@@ -114,6 +120,8 @@ watch(
         notes: props.expense.notes ?? '',
         archived: !!props.expense.archived,
         sensitive: readSensitiveDraft('expense', props.expense.id),
+        recurring: !!props.expense.recurrence,
+        recurrence: props.expense.recurrence,
       })
     } else {
       Object.assign(draft, emptyForm())
@@ -126,6 +134,19 @@ watch(
   (kind) => {
     if (kind === 'account') draft.cashRegisterId = undefined
     else draft.accountId = undefined
+  },
+)
+
+watch(
+  () => draft.recurring,
+  (recurring) => {
+    if (recurring) {
+      draft.realized = false
+      draft.actualDate = undefined
+      if (!draft.recurrence) draft.recurrence = 'monthly'
+    } else {
+      draft.recurrence = undefined
+    }
   },
 )
 
@@ -162,7 +183,11 @@ async function submit(): Promise<void> {
     message.error('Tutar sıfırdan büyük olmalı.')
     return
   }
-  if (draft.realized && !draft.actualDate) {
+  if (draft.recurring && !draft.recurrence) {
+    message.error('Yinelenme aralığı seçin.')
+    return
+  }
+  if (!draft.recurring && draft.realized && !draft.actualDate) {
     message.error('Ödeme tarihi gerekli.')
     return
   }
@@ -177,7 +202,8 @@ async function submit(): Promise<void> {
       currency: props.expense?.currency ?? profileCurrency(),
       amount: Number(draft.amount),
       plannedDate: draft.plannedDate.toISOString(),
-      actualDate: draft.realized ? draft.actualDate!.toISOString() : undefined,
+      actualDate: draft.recurring ? undefined : draft.realized ? draft.actualDate!.toISOString() : undefined,
+      recurrence: draft.recurring ? draft.recurrence : undefined,
       description: draft.description.trim() || undefined,
       notes: draft.notes.trim() || undefined,
       archived: draft.archived || undefined,
@@ -223,9 +249,9 @@ function close(): void {
       </FormItem>
 
       <FormItem v-if="draft.sourceKind === 'account'" label="Banka hesabı" required>
-        <SelectWithCreate
+        <BankAccountSelect
           v-model:value="draft.accountId"
-          :options="accounts"
+          :accounts="accounts"
           placeholder="Hesap seçin"
           create-label="Yeni hesap"
           @create="accountDrawerOpen = true"
@@ -253,11 +279,13 @@ function close(): void {
         <DatePicker v-model:value="draft.plannedDate" style="width: 100%" />
       </FormItem>
 
-      <FormItem label="Gerçekleşti">
-        <Switch v-model:checked="draft.realized" />
-      </FormItem>
+      <RecurrenceFormFields
+        v-model:recurring="draft.recurring"
+        v-model:interval="draft.recurrence"
+        v-model:realized="draft.realized"
+      />
 
-      <FormItem v-if="draft.realized" label="Ödeme tarihi" required>
+      <FormItem v-if="!draft.recurring && draft.realized" label="Ödeme tarihi" required>
         <DatePicker
           v-model:value="draft.actualDate"
           :disabled-date="disableFutureDates"

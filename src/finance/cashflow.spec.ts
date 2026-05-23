@@ -23,6 +23,11 @@ describe('cashflowStatus', () => {
   it('vade 1 ay sonra → upcoming', () => {
     expect(cashflowStatus({ plannedDate: '2026-06-30' }, today)).toBe('upcoming')
   })
+  it('yinelenen kayıt → realized', () => {
+    expect(
+      cashflowStatus({ plannedDate: '2026-12-01', recurrence: 'monthly' }, today),
+    ).toBe('realized')
+  })
 })
 
 describe('sumByDateRange', () => {

@@ -28,14 +28,7 @@ import {
 } from '@/features/analytics/series'
 import { computeDebtCoverage, sumByDateRange, cashflowStatus, type DebtCoverage } from '@/finance/cashflow'
 import { D } from '@/finance/decimal'
-import {
-  buildScheduleForLoan,
-  paidThroughIndex,
-} from '@/features/debts/loanHelpers'
-import {
-  advancePaidThroughIndex,
-  buildScheduleForInstallmentAdvance,
-} from '@/features/debts/installmentAdvanceHelpers'
+import { collectDebtDueEntries } from '@/features/analytics/debtDueEntries'
 import type {
   Account,
   CashAdvanceAccount,
@@ -171,36 +164,18 @@ export function useDashboardData(): {
   })
 
   /**
-   * Ödenmemiş kredi + taksitli avans taksitleri (gecikmiş dahil).
-   * Borç karşılama hesabında gecikmiş vadeler de dahil edilir.
+   * Ödenmemiş borç vadeleri (kredi, taksitli avans, KK asgari).
    */
   const unpaidInstallmentEntries = computed(() => {
-    const out: { dueDate: string; amount: number }[] = []
-    for (const loan of loans.value) {
-      if (loan.archived) continue
-      if (loan.currency !== localCurrency.value) continue
-      const schedule = buildScheduleForLoan(loan)
-      const own = loanPayments.value.filter((p) => p.loanId === loan.id)
-      const idx = paidThroughIndex(own)
-      for (const row of schedule.rows) {
-        if (row.index <= idx) continue
-        out.push({ dueDate: row.dueDate, amount: Number(row.installment) })
-      }
-    }
-    for (const adv of installmentAdvances.value) {
-      if (adv.archived) continue
-      if (adv.currency !== localCurrency.value) continue
-      const schedule = buildScheduleForInstallmentAdvance(adv)
-      const own = installmentAdvancePayments.value.filter(
-        (p) => p.installmentAdvanceId === adv.id,
-      )
-      const idx = advancePaidThroughIndex(own)
-      for (const row of schedule.rows) {
-        if (row.index <= idx) continue
-        out.push({ dueDate: row.dueDate, amount: Number(row.installment) })
-      }
-    }
-    return out
+    return collectDebtDueEntries({
+      loans: loans.value,
+      loanPayments: loanPayments.value,
+      creditCards: creditCards.value,
+      creditCardTransactions: creditCardTransactions.value,
+      installmentAdvances: installmentAdvances.value,
+      installmentAdvancePayments: installmentAdvancePayments.value,
+      localCurrency: localCurrency.value,
+    })
   })
 
   /**

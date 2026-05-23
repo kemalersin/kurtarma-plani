@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { notifySyncLocalChange } from '@/core/services/sync/sync-scheduler'
 import { EncryptedRepo } from '@/core/db/encrypted-repo'
 import type { AiProviderConfig, AiSettings } from '@/core/types/ai-settings'
 import {
@@ -63,6 +64,10 @@ function emptyChat(now: string): ChatSession {
 
 function emptyUsageTotals(): ChatSessionUsage {
   return { inputTokens: 0, outputTokens: 0, costUsd: 0 }
+}
+
+function plainChatSession(session: ChatSession): ChatSession {
+  return JSON.parse(JSON.stringify(session)) as ChatSession
 }
 
 function sumSessionUsageEntries(entries: AiUsageEntry[]): ChatSessionUsage {
@@ -227,7 +232,7 @@ export const useAiStore = defineStore('ai', () => {
 
   async function persistChat(next: ChatSession): Promise<void> {
     const now = new Date().toISOString()
-    const entity = { ...next, updatedAt: now }
+    const entity = plainChatSession({ ...next, updatedAt: now })
     await repo().put({
       id: ACTIVE_CHAT_ID,
       type: 'chatSession',
@@ -472,6 +477,22 @@ export const useAiStore = defineStore('ai', () => {
     await persistChat(emptyChat(now))
   }
 
+  async function markProposalApplied(messageId: string, bundleKey: string): Promise<void> {
+    const session = chat.value
+    if (!session) return
+    const messages = session.messages.map((m) => {
+      if (m.id !== messageId) return m
+      const keys = m.appliedProposalKeys ?? []
+      if (keys.includes(bundleKey)) return m
+      return {
+        ...m,
+        appliedProposalKeys: [...keys, bundleKey],
+      }
+    })
+    await persistChat({ ...session, messages })
+    notifySyncLocalChange()
+  }
+
   const totalUsageCost = computed(() =>
     usageEntries.value.reduce((sum, e) => sum + e.costUsd, 0),
   )
@@ -504,6 +525,7 @@ export const useAiStore = defineStore('ai', () => {
     sendMessage,
     clearChat,
     stopStreaming,
+    markProposalApplied,
     newProviderDraft,
   }
 })

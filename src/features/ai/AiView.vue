@@ -360,6 +360,7 @@ function onKeydown(event: KeyboardEvent): void {
               <AiProposalPanel
                 v-for="(bundle, index) in messageProposals(msg.content)"
                 :key="`${msg.id}-proposal-${index}`"
+                :message-id="msg.id"
                 :bundle="bundle"
               />
               <Typography.Text

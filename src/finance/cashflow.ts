@@ -1,5 +1,8 @@
 import { D, roundMoney, type DecimalInput } from '@/finance/decimal'
 
+import type { RecurrenceInterval } from '@/core/types/recurrence'
+import { isRecurringCashflow, iterateCashflowOccurrences, sumCashflowOccurrences } from '@/finance/recurrence'
+
 /**
  * Bir gelir veya gider hareketinin **vade durumu**:
  *   - `realized`  → fiili tarihi var (gerçekleşti)
@@ -12,12 +15,15 @@ export type CashflowStatus = 'realized' | 'overdue' | 'due' | 'upcoming'
 export interface CashflowItemLike {
   plannedDate: string
   actualDate?: string
+  recurrence?: RecurrenceInterval
+  archived?: boolean
 }
 
 export function cashflowStatus(
   item: CashflowItemLike,
   asOf: Date = new Date(),
 ): CashflowStatus {
+  if (item.recurrence) return 'realized'
   if (item.actualDate) return 'realized'
   const due = new Date(item.plannedDate)
   const ms = due.getTime() - asOf.getTime()
@@ -50,22 +56,23 @@ export interface SumOptions {
 
 /** Bir item kümesinin verili aralıkta toplam tutarı. */
 export function sumByDateRange(
-  items: { plannedDate: string; actualDate?: string; amount: DecimalInput }[],
+  items: {
+    plannedDate: string
+    actualDate?: string
+    amount: DecimalInput
+    archived?: boolean
+    recurrence?: RecurrenceInterval
+  }[],
   options: SumOptions = {},
 ): string {
-  const basis = options.basis ?? 'plan'
-  let total = D(0)
-  for (const it of items) {
-    let date: string | undefined
-    if (basis === 'plan') date = it.plannedDate
-    else if (basis === 'actual') date = it.actualDate
-    else date = it.actualDate ?? it.plannedDate
-    if (!date) continue
-    if (!inRange(date, options.from, options.to)) continue
-    total = total.plus(it.amount)
-  }
-  return roundMoney(total).toString()
+  return sumCashflowOccurrences(items, {
+    from: options.from,
+    to: options.to,
+    basis: options.basis ?? 'plan',
+  })
 }
+
+export { isRecurringCashflow, iterateCashflowOccurrences, sumCashflowOccurrences }
 
 export interface DebtCoverageInput {
   /** Bugünkü nakit (hesap + kasa toplamı) */

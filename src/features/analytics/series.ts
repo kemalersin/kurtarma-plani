@@ -3,6 +3,7 @@
  * UI bağımsız; ECharts'a doğrudan yedirilecek `{ months[], values[] }` döner.
  */
 import { D, roundMoney, type DecimalInput } from '@/finance/decimal'
+import { iterateCashflowOccurrences } from '@/finance/recurrence'
 import type {
   Expense,
   Income,
@@ -63,27 +64,28 @@ export function monthlyCashflowSeries(
     expenseMap.set(m, D(0))
   }
 
-  function pick(it: { plannedDate: string; actualDate?: string }): string | undefined {
-    if (basis === 'plan') return it.plannedDate
-    if (basis === 'actual') return it.actualDate
-    return it.actualDate ?? it.plannedDate
+  function addToMap(
+    map: Map<string, ReturnType<typeof D>>,
+    item: Income | Expense,
+  ): void {
+    for (const occ of iterateCashflowOccurrences(item, {
+      from: range.from,
+      to: range.to,
+      basis,
+    })) {
+      const k = monthKey(occ.date)
+      if (!map.has(k)) continue
+      map.set(k, map.get(k)!.plus(occ.amount))
+    }
   }
 
   for (const inc of incomes) {
     if (inc.archived) continue
-    const date = pick(inc)
-    if (!date) continue
-    const k = monthKey(date)
-    if (!incomeMap.has(k)) continue
-    incomeMap.set(k, incomeMap.get(k)!.plus(inc.amount))
+    addToMap(incomeMap, inc)
   }
   for (const exp of expenses) {
     if (exp.archived) continue
-    const date = pick(exp)
-    if (!date) continue
-    const k = monthKey(date)
-    if (!expenseMap.has(k)) continue
-    expenseMap.set(k, expenseMap.get(k)!.plus(exp.amount))
+    addToMap(expenseMap, exp)
   }
 
   const income = months.map((m) => Number(roundMoney(incomeMap.get(m) ?? D(0))))
@@ -98,20 +100,9 @@ export interface CategoryBreakdownItem {
 }
 
 /**
- * Aralık filtresi: kayıt `effective` tarihi (actualDate ?? plannedDate)
- * `range.from`–`range.to` içinde mi?
+ * Kategori donut — yinelenen kayıtlar aralıkta genişletilir.
  */
-function inDateRange(
-  item: { plannedDate?: string; actualDate?: string },
-  range?: { from: string; to: string },
-): boolean {
-  if (!range) return true
-  const d = item.actualDate ?? item.plannedDate
-  if (!d) return false
-  return d >= range.from && d <= range.to
-}
-
-function breakdown<T extends { amount: DecimalInput; archived?: boolean }>(
+function breakdown<T extends { amount: DecimalInput; archived?: boolean; plannedDate: string; actualDate?: string; recurrence?: Income['recurrence'] }>(
   items: T[],
   getTypeId: (it: T) => string | undefined,
   types: { id: string; name: string }[],
@@ -123,11 +114,15 @@ function breakdown<T extends { amount: DecimalInput; archived?: boolean }>(
 
   for (const it of items) {
     if (it.archived) continue
-    if (!inDateRange(it as { plannedDate?: string; actualDate?: string }, range))
-      continue
+    const occurrences = range
+      ? iterateCashflowOccurrences(it, { from: range.from, to: range.to, basis: 'effective' })
+      : iterateCashflowOccurrences(it, { basis: 'effective' })
+    if (occurrences.length === 0) continue
     const id = getTypeId(it) ?? '__none'
     if (!totals.has(id)) totals.set(id, D(0))
-    totals.set(id, totals.get(id)!.plus(it.amount))
+    for (const occ of occurrences) {
+      totals.set(id, totals.get(id)!.plus(occ.amount))
+    }
   }
 
   const out: CategoryBreakdownItem[] = []

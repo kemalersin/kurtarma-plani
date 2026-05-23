@@ -11,7 +11,7 @@ import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { Bank, Loan, LoanPayment } from '@/core/types/entities'
 import { adminPrimaryNameColumn } from '@/features/admin/admin-list-columns'
-import { buildScheduleForLoan, paidThroughIndex } from './loanHelpers'
+import { buildScheduleForLoan, paidThroughIndex, remainingDebtForLoan } from './loanHelpers'
 
 const entities = useEntitiesStore()
 const { formatCurrency } = useLocaleFormatters()
@@ -91,12 +91,7 @@ const summaryCache = computed<Map<string, LoanSummary>>(() => {
     const schedule = buildScheduleForLoan(loan)
     const own = payments.value.filter((p) => p.loanId === loan.id)
     const idx = paidThroughIndex(own)
-    const remaining =
-      idx === 0
-        ? schedule.rows[0]!.beginningBalance
-        : idx >= schedule.rows.length
-          ? '0'
-          : schedule.rows[idx - 1]!.endingBalance
+    const remaining = remainingDebtForLoan(loan, schedule, idx, undefined, own)
 
     const today = new Date()
     const overdue = schedule.rows.filter((r) => {
@@ -171,7 +166,7 @@ const filters = computed<ListFilter<Loan>[]>(() => [
   {
     kind: 'numberRange',
     key: 'remaining',
-    label: 'Kalan',
+    label: 'Kalan borç',
     numberKind: 'currency',
     getValue: (loan) => Number(summary(loan).remaining),
   },
@@ -222,7 +217,7 @@ const columns = computed<TableColumnType<Loan>[]>(() => [
   },
   {
     key: 'remaining',
-    title: 'Kalan',
+    title: 'Kalan borç',
     align: 'right',
     customRender: ({ record }) =>
       formatCurrency(summary(record as Loan).remaining, (record as Loan).currency),

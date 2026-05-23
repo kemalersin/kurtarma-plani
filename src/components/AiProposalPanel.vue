@@ -1,26 +1,35 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import { Alert, Button, List, Popconfirm, Space, Typography, message } from 'ant-design-vue'
 import { DatabaseOutlined } from '@ant-design/icons-vue'
 import { useAiProposalApply } from '@/composables/useAiProposalApply'
-import { proposalItemLabel } from '@/features/ai/proposals/labels'
+import { summarizeProposalItems } from '@/features/ai/proposals/labels'
+import { proposalBundleKey } from '@/features/ai/proposals/parse'
 import type { AiProposalBundle } from '@/features/ai/proposals/types'
+import { useAiStore } from '@/stores/ai'
 
 const props = defineProps<{
+  messageId: string
   bundle: AiProposalBundle
 }>()
 
+const ai = useAiStore()
+const { chat } = storeToRefs(ai)
 const { apply } = useAiProposalApply()
 const applying = ref(false)
-const applied = ref(false)
+const appliedLocally = ref(false)
 const lastError = ref<string | null>(null)
 
-const summaryItems = computed(() =>
-  props.bundle.items.map((item) => ({
-    key: `${item.type}-${item.ref ?? item.data.name ?? Math.random()}`,
-    label: proposalItemLabel(item.type, item.data),
-  })),
-)
+const bundleKey = computed(() => proposalBundleKey(props.bundle))
+
+const isApplied = computed(() => {
+  if (appliedLocally.value) return true
+  const msg = chat.value?.messages.find((m) => m.id === props.messageId)
+  return msg?.appliedProposalKeys?.includes(bundleKey.value) ?? false
+})
+
+const summaryItems = computed(() => summarizeProposalItems(props.bundle.items))
 
 async function onApply(): Promise<void> {
   applying.value = true
@@ -28,8 +37,9 @@ async function onApply(): Promise<void> {
   try {
     const result = await apply(props.bundle)
     if (result.created.length) {
+      appliedLocally.value = true
       message.success(`${result.created.length} kayıt eklendi.`)
-      applied.value = true
+      await ai.markProposalApplied(props.messageId, bundleKey.value)
     }
     if (result.errors.length) {
       lastError.value = result.errors.join('\n')
@@ -71,14 +81,14 @@ async function onApply(): Promise<void> {
         title="Önerilen kayıtlar profilinize eklensin mi?"
         ok-text="Ekle"
         cancel-text="Vazgeç"
-        :disabled="applied || applying"
+        :disabled="isApplied || applying"
         @confirm="onApply"
       >
-        <Button type="primary" size="small" :loading="applying" :disabled="applied">
-          {{ applied ? 'Eklendi' : 'Kayıtları ekle' }}
+        <Button type="primary" size="small" :loading="applying" :disabled="isApplied">
+          {{ isApplied ? 'Eklendi' : 'Kayıtları ekle' }}
         </Button>
       </Popconfirm>
-      <Typography.Text v-if="applied" type="secondary" class="kp-ai-proposals__done">
+      <Typography.Text v-if="isApplied" type="secondary" class="kp-ai-proposals__done">
         Veritabanına yazıldı.
       </Typography.Text>
     </Space>

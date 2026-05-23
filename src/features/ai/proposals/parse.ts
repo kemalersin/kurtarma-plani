@@ -23,6 +23,11 @@ function bundleFromRaw(raw: unknown): AiProposalBundle | null {
   }
 }
 
+/** Proposal uygulama durumunu kalıcı eşleştirmek için kararlı anahtar. */
+export function proposalBundleKey(bundle: AiProposalBundle): string {
+  return JSON.stringify(bundle)
+}
+
 /** Asistan mesajından tüm geçerli proposal bloklarını çıkarır. */
 export function extractProposalBundles(source: string): AiProposalBundle[] {
   const bundles: AiProposalBundle[] = []
@@ -35,7 +40,7 @@ export function extractProposalBundles(source: string): AiProposalBundle[] {
     const raw = tryParseJson(body)
     const bundle = bundleFromRaw(raw)
     if (!bundle) continue
-    const key = JSON.stringify(bundle)
+    const key = proposalBundleKey(bundle)
     if (seen.has(key)) continue
     seen.add(key)
     bundles.push(bundle)

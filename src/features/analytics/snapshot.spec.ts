@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { assetSnapshot, debtSnapshot, debtTotalsByBankId, netWorth } from './snapshot'
 import type { AccountMovement } from '@/features/cashflow/movements'
+import { buildScheduleForLoan, remainingDebtForLoan } from '@/features/debts/loanHelpers'
 import type {
   Account,
   CashRegister,
@@ -82,7 +83,7 @@ describe('debtSnapshot', () => {
     expect(snap.overdueCount).toBe(0)
   })
 
-  it('kredi anapara kalanını ekler', () => {
+  it('kredi kalan borcunu ekler (ödenmemiş taksitler + gecikme faizi)', () => {
     const loan: Loan = {
       id: 'l1',
       bankId: 'b1',
@@ -97,6 +98,8 @@ describe('debtSnapshot', () => {
       createdAt: ISO,
       updatedAt: ISO,
     } as Loan
+    const schedule = buildScheduleForLoan(loan)
+    const expected = remainingDebtForLoan(loan, schedule, 0, ISO)
     const snap = debtSnapshot({
       loans: [loan],
       loanPayments: [],
@@ -107,9 +110,10 @@ describe('debtSnapshot', () => {
       installmentAdvances: [],
       installmentAdvancePayments: [],
       localCurrency: 'TRY',
+      asOf: ISO,
     })
-    expect(Number(snap.byType.loans)).toBeGreaterThanOrEqual(11900)
-    expect(Number(snap.byType.loans)).toBeLessThanOrEqual(12000)
+    expect(snap.byType.loans).toBe(expected)
+    expect(Number(snap.byType.loans)).toBeGreaterThan(12000)
     expect(snap.breakdown.find((b) => b.name === 'Krediler')).toBeDefined()
   })
 
@@ -144,7 +148,7 @@ describe('debtSnapshot', () => {
 })
 
 describe('debtTotalsByBankId', () => {
-  it('banka başına kredi kalanını toplar', () => {
+  it('banka başına kredi kalan borcunu toplar', () => {
     const loan: Loan = {
       id: 'l1',
       bankId: 'b1',

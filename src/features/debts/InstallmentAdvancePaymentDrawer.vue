@@ -8,6 +8,7 @@ import {
   Button,
   Space,
   Alert,
+  Switch,
   message,
 } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
@@ -26,6 +27,8 @@ import type {
 import type { ScheduleRow } from '@/finance/loan'
 import { computeLateFee, lateDays } from '@/finance/loan'
 import { D } from '@/finance/decimal'
+import { isInstallmentUpcoming, canMarkInstallmentAsPaid } from './installmentDisplay'
+import { advancePaidThroughIndex } from './installmentAdvanceHelpers'
 
 interface Props {
   open: boolean
@@ -88,6 +91,24 @@ const draft = reactive<Form>({
   notes: '',
 })
 const saving = ref(false)
+const markAsPaid = ref(false)
+
+const isUpcoming = computed(() =>
+  props.row ? isInstallmentUpcoming(props.row.dueDate) : false,
+)
+
+const advanceOwnPayments = computed(() => {
+  if (!props.advance) return []
+  return allPayments.value.filter((p) => p.installmentAdvanceId === props.advance!.id)
+})
+
+const paidThrough = computed(() => advancePaidThroughIndex(advanceOwnPayments.value))
+
+const canMarkAsPaid = computed(() =>
+  props.row ? canMarkInstallmentAsPaid(props.row.index, paidThrough.value) : false,
+)
+
+const showPaidToggle = computed(() => canMarkAsPaid.value && !props.existing?.paidDate)
 
 const lateFee = computed<string>(() => {
   if (!props.advance || !props.row || !draft.paidDate) return '0'
@@ -125,16 +146,28 @@ watch(
   ([open]) => {
     if (!open) return
     if (props.existing?.paidDate) {
+      markAsPaid.value = true
       draft.paidDate = dayjs(props.existing.paidDate)
-      // Sonraki ödemeler varsa tutar plan taksitine kilitlenir.
       draft.paidAmount = hasLaterPayments.value
         ? Number(props.row?.installment ?? 0)
         : (props.existing.paidAmount ?? Number(props.row?.installment ?? 0))
       draft.sourceAccountId = props.existing.sourceAccountId
       draft.sourceCashRegisterId = props.existing.sourceCashRegisterId
       draft.notes = props.existing.notes ?? ''
+    } else if (props.existing) {
+      markAsPaid.value = false
+      draft.paidDate = undefined
+      draft.paidAmount =
+        props.existing.scheduledAmount ?? Number(props.row?.installment ?? 0)
+      draft.sourceAccountId = props.existing.sourceAccountId
+      draft.sourceCashRegisterId = props.existing.sourceCashRegisterId
+      draft.notes = props.existing.notes ?? ''
     } else {
-      draft.paidDate = dayjs()
+      markAsPaid.value =
+        canMarkAsPaid.value && props.row
+          ? !isInstallmentUpcoming(props.row.dueDate)
+          : false
+      draft.paidDate = markAsPaid.value ? dayjs() : undefined
       draft.paidAmount = Number(props.row?.installment ?? 0)
       draft.sourceAccountId = undefined
       draft.sourceCashRegisterId = undefined
@@ -143,10 +176,26 @@ watch(
   },
 )
 
+watch(markAsPaid, (paid) => {
+  if (!props.open) return
+  if (!canMarkAsPaid.value && !props.existing?.paidDate) {
+    markAsPaid.value = false
+    return
+  }
+  if (paid && !draft.paidDate) {
+    draft.paidDate = dayjs()
+  }
+  if (!paid) {
+    draft.paidDate = undefined
+    draft.sourceAccountId = undefined
+    draft.sourceCashRegisterId = undefined
+  }
+})
+
 watch(
   () => draft.paidDate,
   () => {
-    if (!props.row) return
+    if (!props.row || !markAsPaid.value) return
     draft.paidAmount = hasLaterPayments.value
       ? Number(props.row.installment)
       : Number(totalDue.value)
@@ -155,6 +204,33 @@ watch(
 
 async function submit(): Promise<void> {
   if (!props.advance || !props.row) return
+
+  if (!markAsPaid.value) {
+    saving.value = true
+    try {
+      await entities.save<InstallmentCashAdvancePayment>(
+        'installmentCashAdvancePayment',
+        {
+          id: props.existing?.id,
+          installmentAdvanceId: props.advance.id,
+          installmentIndex: props.row.index,
+          dueDate: props.row.dueDate,
+          scheduledAmount: Number(draft.paidAmount),
+          notes: draft.notes.trim() || undefined,
+        },
+      )
+      message.success('Taksit tutarı güncellendi.')
+      emit('saved')
+      emit('update:open', false)
+    } catch (error) {
+      console.error(error)
+      message.error(error instanceof Error ? error.message : 'Kaydedilemedi.')
+    } finally {
+      saving.value = false
+    }
+    return
+  }
+
   if (!draft.paidDate) {
     message.error('Ödeme tarihi gerekli.')
     return
@@ -224,7 +300,13 @@ function close(): void {
   <FormDrawer
     stack-id="installment-advance-payment"
     :open="open"
-    :title="row ? `Taksit #${row.index} ödemesi` : 'Taksit ödemesi'"
+    :title="
+      row
+        ? markAsPaid || !isUpcoming
+          ? `Taksit #${row.index} ödemesi`
+          : `Taksit #${row.index} — tutar`
+        : 'Taksit'
+    "
     width="min(560px, 100vw)"
     :mask-closable="!saving"
     @update:open="emit('update:open', $event)"
@@ -240,7 +322,11 @@ function close(): void {
       />
 
       <Form layout="vertical" :colon="false" @submit.prevent="submit">
+        <FormItem v-if="showPaidToggle" label="Ödendi olarak işaretle">
+          <Switch v-model:checked="markAsPaid" />
+        </FormItem>
         <FormItem
+          v-if="markAsPaid"
           label="Ödeme tarihi"
           required
           :extra="
@@ -256,7 +342,7 @@ function close(): void {
           />
         </FormItem>
         <FormItem
-          label="Ödenen tutar"
+          :label="markAsPaid ? 'Ödenen tutar' : 'Taksit tutarı'"
           :extra="
             hasLaterPayments
               ? 'Sonraki taksit ödemeleri olduğu için tutar plan taksitine eşitlenir.'
@@ -271,6 +357,7 @@ function close(): void {
           />
         </FormItem>
         <PaymentSourcePicker
+          v-if="markAsPaid"
           v-model:accountId="draft.sourceAccountId"
           v-model:cashRegisterId="draft.sourceCashRegisterId"
           hint="Boş bırakılırsa cashflow bakiyesinden düşmez."
@@ -281,19 +368,19 @@ function close(): void {
       </Form>
 
       <Alert
-        v-if="lateDaysCount > 0"
+        v-if="markAsPaid && lateDaysCount > 0"
         type="warning"
         show-icon
         :message="`Gecikme faizi: ${formatMoney(lateFee)}`"
         :description="`Önerilen toplam: ${formatMoney(totalDue)}`"
       />
 
-      <div v-if="existing" class="kp-form-drawer-danger-row">
+      <div v-if="existing?.paidDate" class="kp-form-drawer-danger-row">
         <KpTooltip
           :title="
             hasLaterPayments
               ? 'Sonraki taksitler ödenmiş olduğu için bu ödeme silinemez. Önce sonraki taksit ödemelerini kaldırın.'
-              : 'Bu ödeme kaydını sil'
+              : 'Bu kaydı kaldır'
           "
         >
           <span>

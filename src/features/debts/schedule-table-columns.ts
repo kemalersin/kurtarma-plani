@@ -37,7 +37,7 @@ export function buildScheduleDrawerColumns(
     },
     {
       key: 'endingBalance',
-      title: 'Kalan',
+      title: 'Kalan anapara',
       align: 'right',
       minWidth: 120,
       customRender: ({ record }) => formatMoney(record.endingBalance),
