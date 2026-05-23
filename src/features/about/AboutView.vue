@@ -242,17 +242,12 @@ const techStack = [
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 72px;
-  height: 72px;
-  border-radius: 16px;
-  background: rgba(22, 119, 255, 0.12);
   color: #1677ff;
-  font-size: 36px;
+  font-size: 56px;
   flex-shrink: 0;
 }
 
 [data-theme='dark'] .kp-about__brand {
-  background: rgba(22, 119, 255, 0.22);
   color: #4096ff;
 }
 
@@ -361,9 +356,7 @@ const techStack = [
   }
 
   .kp-about__brand {
-    width: 56px;
-    height: 56px;
-    font-size: 28px;
+    font-size: 44px;
   }
 }
 </style>

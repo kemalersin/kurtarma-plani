@@ -347,7 +347,7 @@ function gotoCrumb(name?: string): void {
 .kp-sider__brand-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 18px;
   font-weight: 600;
   color: var(--kp-brand, #1677ff);
@@ -355,6 +355,10 @@ function gotoCrumb(name?: string): void {
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.2;
+}
+
+.kp-sider__brand-title :deep(.kp-brand-mark) {
+  font-size: 26px;
 }
 
 .kp-sider__brand-title > span {
