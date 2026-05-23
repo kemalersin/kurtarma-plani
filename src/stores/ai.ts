@@ -83,6 +83,53 @@ function sumSessionUsageEntries(entries: AiUsageEntry[]): ChatSessionUsage {
     )
 }
 
+function resolveChatProviderId(
+  providers: AiProviderConfig[],
+  chatProviderId: string | undefined,
+  legacyActiveProviderId: string | undefined,
+): string | undefined {
+  if (chatProviderId && providers.some((p) => p.id === chatProviderId)) {
+    return chatProviderId
+  }
+  if (
+    legacyActiveProviderId &&
+    providers.some((p) => p.id === legacyActiveProviderId)
+  ) {
+    return legacyActiveProviderId
+  }
+  if (providers.length === 1) return providers[0]?.id
+  return undefined
+}
+
+function withResolvedChatProvider(
+  session: ChatSession,
+  providers: AiProviderConfig[],
+  legacyActiveProviderId?: string,
+): ChatSession {
+  const providerId = resolveChatProviderId(
+    providers,
+    session.providerId,
+    legacyActiveProviderId,
+  )
+  if (!providerId) {
+    if (!session.providerId) return session
+    const { providerId: _removed, modelId: _model, ...rest } = session
+    return rest as ChatSession
+  }
+  const provider = providers.find((p) => p.id === providerId)
+  if (
+    session.providerId === providerId &&
+    session.modelId === provider?.defaultModelId
+  ) {
+    return session
+  }
+  return {
+    ...session,
+    providerId,
+    modelId: provider?.defaultModelId,
+  }
+}
+
 export const useAiStore = defineStore('ai', () => {
   const profileStore = useProfileStore()
   const modelsCatalogStore = useModelsCatalogStore()
@@ -128,6 +175,21 @@ export const useAiStore = defineStore('ai', () => {
         })
       }
     }
+    const settingsData = settings.value ?? defaultSettingsEntity(now)
+    const resolvedChat = withResolvedChatProvider(
+      chatData,
+      settingsData.providers,
+      settingsData.activeProviderId,
+    )
+    if (resolvedChat !== chatData) {
+      await r.put({
+        id: ACTIVE_CHAT_ID,
+        type: 'chatSession',
+        updatedAt: now,
+        data: resolvedChat,
+      })
+      chatData = resolvedChat
+    }
     chat.value = {
       ...chatData,
       messages: chatData.messages.map(normalizeChatMessage),
@@ -149,9 +211,28 @@ export const useAiStore = defineStore('ai', () => {
 
   const activeProvider = computed(() => {
     const s = settings.value
-    if (!s?.activeProviderId) return undefined
-    return s.providers.find((p) => p.id === s.activeProviderId)
+    if (!s?.providers.length) return undefined
+    const id = resolveChatProviderId(
+      s.providers,
+      chat.value?.providerId,
+      s.activeProviderId,
+    )
+    if (!id) return undefined
+    return s.providers.find((p) => p.id === id)
   })
+
+  const showProviderPicker = computed(
+    () => (settings.value?.providers.length ?? 0) > 1,
+  )
+
+  const chatProviderOptions = computed(() =>
+    (settings.value?.providers ?? []).map((p) => ({
+      value: p.id,
+      label: p.label,
+    })),
+  )
+
+  const lastUsedProviderId = computed(() => activeProvider.value?.id)
 
   const modelOptions = computed(() => {
     const provider = activeProvider.value
@@ -216,18 +297,44 @@ export const useAiStore = defineStore('ai', () => {
         s.providers.map((p, i) => (i === idx ? next : p))
       : [...s.providers, next]
     await saveSettings({
-      activeProviderId: s.activeProviderId ?? next.id,
+      customSystemPrompt: s.customSystemPrompt,
       providers,
     })
+    const session = chat.value ?? emptyChat(new Date().toISOString())
+    if (!session.providerId || idx < 0) {
+      await persistChat(
+        withResolvedChatProvider(session, providers, undefined),
+      )
+    }
   }
 
   async function removeProvider(id: string): Promise<void> {
     const s = settings.value
     if (!s) return
     const providers = s.providers.filter((p) => p.id !== id)
-    const activeProviderId =
-      s.activeProviderId === id ? providers[0]?.id : s.activeProviderId
-    await saveSettings({ activeProviderId, providers })
+    await saveSettings({
+      customSystemPrompt: s.customSystemPrompt,
+      providers,
+    })
+    const session = chat.value
+    if (session?.providerId === id) {
+      await persistChat(withResolvedChatProvider(session, providers, undefined))
+    }
+  }
+
+  async function setChatProvider(providerId: string): Promise<void> {
+    const s = settings.value
+    if (!s) return
+    const provider = s.providers.find((p) => p.id === providerId)
+    if (!provider) return
+    const now = new Date().toISOString()
+    const session = chat.value ?? emptyChat(now)
+    await persistChat({
+      ...session,
+      providerId,
+      modelId: provider.defaultModelId,
+      updatedAt: now,
+    })
   }
 
   async function persistChat(next: ChatSession): Promise<void> {
@@ -324,7 +431,10 @@ export const useAiStore = defineStore('ai', () => {
     const needsKey = provider?.provider !== 'ollama' && provider?.provider !== 'vllm'
     const key = normalizeApiKey(provider?.apiKey)
     if (!provider || (needsKey && !key)) {
-      streamError.value = 'API anahtarı tanımlı değil. Ayarlar → AI bölümünden ekleyin.'
+      streamError.value =
+        showProviderPicker.value && !chat.value?.providerId ?
+          'Sohbet için bir sağlayıcı seçin.'
+        : 'API anahtarı tanımlı değil. Ayarlar → AI bölümünden ekleyin.'
       return
     }
     const modelId = provider.defaultModelId?.trim()
@@ -472,9 +582,18 @@ export const useAiStore = defineStore('ai', () => {
   async function clearChat(): Promise<void> {
     stopStreaming()
     const now = new Date().toISOString()
+    const lastProviderId = chat.value?.providerId
     await clearSessionUsageEntries()
     turnUsage.value = emptyUsageTotals()
-    await persistChat(emptyChat(now))
+    const next = emptyChat(now)
+    if (lastProviderId) {
+      const provider = settings.value?.providers.find((p) => p.id === lastProviderId)
+      if (provider) {
+        next.providerId = lastProviderId
+        next.modelId = provider.defaultModelId
+      }
+    }
+    await persistChat(next)
   }
 
   async function markProposalApplied(messageId: string, bundleKey: string): Promise<void> {
@@ -515,6 +634,9 @@ export const useAiStore = defineStore('ai', () => {
     turnUsage,
     sessionUsage,
     activeProvider,
+    lastUsedProviderId,
+    showProviderPicker,
+    chatProviderOptions,
     modelOptions,
     totalUsageCost,
     load,
@@ -522,6 +644,7 @@ export const useAiStore = defineStore('ai', () => {
     saveSettings,
     upsertProvider,
     removeProvider,
+    setChatProvider,
     sendMessage,
     clearChat,
     stopStreaming,

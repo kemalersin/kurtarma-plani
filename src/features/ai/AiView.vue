@@ -7,6 +7,7 @@ import {
   Input,
   message,
   Popconfirm,
+  Select,
   Space,
   Spin,
   Typography,
@@ -84,9 +85,28 @@ function toggleChatExpanded(): void {
 }
 
 const attachmentUploadHint = computed(() => {
+  if (!(ai.settings?.providers.length ?? 0)) {
+    return 'Önce Ayarlar → AI bölümünden sağlayıcı ekleyin.'
+  }
+  if (ai.showProviderPicker && !ai.chat?.providerId) {
+    return 'Önce sağlayıcı seçin.'
+  }
   const provider = ai.activeProvider?.provider
-  if (!provider) return 'Önce AI sağlayıcısı seçin.'
+  if (!provider) return 'Sağlayıcı yapılandırılmadı.'
   return 'Görsel veya dosya ekle (JPEG, PNG, PDF, TXT, CSV, JSON)'
+})
+
+const hasProviders = computed(() => (ai.settings?.providers.length ?? 0) > 0)
+
+const needsProviderSelection = computed(
+  () => ai.showProviderPicker && !ai.chat?.providerId,
+)
+
+const chatProviderId = computed({
+  get: () => ai.chat?.providerId,
+  set: (value: string | undefined) => {
+    if (value) void ai.setChatProvider(value)
+  },
 })
 
 const pendingAttachmentProbe = computed(() =>
@@ -258,7 +278,7 @@ function onKeydown(event: KeyboardEvent): void {
       />
 
       <Alert
-        v-else-if="ai.loaded && !ai.activeProvider"
+        v-else-if="ai.loaded && !hasProviders"
         type="info"
         show-icon
         message="AI sağlayıcısı yapılandırılmadı"
@@ -285,17 +305,28 @@ function onKeydown(event: KeyboardEvent): void {
     >
       <div class="kp-ai-chat__toolbar">
         <Typography.Text strong>{{ chatExpanded ? 'AI Asistan' : 'Sohbet' }}</Typography.Text>
-        <KpTooltip :title="chatExpanded ? 'Küçült (Esc)' : 'Tam ekran'">
-          <Button
-            type="text"
+        <div class="kp-ai-chat__toolbar-actions">
+          <Select
+            v-if="ai.showProviderPicker"
+            v-model:value="chatProviderId"
+            :options="ai.chatProviderOptions"
+            placeholder="Sağlayıcı"
             size="small"
-            :aria-label="chatExpanded ? 'Sohbeti küçült' : 'Sohbeti tam ekran yap'"
-            @click="toggleChatExpanded"
-          >
-            <FullscreenExitOutlined v-if="chatExpanded" />
-            <FullscreenOutlined v-else />
-          </Button>
-        </KpTooltip>
+            :disabled="!online || ai.streaming"
+            class="kp-ai-chat__provider-select"
+          />
+          <KpTooltip :title="chatExpanded ? 'Küçült (Esc)' : 'Tam ekran'">
+            <Button
+              type="text"
+              size="small"
+              :aria-label="chatExpanded ? 'Sohbeti küçült' : 'Sohbeti tam ekran yap'"
+              @click="toggleChatExpanded"
+            >
+              <FullscreenExitOutlined v-if="chatExpanded" />
+              <FullscreenOutlined v-else />
+            </Button>
+          </KpTooltip>
+        </div>
       </div>
 
       <Alert
@@ -307,11 +338,19 @@ function onKeydown(event: KeyboardEvent): void {
         class="kp-ai-chat__banner"
       />
       <Alert
-        v-else-if="chatExpanded && ai.loaded && !ai.activeProvider"
+        v-else-if="chatExpanded && ai.loaded && !hasProviders"
         type="info"
         show-icon
         banner
         message="AI sağlayıcısı yapılandırılmadı."
+        class="kp-ai-chat__banner"
+      />
+      <Alert
+        v-else-if="chatExpanded && ai.loaded && needsProviderSelection"
+        type="info"
+        show-icon
+        banner
+        message="Mesaj göndermek için sağlayıcı seçin."
         class="kp-ai-chat__banner"
       />
 
@@ -539,6 +578,20 @@ function onKeydown(event: KeyboardEvent): void {
   padding: 8px 12px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   flex-shrink: 0;
+}
+
+.kp-ai-chat__toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.kp-ai-chat__provider-select {
+  min-width: 140px;
+  max-width: min(220px, 42vw);
 }
 
 .kp-ai-chat__banner {

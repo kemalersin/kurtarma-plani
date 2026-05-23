@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import {
   Alert,
   Button,
   Card,
   Descriptions,
   DescriptionsItem,
+  Divider,
   Form,
   FormItem,
   Input,
@@ -39,7 +39,6 @@ import { useProfileStore } from '@/stores/profile'
 const ai = useAiStore()
 const catalogStore = useModelsCatalogStore()
 const profileStore = useProfileStore()
-const router = useRouter()
 const { online } = useConnectivity()
 
 const isDev = import.meta.env.DEV
@@ -116,14 +115,6 @@ watch(
     if (id && id !== prev) void ensureLoaded()
   },
 )
-
-const activeId = computed({
-  get: () => ai.settings?.activeProviderId,
-  set: (value: string | undefined) => {
-    if (!ai.settings || !value) return
-    void ai.saveSettings({ ...ai.settings, activeProviderId: value })
-  },
-})
 
 const catalogUpdatedText = computed(() => {
   const value = catalogStore.active.updatedAt ?? catalogStore.active.catalog.fetchedAt
@@ -256,10 +247,6 @@ async function loadRemoteModels(): Promise<void> {
   }
 }
 
-function gotoChat(): void {
-  router.push({ name: 'ai' })
-}
-
 async function refreshCatalog(): Promise<void> {
   if (!online.value) {
     message.warning('Çevrimdışısınız; model kataloğu güncellenemiyor.')
@@ -362,10 +349,20 @@ async function resetCatalog(): Promise<void> {
         />
       </Space>
 
+      <Divider v-if="ai.settings?.providers.length" class="kp-ai-settings__providers-divider" />
+
       <ul v-if="ai.settings?.providers.length" class="kp-ai-settings__list">
-        <li v-for="p in ai.settings.providers" :key="p.id" class="kp-ai-settings__item">
+        <li
+          v-for="p in ai.settings.providers"
+          :key="p.id"
+          class="kp-ai-settings__item"
+          :class="{ 'kp-ai-settings__item--last-used': p.id === ai.lastUsedProviderId }"
+        >
           <div>
-            <strong>{{ p.label }}</strong>
+            <Space :size="6" wrap class="kp-ai-settings__item-title">
+              <strong>{{ p.label }}</strong>
+              <Tag v-if="p.id === ai.lastUsedProviderId" color="blue">Son kullanılan</Tag>
+            </Space>
             <Typography.Text type="secondary" class="kp-ai-settings__meta">
               {{ p.provider }} · {{ p.defaultModelId || 'model seçilmedi' }}
             </Typography.Text>
@@ -378,22 +375,6 @@ async function resetCatalog(): Promise<void> {
           </Space>
         </li>
       </ul>
-    </Card>
-
-    <Card title="Aktif sağlayıcı" size="small" class="kp-ai-settings__card">
-      <Form layout="vertical" :colon="false">
-        <FormItem label="Kullanılacak sağlayıcı">
-          <Select
-            v-model:value="activeId"
-            :options="ai.settings?.providers.map((p) => ({ value: p.id, label: p.label })) ?? []"
-            placeholder="Sağlayıcı seçin"
-            :disabled="!ai.settings?.providers.length"
-          />
-        </FormItem>
-      </Form>
-      <Button v-if="ai.settings?.providers.length" type="link" @click="gotoChat">
-        AI sohbete git
-      </Button>
     </Card>
 
     <Card title="Sistem prompt eklentisi" size="small" class="kp-ai-settings__card">
@@ -541,7 +522,11 @@ async function resetCatalog(): Promise<void> {
 }
 
 .kp-ai-settings__add {
-  margin-bottom: 12px;
+  margin-bottom: 0;
+}
+
+.kp-ai-settings__providers-divider {
+  margin: 12px 0;
 }
 
 .kp-ai-settings__list {
@@ -561,6 +546,16 @@ async function resetCatalog(): Promise<void> {
 
 .kp-ai-settings__item:last-child {
   border-bottom: 0;
+}
+
+.kp-ai-settings__item--last-used {
+  padding-left: 8px;
+  margin-left: -8px;
+  border-left: 3px solid var(--ant-color-primary, #1677ff);
+}
+
+.kp-ai-settings__item-title {
+  margin-bottom: 2px;
 }
 
 .kp-ai-settings__meta {

@@ -191,7 +191,7 @@ async function deleteCurrentProfile(): Promise<void> {
         </Card>
       </TabPane>
 
-      <TabPane key="ai" tab="AI">
+      <TabPane key="ai" tab="AI Asistan">
         <Card title="AI sağlayıcıları">
           <AiSettingsSection />
         </Card>
