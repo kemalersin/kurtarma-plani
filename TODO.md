@@ -111,5 +111,5 @@ Tasarım: [docs/SYNC.md](./docs/SYNC.md). Açılıp kapatılabilir; backend yok;
 - [x] **S2:** `sync-file` / `sync-engine` — manuel «Senkronize et» (File System Access)
 - [x] **S3:** Debounced push + pull (focus / profil kilidi)
 - [x] **S4:** Çakışma modal + durum rozeti
-- [ ] **S5:** Manuel fallback (Safari / `file://`)
+- [x] **S5:** Manuel fallback (Safari / `file://`)
 - [ ] **S6:** (Opsiyonel) WebDAV transport

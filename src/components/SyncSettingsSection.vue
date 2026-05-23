@@ -13,7 +13,7 @@ import {
   Typography,
   message,
 } from 'ant-design-vue'
-import { CloudSyncOutlined, FileAddOutlined, FolderOpenOutlined } from '@ant-design/icons-vue'
+import { CloudSyncOutlined, DownloadOutlined, FileAddOutlined, FolderOpenOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import { useSyncStore } from '@/stores/sync'
 import { useProfileStore } from '@/stores/profile'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
@@ -42,7 +42,9 @@ const passwordModalOpen = ref(false)
 const syncPassword = ref('')
 const syncPasswordError = ref<string | null>(null)
 const rememberPassword = ref(true)
-const passwordModalMode = ref<'sync' | 'adopt'>('sync')
+const passwordModalMode = ref<'sync' | 'adopt' | 'manual-pull' | 'manual-push'>('sync')
+const manualFileInput = ref<HTMLInputElement | null>(null)
+const pendingManualFile = ref<File | null>(null)
 
 function shortProfileId(id: string | undefined): string {
   if (!id) return '—'
@@ -74,7 +76,58 @@ const passwordModalLabel = computed(() =>
     : 'Senkron dosyası parolası',
 )
 
+const passwordModalTitle = computed(() => {
+  switch (passwordModalMode.value) {
+    case 'adopt':
+      return 'Profile aktarma parolası'
+    case 'manual-pull':
+      return 'Uzak dosya parolası'
+    case 'manual-push':
+      return 'İndirme parolası'
+    default:
+      return 'Senkron parolası'
+  }
+})
+
+const passwordModalOkText = computed(() => {
+  switch (passwordModalMode.value) {
+    case 'adopt':
+      return 'Aktar ve bağla'
+    case 'manual-pull':
+      return 'Dosyayı oku'
+    case 'manual-push':
+      return 'İndir'
+    default:
+      return 'Senkronize et'
+  }
+})
+
 const statusMessage = computed(() => {
+  if (syncStore.isManualMode) {
+    switch (syncStore.runtimeStatus) {
+      case 'disabled':
+        return 'Senkron kapalı.'
+      case 'pending_file':
+        return 'İlk senkron için uzaktan dosya seçin veya yerel sürümü indirin.'
+      case 'pending_push':
+        return 'Yerel değişiklikler var; «Yerel sürümü indir» ile senkron klasörünüze kaydedin.'
+      case 'remote_pending':
+        return 'Uzak dosyada güncelleme olabilir; «Güncel dosyayı seç» ile kontrol edin.'
+      case 'conflict':
+        return 'Yerel ve uzak sürüm birbirinden ayrıldı; «Çakışmayı çöz» ile seçim yapın.'
+      case 'profile_mismatch':
+        return syncStore.profileMismatch
+          ? `Dosya «${syncStore.profileMismatch.fileProfileName}» profiline bağlı; bu profile aktarın veya başka dosya seçin.`
+          : 'Senkron dosyası farklı bir profile ait.'
+      case 'error':
+        return syncStore.config.lastError ?? 'Senkron hatası.'
+      default:
+        return syncStore.activeFileName
+          ? `Manuel mod — ${syncStore.activeFileName}`
+          : 'Manuel senkron: dosya seçin veya indirin.'
+    }
+  }
+
   switch (syncStore.runtimeStatus) {
     case 'disabled':
       return 'Senkron kapalı.'
@@ -147,7 +200,7 @@ async function saveOptions(): Promise<void> {
       useProfilePassword,
       includeSensitive: draft.includeSensitive,
       includeSecrets: draft.includeSecrets,
-      autoPush: draft.autoPush,
+      autoPush: syncStore.isManualMode ? false : draft.autoPush,
     })
     message.success('Senkron ayarları kaydedildi.')
   } catch (error) {
@@ -172,6 +225,10 @@ async function onPickFile(): Promise<void> {
 
 async function onCreateFile(): Promise<void> {
   if (!canConfigure.value) return
+  if (syncStore.isManualMode) {
+    await onDownloadPush()
+    return
+  }
   try {
     await syncStore.createFile()
     message.success('Senkron dosyası oluşturuldu.')
@@ -197,6 +254,10 @@ async function executeManualSync(password?: string): Promise<void> {
   if (syncStore.conflictPending) {
     syncStore.openConflictModal()
     return
+  }
+
+  if (syncStore.isManualMode && !syncStore.manualRemoteEnvelope && syncStore.hasHandle) {
+    message.info('Uzak sürümü almak için önce «Güncel dosyayı seç» ile dosyayı işaretleyin.')
   }
 
   try {
@@ -273,7 +334,7 @@ async function onAdoptFile(): Promise<void> {
 
 async function onSyncNow(): Promise<void> {
   if (!canConfigure.value) return
-  if (!syncStore.hasHandle) {
+  if (!syncStore.hasHandle && !syncStore.isManualMode) {
     message.warning('Önce senkron dosyası seçin veya oluşturun.')
     return
   }
@@ -288,10 +349,90 @@ async function onSyncNow(): Promise<void> {
   if (needsPasswordForSync()) {
     syncPassword.value = ''
     syncPasswordError.value = null
+    passwordModalMode.value = 'sync'
     passwordModalOpen.value = true
     return
   }
   await executeManualSync()
+}
+
+function chooseManualFile(): void {
+  manualFileInput.value?.click()
+}
+
+async function onManualFileSelected(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || !canConfigure.value) return
+
+  if (needsPasswordForSync()) {
+    pendingManualFile.value = file
+    syncPassword.value = ''
+    syncPasswordError.value = null
+    passwordModalMode.value = 'manual-pull'
+    passwordModalOpen.value = true
+    return
+  }
+
+  await executeManualPull(file)
+}
+
+async function executeManualPull(file: File, password?: string): Promise<void> {
+  try {
+    const result = await syncStore.pullFromManualFile(file, password)
+    if (syncStore.profileMismatch) {
+      message.warning('Seçilen dosya farklı bir profile ait; aşağıdan bu profile bağlayabilirsiniz.')
+      return
+    }
+    if (syncStore.conflictPending) {
+      syncStore.openConflictModal()
+      return
+    }
+    if (result.pulled) {
+      if (password) syncStore.rememberSessionPassword(password, rememberPassword.value)
+      message.success('Uzak veri içe aktarıldı.')
+    } else {
+      message.info('Dosya kaydedildi; uzak sürüm zaten güncel veya boş.')
+    }
+    syncPassword.value = ''
+    passwordModalOpen.value = false
+    pendingManualFile.value = null
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : 'Dosya okunamadı.')
+  }
+}
+
+async function onDownloadPush(): Promise<void> {
+  if (!canConfigure.value) return
+  if (syncStore.profileMismatch) {
+    await onAdoptFile()
+    return
+  }
+  if (syncStore.conflictPending) {
+    syncStore.openConflictModal()
+    return
+  }
+  if (needsPasswordForSync()) {
+    syncPassword.value = ''
+    syncPasswordError.value = null
+    passwordModalMode.value = 'manual-push'
+    passwordModalOpen.value = true
+    return
+  }
+  await executeManualPushDownload()
+}
+
+async function executeManualPushDownload(password?: string): Promise<void> {
+  try {
+    await syncStore.downloadManualPush(password)
+    if (password) syncStore.rememberSessionPassword(password, rememberPassword.value)
+    message.success('Senkron dosyası indirildi. iCloud/Dropbox klasörünüze kaydedin ve eski dosyanın üzerine yazın.')
+    syncPassword.value = ''
+    passwordModalOpen.value = false
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : 'Dosya indirilemedi.')
+  }
 }
 
 async function confirmPasswordAndSync(): Promise<void> {
@@ -312,6 +453,16 @@ async function confirmPasswordAndSync(): Promise<void> {
     await executeAdopt(pwd || undefined)
     return
   }
+  if (passwordModalMode.value === 'manual-pull') {
+    if (pendingManualFile.value) {
+      await executeManualPull(pendingManualFile.value, pwd || undefined)
+    }
+    return
+  }
+  if (passwordModalMode.value === 'manual-push') {
+    await executeManualPushDownload(pwd || undefined)
+    return
+  }
   await executeManualSync(pwd || undefined)
 }
 </script>
@@ -326,11 +477,19 @@ async function confirmPasswordAndSync(): Promise<void> {
     />
 
     <Alert
-      v-if="!syncStore.filePickerSupported"
+      v-if="syncStore.isManualMode"
+      type="warning"
+      show-icon
+      message="Manuel senkron modu"
+      description="Bu tarayıcıda dosya otomatik yazılamaz (Safari veya sınırlı ortam). Uzak sürümü almak için iCloud/Dropbox klasörünüzdeki .sync dosyasını «Güncel dosyayı seç» ile işaretleyin; yerel değişiklikleri göndermek için «Yerel sürümü indir» ile dosyayı indirip aynı klasörde eski dosyanın üzerine kaydedin."
+    />
+
+    <Alert
+      v-else-if="!syncStore.filePickerSupported"
       type="warning"
       show-icon
       message="Dosya erişimi sınırlı"
-      description="Bu tarayıcı dosya seçiciyi desteklemiyor. Manuel senkron için ileride alternatif yöntem eklenecek (S5)."
+      description="Bu tarayıcı dosya seçiciyi desteklemiyor; manuel senkron modu kullanılacak."
     />
 
     <div class="kp-sync-enable">
@@ -371,7 +530,12 @@ async function confirmPasswordAndSync(): Promise<void> {
               <Button type="primary" :loading="syncStore.syncing" @click="onAdoptFile">
                 Bu profile aktar ve bağla
               </Button>
-              <Button :disabled="syncStore.syncing" @click="onPickFile">Başka dosya seç</Button>
+              <Button
+                :disabled="syncStore.syncing"
+                @click="syncStore.isManualMode ? chooseManualFile() : onPickFile()"
+              >
+                Başka dosya seç
+              </Button>
             </Space>
           </Space>
         </template>
@@ -391,24 +555,44 @@ async function confirmPasswordAndSync(): Promise<void> {
             <Typography.Text type="secondary">
               {{ syncStore.activeFileName ?? 'Henüz seçilmedi' }}
             </Typography.Text>
-            <Button
-              v-if="syncStore.filePickerSupported"
-              size="small"
-              :disabled="!canConfigure || syncStore.syncing"
-              @click="onPickFile"
-            >
-              <template #icon><FolderOpenOutlined /></template>
-              Dosya seç
-            </Button>
-            <Button
-              v-if="syncStore.filePickerSupported"
-              size="small"
-              :disabled="!canConfigure || syncStore.syncing"
-              @click="onCreateFile"
-            >
-              <template #icon><FileAddOutlined /></template>
-              Yeni dosya
-            </Button>
+            <template v-if="syncStore.isManualMode">
+              <Button
+                size="small"
+                :disabled="!canConfigure || syncStore.syncing"
+                @click="chooseManualFile"
+              >
+                <template #icon><UploadOutlined /></template>
+                Güncel dosyayı seç
+              </Button>
+              <Button
+                size="small"
+                :disabled="!canConfigure || syncStore.syncing"
+                @click="onDownloadPush"
+              >
+                <template #icon><DownloadOutlined /></template>
+                Yerel sürümü indir
+              </Button>
+            </template>
+            <template v-else>
+              <Button
+                v-if="syncStore.filePickerSupported"
+                size="small"
+                :disabled="!canConfigure || syncStore.syncing"
+                @click="onPickFile"
+              >
+                <template #icon><FolderOpenOutlined /></template>
+                Dosya seç
+              </Button>
+              <Button
+                v-if="syncStore.filePickerSupported"
+                size="small"
+                :disabled="!canConfigure || syncStore.syncing"
+                @click="onCreateFile"
+              >
+                <template #icon><FileAddOutlined /></template>
+                Yeni dosya
+              </Button>
+            </template>
           </Space>
         </FormItem>
 
@@ -416,10 +600,11 @@ async function confirmPasswordAndSync(): Promise<void> {
           <Space direction="vertical" :size="4" style="width: 100%">
             <Checkbox v-model:checked="draft.encryptFile">Dosyayı parolayla şifrele</Checkbox>
             <Checkbox
+              v-if="profileHasPassword"
               v-model:checked="useProfilePasswordChecked"
-              :disabled="!useProfilePasswordApplicable"
+              :disabled="!draft.encryptFile"
             >
-              Profil parolasını kullan (parolalı profil)
+              Profil parolasını kullan
             </Checkbox>
             <Checkbox v-model:checked="draft.includeSensitive">
               Hassas işaretli kayıtları dahil et
@@ -427,9 +612,12 @@ async function confirmPasswordAndSync(): Promise<void> {
             <Checkbox v-model:checked="draft.includeSecrets">
               AI API anahtarları ve base URL'leri dahil et
             </Checkbox>
-            <Checkbox v-model:checked="draft.autoPush">
+            <Checkbox v-model:checked="draft.autoPush" :disabled="syncStore.isManualMode">
               Değişikliklerden sonra otomatik yaz (2 sn gecikme)
             </Checkbox>
+            <Typography.Text v-if="syncStore.isManualMode" type="secondary" class="kp-sync-manual-hint">
+              Manuel modda otomatik yazma kapalı; değişiklikleri «Yerel sürümü indir» ile gönderin.
+            </Typography.Text>
           </Space>
         </FormItem>
 
@@ -455,7 +643,7 @@ async function confirmPasswordAndSync(): Promise<void> {
         <Button
           type="default"
           :loading="syncStore.syncing"
-          :disabled="!canConfigure || !syncStore.hasHandle || !syncStore.filePickerSupported"
+          :disabled="!canConfigure || syncStore.syncing || (!syncStore.isManualMode && (!syncStore.hasHandle || !syncStore.filePickerSupported))"
           @click="onSyncNow"
         >
           <template #icon><CloudSyncOutlined /></template>
@@ -468,11 +656,19 @@ async function confirmPasswordAndSync(): Promise<void> {
       Cihaz kimliği: <code>{{ syncStore.deviceId }}</code>
     </Typography.Paragraph>
 
+    <input
+      ref="manualFileInput"
+      type="file"
+      accept=".sync,.json,application/json"
+      class="kp-sync-manual-input"
+      @change="onManualFileSelected"
+    />
+
     <Modal
       v-model:open="passwordModalOpen"
-      :title="passwordModalMode === 'adopt' ? 'Profile aktarma parolası' : 'Senkron parolası'"
+      :title="passwordModalTitle"
       :confirm-loading="syncStore.syncing"
-      :ok-text="passwordModalMode === 'adopt' ? 'Aktar ve bağla' : 'Senkronize et'"
+      :ok-text="passwordModalOkText"
       cancel-text="İptal"
       @ok="confirmPasswordAndSync"
     >
@@ -516,5 +712,15 @@ async function confirmPasswordAndSync(): Promise<void> {
 
 .kp-sync-device code {
   font-size: 11px;
+}
+
+.kp-sync-manual-input {
+  display: none;
+}
+
+.kp-sync-manual-hint {
+  display: block;
+  font-size: 12px;
+  line-height: 1.4;
 }
 </style>

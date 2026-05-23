@@ -18,13 +18,19 @@ import {
   importSnapshot,
 } from '@/core/services/snapshot'
 import type { ProfileMeta } from '@/core/types/profile'
-import type { SyncConfig, SyncFileEnvelope } from '@/core/types/sync'
+import type { SyncConfig, SyncFileEnvelope, SyncMode } from '@/core/types/sync'
 import { newId } from '@/core/util/id'
 
 export const SYNC_FILE_EXTENSION = '.sync'
 
 export function supportsSyncFilePicker(): boolean {
   return typeof window !== 'undefined' && 'showOpenFilePicker' in window
+}
+
+/** Tarayıcı yeteneğine göre senkron modu; FS Access yoksa manuel zorunlu. */
+export function resolveSyncMode(preferred: SyncMode = 'handle'): SyncMode {
+  if (!supportsSyncFilePicker()) return 'manual'
+  return preferred
 }
 
 export function defaultSyncFileName(profileName: string): string {
@@ -92,10 +98,7 @@ export async function writeSyncFileText(
   await writable.close()
 }
 
-export async function readSyncEnvelopeFromHandle(
-  handle: FileSystemFileHandle,
-): Promise<SyncFileEnvelope | null> {
-  const text = await readSyncFileText(handle)
+export async function readSyncEnvelopeFromText(text: string): Promise<SyncFileEnvelope | null> {
   if (!text.trim()) return null
   const envelope = parseSyncEnvelope(text)
   if (!envelope) return null
@@ -103,6 +106,31 @@ export async function readSyncEnvelopeFromHandle(
     throw new Error('Senkron dosyası bütünlük kontrolünden geçmedi (bozulmuş olabilir).')
   }
   return envelope
+}
+
+export async function readSyncEnvelopeFromHandle(
+  handle: FileSystemFileHandle,
+): Promise<SyncFileEnvelope | null> {
+  const text = await readSyncFileText(handle)
+  return readSyncEnvelopeFromText(text)
+}
+
+export async function readSyncEnvelopeFromFile(file: File): Promise<SyncFileEnvelope | null> {
+  const text = await file.text()
+  return readSyncEnvelopeFromText(text)
+}
+
+export function downloadSyncFile(contents: string, fileName: string): void {
+  const name = fileName.endsWith(SYNC_FILE_EXTENSION) ? fileName : `${fileName}${SYNC_FILE_EXTENSION}`
+  const blob = new Blob([contents], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = name
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
 }
 
 export function resolveSyncFilePasswordError(
@@ -123,7 +151,6 @@ export function resolveSyncFilePasswordError(
 
 
 export interface SyncPushParams {
-  handle: FileSystemFileHandle
   profile: ProfileMeta
   dataKey: CryptoKey | null
   deviceId: string
@@ -131,9 +158,12 @@ export interface SyncPushParams {
   filePassword?: string
 }
 
-export async function pushSync(params: SyncPushParams): Promise<{
+export async function buildSyncPushContent(
+  params: SyncPushParams & { fileName: string },
+): Promise<{
   revision: string
   fileName: string
+  contents: string
 }> {
   const pwdError = resolveSyncFilePasswordError(
     params.config,
@@ -166,8 +196,25 @@ export async function pushSync(params: SyncPushParams): Promise<{
     encryptFile: params.config.encryptFile,
   })
 
-  await writeSyncFileText(params.handle, serializeSyncEnvelope(envelope))
-  return { revision, fileName: params.handle.name }
+  return {
+    revision,
+    fileName: params.fileName,
+    contents: serializeSyncEnvelope(envelope),
+  }
+}
+
+export async function pushSync(
+  params: SyncPushParams & { handle: FileSystemFileHandle },
+): Promise<{
+  revision: string
+  fileName: string
+}> {
+  const { revision, fileName, contents } = await buildSyncPushContent({
+    ...params,
+    fileName: params.handle.name,
+  })
+  await writeSyncFileText(params.handle, contents)
+  return { revision, fileName }
 }
 
 export interface SyncPullParams {

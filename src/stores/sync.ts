@@ -6,7 +6,9 @@ import {
   defaultSyncFileName,
   getStoredSyncHandle,
   pickSyncFileHandle,
+  readSyncEnvelopeFromFile,
   resolveSyncFilePasswordError,
+  resolveSyncMode,
   supportsSyncFilePicker,
 } from '@/core/services/sync/sync-file'
 import { decideAutoPull, buildConflictContext, type SyncConflictContext } from '@/core/services/sync/sync-conflict'
@@ -14,7 +16,11 @@ import {
   envelopeProfileMismatch,
   readSyncEnvelopeFromHandle,
   remoteRevisionChanged,
+  runManualModePull,
+  runManualModePush,
+  runManualModeSync,
   runManualSync,
+  runPullFromEnvelope,
   runPullSync,
   runPushSync,
 } from '@/core/services/sync/sync-engine'
@@ -60,6 +66,8 @@ export const useSyncStore = defineStore('sync', () => {
   const conflictContext = ref<SyncConflictContext | null>(null)
   const conflictModalOpen = ref(false)
   const profileMismatch = ref<SyncProfileMismatchInfo | null>(null)
+  /** Manuel modda son seçilen uzak zarf (handle yok). */
+  const manualRemoteEnvelope = ref<SyncFileEnvelope | null>(null)
 
   /** Uzak pull sonrası sayfa bileşenlerini yeniden yüklemek için artar. */
   const pullRevision = ref(0)
@@ -111,17 +119,18 @@ export const useSyncStore = defineStore('sync', () => {
 
   const enabled = computed(() => config.value.enabled)
   const filePickerSupported = computed(() => supportsSyncFilePicker())
+  const isManualMode = computed(() => config.value.syncMode === 'manual')
 
   const canAutoPush = computed(() => {
     if (!enabled.value || !config.value.autoPush || !hasHandle.value) return false
-    if (!filePickerSupported.value || syncing.value) return false
+    if (isManualMode.value || !filePickerSupported.value || syncing.value) return false
     const profileStore = useProfileStore()
     return profileStore.unlocked && Boolean(profileStore.activeProfileId)
   })
 
   const canAutoPull = computed(() => {
     if (!enabled.value || !hasHandle.value) return false
-    if (!filePickerSupported.value || syncing.value) return false
+    if (isManualMode.value || !filePickerSupported.value || syncing.value) return false
     const profileStore = useProfileStore()
     return profileStore.unlocked && Boolean(profileStore.activeProfileId)
   })
@@ -178,6 +187,52 @@ export const useSyncStore = defineStore('sync', () => {
 
   function clearProfileMismatch(): void {
     profileMismatch.value = null
+  }
+
+  function applyEffectiveSyncMode(): void {
+    const effective = resolveSyncMode(config.value.syncMode)
+    if (config.value.syncMode !== effective) {
+      config.value = { ...config.value, syncMode: effective }
+    }
+  }
+
+  async function persistEffectiveSyncMode(): Promise<void> {
+    applyEffectiveSyncMode()
+    const effective = config.value.syncMode
+    const meta = await getAppMeta()
+    const persisted = meta.sync ? normalizeSyncConfig(meta.sync) : createDefaultSyncConfig()
+    if (persisted.syncMode !== effective) {
+      await saveConfig({ syncMode: effective })
+    }
+  }
+
+  function syncFileNameForActiveProfile(): string {
+    const profileStore = useProfileStore()
+    return (
+      syncFileNameForProfile(config.value, activeProfileId()) ??
+      defaultSyncFileName(profileStore.activeProfile?.name ?? 'profil')
+    )
+  }
+
+  async function registerManualFileName(fileName: string): Promise<void> {
+    const profileId = activeProfileId()
+    if (!profileId) return
+    hasHandle.value = true
+    await saveConfig({
+      fileNameByProfile: {
+        ...config.value.fileNameByProfile,
+        [profileId]: fileName,
+      },
+      lastError: undefined,
+    })
+  }
+
+  async function ingestManualFile(file: File): Promise<SyncFileEnvelope | null> {
+    const envelope = await readSyncEnvelopeFromFile(file)
+    await registerManualFileName(file.name)
+    manualRemoteEnvelope.value = envelope
+    await refreshProfileBinding()
+    return envelope
   }
 
   async function refreshProfileBinding(): Promise<void> {
@@ -386,6 +441,12 @@ export const useSyncStore = defineStore('sync', () => {
       hasHandle.value = false
       return
     }
+
+    if (isManualMode.value) {
+      hasHandle.value = Boolean(syncFileNameForProfile(config.value, profileId))
+      return
+    }
+
     const stored = await getStoredSyncHandle(profileId)
     hasHandle.value = !!stored
     if (stored) {
@@ -410,6 +471,7 @@ export const useSyncStore = defineStore('sync', () => {
     clearProfileMismatch()
     clearConflictState()
     remoteUpdatePending.value = false
+    manualRemoteEnvelope.value = null
     await refreshHandleState()
     await refreshProfileBinding()
   }
@@ -418,9 +480,11 @@ export const useSyncStore = defineStore('sync', () => {
     const meta = await getAppMeta()
     deviceId.value = meta.deviceId ?? ''
     config.value = meta.sync ? normalizeSyncConfig(meta.sync) : createDefaultSyncConfig()
+    applyEffectiveSyncMode()
     lastPushAt.value = config.value.lastSyncAt ?? null
     loadSessionPassword()
     loaded.value = true
+    await persistEffectiveSyncMode()
     await refreshHandleState()
     await refreshProfileBinding()
   }
@@ -491,6 +555,9 @@ export const useSyncStore = defineStore('sync', () => {
   }
 
   async function readRemoteEnvelope(): Promise<SyncFileEnvelope | null> {
+    if (isManualMode.value) {
+      return manualRemoteEnvelope.value
+    }
     const handleCtx = await getHandleForActiveProfile()
     if (!handleCtx) return null
     return readSyncEnvelopeFromHandle(handleCtx.stored.handle)
@@ -523,18 +590,57 @@ export const useSyncStore = defineStore('sync', () => {
     )
     if (pwdError) throw new Error(pwdError)
 
-    const handleCtx = await getHandleForActiveProfile()
-    if (!handleCtx) {
-      throw new Error('Önce senkron dosyası seçin veya oluşturun.')
-    }
-    const { stored } = handleCtx
-
     if (profileMismatch.value) {
       throw new Error('Önce senkron dosyasını bu profile bağlayın.')
     }
 
     syncing.value = true
     try {
+      if (isManualMode.value) {
+        const fileName = syncFileNameForActiveProfile()
+        const result = await runManualModeSync({
+          profile,
+          dataKey: profileStore.dataKey,
+          deviceId: deviceId.value,
+          config: config.value,
+          fileName,
+          filePassword: options.filePassword,
+          remoteEnvelope: manualRemoteEnvelope.value,
+          pullRemote: options.pullRemote,
+        })
+
+        const remoteRevisionByProfile = {
+          ...config.value.remoteRevisionByProfile,
+          [profile.id]: result.revision,
+        }
+
+        await saveConfig({
+          fileNameByProfile: {
+            ...config.value.fileNameByProfile,
+            [profile.id]: result.fileName,
+          },
+          remoteRevisionByProfile,
+          lastSyncAt: new Date().toISOString(),
+          lastError: undefined,
+        })
+
+        const now = new Date().toISOString()
+        lastPushAt.value = now
+        hasHandle.value = true
+        if (result.pulled) {
+          lastLocalMutationAt.value = null
+          bumpPullRevision('manual')
+        }
+        clearConflictState()
+        return { pulled: result.pulled }
+      }
+
+      const handleCtx = await getHandleForActiveProfile()
+      if (!handleCtx) {
+        throw new Error('Önce senkron dosyası seçin veya oluşturun.')
+      }
+      const { stored } = handleCtx
+
       const result = await runManualSync({
         handle: stored.handle,
         profile,
@@ -578,6 +684,120 @@ export const useSyncStore = defineStore('sync', () => {
     }
   }
 
+  async function pullFromManualFile(
+    file: File,
+    filePassword?: string,
+  ): Promise<{ pulled: boolean; envelope: SyncFileEnvelope | null }> {
+    const profileStore = useProfileStore()
+    const profile = profileStore.activeProfile
+    if (!profile || !profileStore.unlocked) {
+      throw new Error('Senkron için oturum açık bir profil gerekli.')
+    }
+
+    const pwdError = resolveSyncFilePasswordError(
+      config.value,
+      profile.password.enabled,
+      filePassword,
+    )
+    if (pwdError) throw new Error(pwdError)
+
+    syncing.value = true
+    try {
+      const envelope = await ingestManualFile(file)
+      if (envelopeProfileMismatch(envelope, profile.id) && envelope) {
+        profileMismatch.value = {
+          fileProfileId: envelope.profileId,
+          fileProfileName: envelope.profileName,
+        }
+        return { pulled: false, envelope }
+      }
+
+      const decision = decideAutoPull(
+        envelope,
+        profile.id,
+        config.value.remoteRevisionByProfile[profile.id],
+        lastLocalMutationAt.value,
+        lastPushAt.value ?? config.value.lastSyncAt,
+      )
+
+      if (decision === 'conflict' && envelope) {
+        setConflictState(envelope)
+        return { pulled: false, envelope }
+      }
+
+      if (!envelope || decision === 'none') {
+        clearConflictState()
+        remoteUpdatePending.value = false
+        return { pulled: false, envelope }
+      }
+
+      const pulled = await runManualModePull({
+        envelope,
+        profile,
+        dataKey: profileStore.dataKey,
+        config: config.value,
+        filePassword,
+      })
+
+      if (pulled) {
+        lastLocalMutationAt.value = null
+        clearConflictState()
+        await saveConfig({
+          remoteRevisionByProfile: {
+            ...config.value.remoteRevisionByProfile,
+            [profile.id]: envelope.revision,
+          },
+          lastSyncAt: new Date().toISOString(),
+          lastError: undefined,
+        })
+        bumpPullRevision('manual-file')
+      }
+
+      return { pulled, envelope }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Dosya okunamadı.'
+      await saveConfig({ lastError: message })
+      throw error
+    } finally {
+      syncing.value = false
+    }
+  }
+
+  async function downloadManualPush(filePassword?: string): Promise<void> {
+    const profileStore = useProfileStore()
+    const profile = profileStore.activeProfile
+    if (!profile || !profileStore.unlocked) {
+      throw new Error('Senkron için oturum açık bir profil gerekli.')
+    }
+
+    const pwdError = resolveSyncFilePasswordError(
+      config.value,
+      profile.password.enabled,
+      filePassword,
+    )
+    if (pwdError) throw new Error(pwdError)
+
+    syncing.value = true
+    try {
+      const fileName = syncFileNameForActiveProfile()
+      const result = await runManualModePush({
+        profile,
+        dataKey: profileStore.dataKey,
+        deviceId: deviceId.value,
+        config: config.value,
+        fileName,
+        filePassword,
+      })
+      await applyPushResult(profile.id, result.revision, result.fileName)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Dosya indirilemedi.'
+      await saveConfig({ lastError: message })
+      throw error
+    } finally {
+      syncing.value = false
+    }
+  }
+
   async function adoptSyncFileForCurrentProfile(filePassword?: string): Promise<void> {
     const profileStore = useProfileStore()
     const profile = profileStore.activeProfile
@@ -592,12 +812,40 @@ export const useSyncStore = defineStore('sync', () => {
     )
     if (pwdError) throw new Error(pwdError)
 
-    const handleCtx = await getHandleForActiveProfile()
-    if (!handleCtx) throw new Error('Senkron dosyası bulunamadı.')
-    const { stored } = handleCtx
-
     syncing.value = true
     try {
+      if (isManualMode.value) {
+        const remote = manualRemoteEnvelope.value
+        if (!remote) throw new Error('Önce senkron dosyasını seçin.')
+
+        await runPullFromEnvelope({
+          envelope: remote,
+          profile,
+          dataKey: profileStore.dataKey,
+          filePassword,
+          allowProfileAdopt: true,
+        })
+
+        const fileName = syncFileNameForActiveProfile()
+        const result = await runManualModePush({
+          profile,
+          dataKey: profileStore.dataKey,
+          deviceId: deviceId.value,
+          config: config.value,
+          fileName,
+          filePassword,
+        })
+
+        await applyPushResult(profile.id, result.revision, result.fileName)
+        clearProfileMismatch()
+        bumpPullRevision('adopt')
+        return
+      }
+
+      const handleCtx = await getHandleForActiveProfile()
+      if (!handleCtx) throw new Error('Senkron dosyası bulunamadı.')
+      const { stored } = handleCtx
+
       await runPullSync({
         handle: stored.handle,
         profile,
@@ -642,12 +890,41 @@ export const useSyncStore = defineStore('sync', () => {
     )
     if (pwdError) throw new Error(pwdError)
 
-    const handleCtx = await getHandleForActiveProfile()
-    if (!handleCtx) throw new Error('Senkron dosyası bulunamadı.')
-    const { stored } = handleCtx
-
     syncing.value = true
     try {
+      if (isManualMode.value) {
+        const remote = manualRemoteEnvelope.value
+        if (!remote || envelopeProfileMismatch(remote, profile.id)) {
+          throw new Error('Senkron dosyası okunamadı veya profile uymuyor.')
+        }
+
+        await runPullFromEnvelope({
+          envelope: remote,
+          profile,
+          dataKey: profileStore.dataKey,
+          filePassword,
+        })
+
+        lastLocalMutationAt.value = null
+        lastPushAt.value = new Date().toISOString()
+        clearConflictState()
+
+        await saveConfig({
+          remoteRevisionByProfile: {
+            ...config.value.remoteRevisionByProfile,
+            [profile.id]: remote.revision,
+          },
+          lastSyncAt: new Date().toISOString(),
+          lastError: undefined,
+        })
+        bumpPullRevision('conflict-remote')
+        return
+      }
+
+      const handleCtx = await getHandleForActiveProfile()
+      if (!handleCtx) throw new Error('Senkron dosyası bulunamadı.')
+      const { stored } = handleCtx
+
       const remote = await readSyncEnvelopeFromHandle(stored.handle)
       if (!remote || envelopeProfileMismatch(remote, profile.id)) {
         throw new Error('Senkron dosyası okunamadı veya profile uymuyor.')
@@ -697,12 +974,27 @@ export const useSyncStore = defineStore('sync', () => {
     )
     if (pwdError) throw new Error(pwdError)
 
-    const handleCtx = await getHandleForActiveProfile()
-    if (!handleCtx) throw new Error('Senkron dosyası bulunamadı.')
-    const { stored } = handleCtx
-
     syncing.value = true
     try {
+      if (isManualMode.value) {
+        const fileName = syncFileNameForActiveProfile()
+        const result = await runManualModePush({
+          profile,
+          dataKey: profileStore.dataKey,
+          deviceId: deviceId.value,
+          config: config.value,
+          fileName,
+          filePassword,
+        })
+        await applyPushResult(profile.id, result.revision, result.fileName)
+        conflictModalOpen.value = false
+        return
+      }
+
+      const handleCtx = await getHandleForActiveProfile()
+      if (!handleCtx) throw new Error('Senkron dosyası bulunamadı.')
+      const { stored } = handleCtx
+
       const result = await runPushSync({
         handle: stored.handle,
         profile,
@@ -738,6 +1030,7 @@ export const useSyncStore = defineStore('sync', () => {
     activeFileName,
     enabled,
     filePickerSupported,
+    isManualMode,
     canAutoPush,
     canAutoPull,
     runtimeStatus,
@@ -749,6 +1042,10 @@ export const useSyncStore = defineStore('sync', () => {
     readRemoteEnvelope,
     needsPullConfirm,
     runManualSync: runManualSyncAction,
+    pullFromManualFile,
+    downloadManualPush,
+    ingestManualFile,
+    manualRemoteEnvelope,
     markLocalMutation,
     setPendingPush,
     rememberSessionPassword,

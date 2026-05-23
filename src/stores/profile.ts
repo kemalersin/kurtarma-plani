@@ -16,7 +16,7 @@ import {
   updateAppMeta,
 } from '@/core/db/meta'
 import { closeProfileDb, deleteProfileDb } from '@/core/db/profile-db'
-import { reencryptAll } from '@/core/db/encrypted-repo'
+import { profileHasPlainEntityRows, reencryptAll } from '@/core/db/encrypted-repo'
 import { seedSampleProfileData } from '@/core/services/sample-data'
 import { DEFAULT_LOCALE_SETTINGS } from '@/core/locale/defaults'
 import type {
@@ -210,8 +210,8 @@ export const useProfileStore = defineStore('profile', () => {
       if (!verify) return { ok: false, error: 'Mevcut parola yanlış.' }
     }
 
-    // Yeni dataKey değil, mevcut dataKey'i wrap edelim ki DB içeriğini yeniden şifrelememize gerek kalmasın.
-    // Ancak parola eklenirken plain → encrypted geçiş için reencryptAll çağırıyoruz.
+    // Parolasız profilde kayıtlar meta'daki dataKey ile zaten AES'li olabilir; yalnızca
+    // düz kayıtlar varsa mevcut anahtarla şifrele. Parola wrap'i aynı dataKey'i korur.
     const wasEncrypted = profile.password.enabled
     const newWrapped = await wrapDataKey(dataKey.value, newPassword)
     const newInfo: ProfilePasswordInfo = {
@@ -223,8 +223,9 @@ export const useProfileStore = defineStore('profile', () => {
     }
 
     if (!wasEncrypted) {
-      // Parolasızdı → tüm kayıtları AES ile şifrele
-      await reencryptAll(activeProfileId.value, null, dataKey.value)
+      if (await profileHasPlainEntityRows(activeProfileId.value)) {
+        await reencryptAll(activeProfileId.value, dataKey.value, dataKey.value)
+      }
     }
 
     const updated: ProfileMeta = {

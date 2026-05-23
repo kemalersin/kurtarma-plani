@@ -4,6 +4,17 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 ## [Unreleased]
 
+### Fixed — profil parolası
+
+- Parolasız profilde «Parola ekle» kayıtlar zaten AES ile şifreliyken `reencryptAll(null, …)` hatası veriyordu; yalnızca düz kayıtlar varsa yeniden şifreleme yapılır.
+
+### Added — otomatik senkron (M10 S5)
+
+- **Manuel fallback modu** (`syncMode: 'manual'`): Safari ve FS Access olmayan ortamlarda senkron açılabilir.
+- Push → `.sync` dosyası indirilir; kullanıcı iCloud/Dropbox klasöründe üzerine yazar.
+- Pull → «Güncel dosyayı seç» ile uzak dosya okunur; çakışma ve profil uyumsuzluğu handle modu ile aynı.
+- Otomatik push/pull yalnızca handle modunda; manuel modda «Yerel sürümü indir» / «Güncel dosyayı seç» düğmeleri.
+
 ### Changed — güncelleme kontrolü
 
 - Sürüm kontrolü yalnızca GitHub **package.json** `version` alanına bakar (release / commit API kaldırıldı).

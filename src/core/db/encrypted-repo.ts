@@ -127,6 +127,13 @@ export class EncryptedRepo {
   }
 }
 
+/** Profilde en az bir düz (encrypted: false) entity var mı. */
+export async function profileHasPlainEntityRows(profileId: string): Promise<boolean> {
+  const db = openProfileDb(profileId)
+  const rows = await db.entities.toArray()
+  return rows.some((row) => !row.encrypted)
+}
+
 /**
  * Profil DB'sindeki tüm kayıtları kaynak `fromKey` ile decrypt edip hedef `toKey` ile
  * yeniden şifreler (veya `toKey === null` ise düz yazar). Parola değişimi / ekleme /
