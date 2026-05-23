@@ -23,13 +23,17 @@ import {
   LineChartOutlined,
   RobotOutlined,
   SettingOutlined,
+  InfoCircleOutlined,
   LockOutlined,
 } from '@ant-design/icons-vue'
 import type { MenuInfo } from 'ant-design-vue/es/menu/src/interface'
 import { useUiStore } from '@/stores/ui'
 import { useProfileStore } from '@/stores/profile'
+import { useSyncStore } from '@/stores/sync'
 import KpTooltip from '@/components/KpTooltip.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+import SyncStatusBadge from '@/components/SyncStatusBadge.vue'
+import SyncConflictModal from '@/components/SyncConflictModal.vue'
 import { KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/composables/useMatchMedia'
 import BrandMark from '@/components/icons/BrandMark.vue'
 import { APP_NAME, APP_VERSION } from '@/core/constants'
@@ -38,6 +42,7 @@ import { resolvePageLayout, isWidePageLayout } from '@/router/meta'
 
 const ui = useUiStore()
 const profileStore = useProfileStore()
+const syncStore = useSyncStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -63,6 +68,9 @@ const pageLayoutClasses = computed(() => {
     'kp-page--fill': layout === 'wide-fill',
   }
 })
+
+/** Uzak pull sonrası aktif sayfayı yeniden mount eder (entity cache temizlenir). */
+const pageViewKey = computed(() => `${route.fullPath}::${syncStore.pullRevision}`)
 
 function navigate(info: MenuInfo): void {
   router.push({ name: String(info.key) })
@@ -108,6 +116,13 @@ watch(
   () => route.fullPath,
   () => {
     if (isMobileShell.value) ui.setSidebarPeeking(false)
+  },
+)
+
+watch(
+  () => syncStore.conflictPending,
+  (pending) => {
+    if (pending) syncStore.openConflictModal()
   },
 )
 
@@ -198,6 +213,10 @@ function gotoCrumb(name?: string): void {
           <template #icon><SettingOutlined /></template>
           <span>Ayarlar</span>
         </MenuItem>
+        <MenuItem key="about">
+          <template #icon><InfoCircleOutlined /></template>
+          <span>Hakkında</span>
+        </MenuItem>
       </Menu>
 
       <div class="kp-sider__footer kp-text-muted">v{{ APP_VERSION }}</div>
@@ -243,6 +262,8 @@ function gotoCrumb(name?: string): void {
 
         <div class="kp-spacer" />
 
+        <SyncStatusBadge />
+
         <ThemeToggle />
 
         <KpTooltip title="Profili kilitle / değiştir">
@@ -254,10 +275,12 @@ function gotoCrumb(name?: string): void {
 
       <LayoutContent class="kp-content">
         <div class="kp-page" :class="pageLayoutClasses">
-          <router-view />
+          <router-view :key="pageViewKey" />
         </div>
       </LayoutContent>
     </Layout>
+
+    <SyncConflictModal />
   </div>
 </template>
 

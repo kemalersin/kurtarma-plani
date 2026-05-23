@@ -1,6 +1,15 @@
 export const APP_NAME = 'Kurtarma Planı'
 export const APP_VERSION = __APP_VERSION__
 export const APP_BUILD_DATE = __APP_BUILD_DATE__
+export const APP_GITHUB_URL = 'https://github.com/kemalersin/kurtarma-plani'
+export const APP_GITHUB_REPO = 'kemalersin/kurtarma-plani'
+export const APP_GITHUB_BRANCH = 'main'
+export const APP_GITHUB_DIST_PATH = 'dist'
+export const APP_GITHUB_DIST_URL = `${APP_GITHUB_URL}/tree/${APP_GITHUB_BRANCH}/${APP_GITHUB_DIST_PATH}`
+export const APP_GITHUB_DIST_RAW_INDEX_URL = `https://raw.githubusercontent.com/${APP_GITHUB_REPO}/${APP_GITHUB_BRANCH}/${APP_GITHUB_DIST_PATH}/index.html`
+export const APP_GITHUB_PACKAGE_JSON_URL = `https://raw.githubusercontent.com/${APP_GITHUB_REPO}/${APP_GITHUB_BRANCH}/package.json`
+export const APP_SUPPORT_URL =
+  'https://polar.sh/checkout/polar_c_haAJ3cBdBFOHt7slvqdZ7kiN3MVY9g3AKebj91C72HB'
 
 export const EXPORT_FILE_TYPE = 'kurtarma-plani-export' as const
 export const SCHEMA_VERSION = 1

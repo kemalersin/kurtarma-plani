@@ -141,6 +141,16 @@ async function applyDecoded(text: string, password?: string): Promise<boolean> {
     dataKey: importOverwrite.value ? profileStore.dataKey : undefined,
   })
 
+  const openId = summary.targetProfileId
+  if (openId && profileStore.activeProfileId !== openId) {
+    const opened = await profileStore.selectProfile(openId)
+    if (!opened) {
+      message.warning(
+        'Profil içe aktarıldı. Senkron için profil seçim ekranından içe aktarılan profili açın.',
+      )
+    }
+  }
+
   if (summary.overwritten) {
     const { useEntitiesStore } = await import('@/stores/entities')
     useEntitiesStore().reset()
@@ -152,6 +162,12 @@ async function applyDecoded(text: string, password?: string): Promise<boolean> {
   }
 
   await profileStore.load()
+
+  const { useSyncStore } = await import('@/stores/sync')
+  const syncStore = useSyncStore()
+  await syncStore.onActiveProfileChanged()
+  await syncStore.refreshProfileBinding()
+
   message.success(formatImportSummaryMessage(summary))
   return true
 }
@@ -267,6 +283,10 @@ function resetPasswordModal(): void {
           >
             <strong>{{ profileStore.activeProfile.name }}</strong> profilindeki tüm kayıtlar
             silinip yedekteki verilerle değiştirilir. Geri alınamaz.
+            <br />
+            <strong>Senkron notu:</strong> Bu seçenek yerel profil kimliğini korur; cihazlar arası
+            senkron dosyası eşleşmeyebilir. Yeni cihazda «üzerine yaz» işaretlemeyin — yedek
+            yeni profil olarak içe aktarılsın.
           </Typography.Paragraph>
         </FormItem>
       </Form>

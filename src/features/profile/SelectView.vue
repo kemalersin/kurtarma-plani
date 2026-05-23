@@ -15,6 +15,7 @@ import {
   Typography,
   Tag,
   Popconfirm,
+  Space,
   message,
 } from 'ant-design-vue'
 import { DeleteOutlined } from '@ant-design/icons-vue'
@@ -75,6 +76,10 @@ function newProfile(): void {
   router.push({ name: 'setup' })
 }
 
+function restoreProfile(): void {
+  router.push({ name: 'setup', query: { tab: 'restore' } })
+}
+
 async function deleteProfile(id: string, name: string): Promise<void> {
   deletingId.value = id
   try {
@@ -97,7 +102,10 @@ async function deleteProfile(id: string, name: string): Promise<void> {
   <div class="kp-center-page">
     <Card class="kp-card" :title="`${APP_NAME} · Profil Seç`">
       <Empty v-if="profilesSorted.length === 0" description="Henüz profil yok.">
-        <Button type="primary" @click="newProfile">Yeni profil oluştur</Button>
+        <Space direction="vertical" :size="8">
+          <Button type="primary" @click="newProfile">Yeni profil oluştur</Button>
+          <Button @click="restoreProfile">Yedekten / senkron'dan geri yükle</Button>
+        </Space>
       </Empty>
 
       <template v-else>
@@ -168,6 +176,7 @@ async function deleteProfile(id: string, name: string): Promise<void> {
             Aç
           </Button>
           <Button @click="newProfile">Yeni profil</Button>
+          <Button @click="restoreProfile">Yedekten geri yükle</Button>
         </div>
       </template>
     </Card>

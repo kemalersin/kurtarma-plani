@@ -4,6 +4,99 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 ## [Unreleased]
 
+### Changed — güncelleme kontrolü
+
+- Sürüm kontrolü yalnızca GitHub **package.json** `version` alanına bakar (release / commit API kaldırıldı).
+
+### Changed — Ayarlar sekmeleri
+
+- **Veri:** yalnızca yedek / içe aktarma.
+- **Senkron** ve **Sürüm kontrolü** ayrı sekmeler (Veri'den sonra); navbar senkron rozeti Senkron sekmesine gider.
+
+- Çevrimdışıyken otomatik veya manuel sürüm kontrolü **yapılmaz**.
+- Güncelleme linkleri GitHub **dist/** klasörüne yönlendirilir; `dist/` repoda commit edilir.
+
+### Fixed — GitHub sürüm kontrolü
+
+- Aynı semver'de yalnızca sürüm numarasına bakılıyordu; artık **main branch son commit tarihi** ile `APP_BUILD_DATE` karşılaştırılır.
+- «Şimdi kontrol et» dismissed / çevrimdışı durumlarında yanlış «güncel» mesajı göstermez.
+- Kapatılan güncelleme bildirimi «Şimdi kontrol et» ile yeniden açılabilir.
+- «Şimdi kontrol et» kapatılmış bildirimi yeniden açar; bildirim üstte sabit konumda.
+- GitHub release API hata/rate limit durumunda **package.json** yedek yoluna düşer (403 artık bloklamaz).
+
+### Added — GitHub sürüm kontrolü
+
+- Sayfa yenilendiğinde (ayar açıksa) GitHub release veya `main` branch `package.json` sürümü kontrol edilir.
+- Yeni sürüm varsa üst bilgi bandı; Ayarlar → **Sürüm kontrolü** ile otomatik kontrol kapatılabilir veya manuel kontrol yapılabilir.
+
+### Added — Hakkında sayfası
+
+- Sol menüde Ayarlar altında **Hakkında**; sürüm, özellik özeti, yasal uyarı ve [GitHub deposu](https://github.com/kemalersin/kurtarma-plani) bağlantısı.
+
+### Fixed — otomatik senkron pull ve boş veri
+
+- **Bootstrap pull:** Sayfa açılışında entity'ler yüklenmeden önce uzak dosya kontrol edilir (boş liste race'i giderildi).
+- **Periyodik pull:** Açık sekmede ~45 sn'de bir uzak dosya okunur (iCloud/Dropbox gecikmesi).
+- **Focus pull:** Pencere odağına dönünce uzak kontrol.
+- **UI yenileme:** Uzak pull sonrası aktif sayfa yeniden yüklenir (`pullRevision`).
+
+### Fixed — otomatik senkron sayfa yenilemede kapanması
+
+- **Race düzeltmesi:** Profil açılırken senkron ayarları henüz yüklenmeden `saveConfig` çağrılıyor ve `enabled: false` yazılıyordu.
+- Router ve App başlangıcında **senkron store profilden önce** yüklenir; `saveConfig` kalıcı meta ile birleştirir.
+- Senkron seçenek checkbox'ları store yüklenene kadar gösterilmez; varsayılan `encryptFile: true` flicker'ı giderildi.
+
+### Added — Kurulumda yedek / senkron geri yükleme
+
+- **Kurulum** sekmesi: «Yedekten / senkron'dan geri yükle» — `.json` yedek veya `.sync` dosyası; profil kimliği (UUID) korunur.
+- **`ProfileRestorePanel`:** Profil seçim ekranından da erişilebilir; senkron dosyası seçiminde handle otomatik kaydedilir (desteklenen tarayıcılar).
+- **`profile-restore` servisi:** Ortak içe aktarma mantığı.
+
+### Fixed — içe aktarma ve cihazlar arası senkron kimliği
+
+- Yedek içe aktarımından sonra **içe aktarılan profil otomatik açılır** (yanlış profille senkron hatası önlenir).
+- Aynı profil kimliği zaten varsa yeni kimlik üretmek yerine **mevcut profil güncellenir**.
+- «Aktif profilin üzerine yaz» için senkron uyarısı eklendi (yerel kimlik korunur, dosya eşleşmeyebilir).
+
+### Fixed — M10 çoklu profil senkron karışması
+
+- Senkron dosya handle'ı artık **profil başına** IndexedDB'de saklanır (önceden tüm profiller tek handle paylaşıyordu).
+- Profil değiştirildiğinde ilgili profilin dosyası yüklenir; diğer profile ait dosya yanlışlıkla eşleştirilmez.
+- `fileNameByProfile` ile dosya adları profil bazında tutulur.
+
+### Fixed — M10 senkron profil uyuşmazlığı
+
+- Senkron dosyasındaki profil kimliği aktif profilden farklıysa artık kalıcı hata yerine **profil uyuşmazlığı** durumu gösterilir.
+- **«Bu profile aktar ve bağla»:** Dosyadaki veriyi mevcut profile içe aktarır ve dosya meta verisini günceller (yeni cihaz / profil yeniden oluşturma senaryosu).
+
+### Added — M10 Otomatik senkron (S4)
+
+- **`SyncConflictModal`:** Uzak / yerel / vazgeç seçenekleri; şifreli dosya parolası; yerel kayıp uyarısı.
+- **`SyncStatusBadge`:** Navbar senkron rozeti (güncel, yazma bekliyor, uzak güncelleme, çakışma, hata); çakışmada modal, diğer durumlarda Ayarlar → Veri.
+- **`useSyncStore`:** `resolveConflictUseRemote`, `resolveConflictKeepLocal`, `conflictContext`; çakışma algılandığında modal otomatik açılır.
+
+### Added — M10 Otomatik senkron (S3)
+
+- **`sync-scheduler.ts`:** Kayıt sonrası 2 sn debounced push; `visibilitychange` ile otomatik pull; profil kilidi öncesi flush.
+- **`sync-conflict.ts`:** Yerel/uzak değişiklik ayrımı; çakışmada otomatik pull atlanır (S4 modal öncesi).
+- **`entities` hook:** `save` / `remove` sonrası `notifySyncLocalChange`.
+- **Oturum parolası:** Manuel senkron sonrası `sessionStorage` ile otomatik push için parola hatırlama.
+- **Durum:** `pending_push`, `remote_pending`, `conflict` runtime durumları.
+
+### Added — M10 Otomatik senkron (S2)
+
+- **`src/core/services/sync/`:** `sync-crypto`, `sync-envelope` (KP-SYNC1 build/parse + SHA-256), `sync-handle-store`, `sync-file` (File System Access okuma/yazma), `sync-engine` (manuel pull → push).
+- **Meta DB v5:** `syncHandles` tablosu — seçilen senkron dosyası handle'ı IndexedDB'de kalıcı.
+- **`useSyncStore`:** `pickFile`, `createFile`, `runManualSync`, `hasHandle`, `syncing`; revizyon takibi (`remoteRevisionByProfile`).
+- **Ayarlar → Veri → Otomatik senkron:** «Dosya seç» / «Yeni dosya», «Şimdi senkronize et»; uzak revizyon farkında onaylı pull; şifreli dosya için parola modalı.
+
+### Added — M10 Otomatik senkron (S1)
+
+- **`SyncConfig` + `KP-SYNC1` zarf tipleri** (`src/core/types/sync.ts`) ve Vitest doğrulama.
+- **Meta DB v4:** `AppMeta.deviceId` + `AppMeta.sync`; cihaz kimliği otomatik üretilir.
+- **`useSyncStore`:** Senkron ayarlarını IndexedDB meta'da kalıcı tutar (I/O henüz yok).
+- **Ayarlar → Veri → Otomatik senkron:** Açılıp kapatılabilir toggle; şifreleme, hassas/AI dahil etme ve otomatik yazma tercihleri.
+
 ### Added — M8 AI asistan
 
 - **AI sohbet görsel desteği:** Composer'dan ekran görüntüsü yükleme (dosya seçici, yapıştırma); önizleme ve kaldırma; kullanıcı balonunda görüntüleme. OpenAI uyumlu, Anthropic ve Gemini sağlayıcıları multimodal API formatına uyarlanır. Görseller finans snapshot'ına dahil edilmez.

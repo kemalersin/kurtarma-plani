@@ -1,8 +1,8 @@
 # Bağımlılıklar
 node_modules/
 
-# Build çıktısı
-dist/
+# Build çıktısı — repoda dist/ commit edilir (GitHub üzerinden indirme)
+# dist/
 *.local
 
 # Ortam değişkenleri (API anahtarları vb.)

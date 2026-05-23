@@ -22,6 +22,8 @@ import PageHeader from '@/components/PageHeader.vue'
 import BankingPresetSection from '@/components/BankingPresetSection.vue'
 import AiSettingsSection from '@/features/ai/AiSettingsSection.vue'
 import DataBackupSection from '@/components/DataBackupSection.vue'
+import SyncSettingsSection from '@/components/SyncSettingsSection.vue'
+import UpdateSettingsSection from '@/components/UpdateSettingsSection.vue'
 import { useProfileStore } from '@/stores/profile'
 import { saveProfile } from '@/core/db/meta'
 import type { LocaleSettings, ProfileMeta } from '@/core/types/profile'
@@ -40,7 +42,7 @@ const nameDraft = ref('')
 const savingName = ref(false)
 const savingLocale = ref(false)
 const deletingProfile = ref(false)
-const SETTINGS_TABS = ['profile', 'locale', 'security', 'banking', 'ai', 'data'] as const
+const SETTINGS_TABS = ['profile', 'locale', 'security', 'banking', 'ai', 'data', 'sync', 'updates'] as const
 const { activeTab } = useRoutedTabs(SETTINGS_TABS, 'profile')
 
 watch(
@@ -198,6 +200,18 @@ async function deleteCurrentProfile(): Promise<void> {
       <TabPane key="data" tab="Veri">
         <Card title="Yedek ve içe aktarma">
           <DataBackupSection />
+        </Card>
+      </TabPane>
+
+      <TabPane key="sync" tab="Senkron">
+        <Card title="Otomatik senkron">
+          <SyncSettingsSection />
+        </Card>
+      </TabPane>
+
+      <TabPane key="updates" tab="Güncelleme">
+        <Card title="Sürüm kontrolü">
+          <UpdateSettingsSection />
         </Card>
       </TabPane>
     </Tabs>

@@ -88,6 +88,8 @@ export const useProfileStore = defineStore('profile', () => {
     }
     dataKey.value = result.key
     unlocked.value = true
+    const { onProfileUnlocked } = await import('@/core/services/sync/sync-scheduler')
+    void onProfileUnlocked()
   }
 
   async function createProfile(input: CreateProfileInput): Promise<ProfileMeta> {
@@ -133,10 +135,18 @@ export const useProfileStore = defineStore('profile', () => {
     activeProfileId.value = id
     unlocked.value = true
     appMeta.value = await updateAppMeta({ activeProfileId: id })
+    const { onProfileUnlocked } = await import('@/core/services/sync/sync-scheduler')
+    void onProfileUnlocked()
     return true
   }
 
   async function lock(): Promise<void> {
+    const { flushSyncPushNow } = await import('@/core/services/sync/sync-scheduler')
+    try {
+      await flushSyncPushNow()
+    } catch {
+      // Hata sync store'da kayıtlı kalır
+    }
     if (activeProfileId.value) {
       await closeProfileDb(activeProfileId.value)
     }
@@ -144,6 +154,8 @@ export const useProfileStore = defineStore('profile', () => {
     dataKey.value = null
     activeProfileId.value = null
     appMeta.value = await updateAppMeta({ activeProfileId: undefined })
+    const { useSyncStore } = await import('@/stores/sync')
+    void useSyncStore().onActiveProfileChanged()
     // Profil önbelleklerini sıfırla; başka profile geçildiğinde reload tetiklenir.
     const { useEntitiesStore } = await import('@/stores/entities')
     useEntitiesStore().reset()

@@ -4,6 +4,7 @@ import { EncryptedRepo, type EntityRecord } from '@/core/db/encrypted-repo'
 import type { EntityType } from '@/core/db/profile-db'
 import { useProfileStore } from '@/stores/profile'
 import { newId } from '@/core/util/id'
+import { notifySyncLocalChange } from '@/core/services/sync/sync-scheduler'
 
 interface CollectionState<T> {
   items: T[]
@@ -129,6 +130,7 @@ export const useEntitiesStore = defineStore('entities', () => {
       state.items = [...state.items, data]
     }
     collections.value = { ...collections.value }
+    notifySyncLocalChange()
     return data
   }
 
@@ -143,6 +145,7 @@ export const useEntitiesStore = defineStore('entities', () => {
       }
       collections.value = { ...collections.value }
     }
+    notifySyncLocalChange()
   }
 
   function reset(): void {

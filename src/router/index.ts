@@ -1,5 +1,7 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
 import { useProfileStore } from '@/stores/profile'
+import { useSyncStore } from '@/stores/sync'
+import { ensureSyncBootstrap } from '@/core/services/sync/sync-scheduler'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -61,6 +63,11 @@ const routes: RouteRecordRaw[] = [
         name: 'settings',
         component: () => import('@/features/settings/SettingsView.vue'),
       },
+      {
+        path: 'about',
+        name: 'about',
+        component: () => import('@/features/about/AboutView.vue'),
+      },
     ],
   },
   {
@@ -76,6 +83,9 @@ export const router = createRouter({
 
 router.beforeEach(async (to) => {
   const profileStore = useProfileStore()
+  const syncStore = useSyncStore()
+  // Senkron ayarları profil unlock hook'larından önce yüklenmeli (race → enabled=false yazılmasın).
+  if (!syncStore.loaded) await syncStore.load()
   if (!profileStore.loaded) await profileStore.load()
 
   if (!profileStore.hasAnyProfile) {
@@ -90,6 +100,10 @@ router.beforeEach(async (to) => {
 
   if (to.name === 'select' || to.name === 'setup') {
     return { name: 'home' }
+  }
+
+  if (profileStore.unlocked && to.matched.some((r) => r.meta.requiresProfile)) {
+    await ensureSyncBootstrap()
   }
 
   return true

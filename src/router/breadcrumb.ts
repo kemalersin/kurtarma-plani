@@ -15,6 +15,7 @@ const ROUTE_LABELS: Record<string, string> = {
   analytics: 'Analiz & rapor',
   ai: 'AI Asistan',
   settings: 'Ayarlar',
+  about: 'Hakkında',
 }
 
 const HOME_ROUTE = 'home'

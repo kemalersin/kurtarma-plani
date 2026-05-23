@@ -38,10 +38,19 @@ export interface ProfileMeta {
   password: ProfilePasswordInfo
 }
 
+import type { SyncConfig } from '@/core/types/sync'
+import type { UpdateCheckConfig } from '@/core/types/update-check'
+
 export interface AppMeta {
   schemaVersion: number
   appVersion: string
   createdAt: string
   updatedAt: string
   activeProfileId?: string
+  /** Senkron dosyası yazan cihazlar arası benzersiz kimlik. */
+  deviceId?: string
+  /** Otomatik senkron ayarları (dosya handle ayrı store'da — bkz. docs/SYNC.md). */
+  sync?: SyncConfig
+  /** GitHub sürüm kontrolü tercihleri. */
+  updateCheck?: UpdateCheckConfig
 }

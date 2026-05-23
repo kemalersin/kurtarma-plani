@@ -79,6 +79,8 @@ Export seçenekleri (dialog):
 
 Import: şema sürümü + Zod doğrulama; şifreli dosyada parola istenir.
 
+**Otomatik senkron (planlanan):** Export/import dialog’undan bağımsız, açılıp kapatılabilir senkron dosyası — ayrıntı [SYNC.md](./SYNC.md).
+
 Excel/PDF yalnızca UI’daki tablo/grafik export’u içindir; snapshot ile karıştırılmaz.
 
 ## Çevrimdışı / çevrimiçi ayrımı

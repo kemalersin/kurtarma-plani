@@ -31,7 +31,6 @@ import {
 } from '@/core/types/export'
 import { loadActiveBankingPreset } from '@/core/services/banking-preset'
 import { resolveUniqueProfileName } from '@/core/services/snapshot-import'
-import { newId } from '@/core/util/id'
 import type { ProfileMeta } from '@/core/types/profile'
 
 interface ActiveProfileContext {
@@ -232,6 +231,10 @@ export interface ImportSummary {
   importedEntities: number
   skippedProfiles: number
   overwritten?: boolean
+  /** İçe aktarma sonrası açılması gereken profil kimliği. */
+  targetProfileId?: string
+  /** Aynı kimlik zaten vardı; veri güncellendi. */
+  mergedExisting?: boolean
 }
 
 export interface ImportSnapshotOptions {
@@ -239,6 +242,8 @@ export interface ImportSnapshotOptions {
   overwriteProfileId?: string
   /** Üzerine yazma modunda entity şifreleme anahtarı. */
   dataKey?: CryptoKey | null
+  /** Kurulum/geri yükleme: yedekteki profil kimliği korunur (varsayılan import davranışı). */
+  preserveProfileId?: boolean
 }
 
 /** İçe aktarma başarı mesajı; kayıt yoksa yalnızca profil sayısı belirtilir. */
@@ -248,6 +253,12 @@ export function formatImportSummaryMessage(summary: ImportSummary): string {
       return `Aktif profil güncellendi (${summary.importedEntities} kayıt).`
     }
     return 'Aktif profil güncellendi.'
+  }
+  if (summary.mergedExisting) {
+    if (summary.importedEntities > 0) {
+      return `Mevcut profil güncellendi (${summary.importedEntities} kayıt).`
+    }
+    return 'Mevcut profil güncellendi.'
   }
   const { importedProfiles, importedEntities } = summary
   if (importedEntities > 0) {
@@ -319,22 +330,33 @@ export async function importSnapshot(
       importedEntities,
       skippedProfiles: 0,
       overwritten: true,
+      targetProfileId: options.overwriteProfileId,
     }
   }
 
   let importedProfiles = 0
   let importedEntities = 0
+  let targetProfileId: string | undefined
+  let mergedExisting = false
   const existingNames = (await metaDb.profiles.toArray()).map((p) => p.name)
 
   for (const item of snapshot.profiles) {
     const existingById = await metaDb.profiles.get(item.profile.id)
-    const targetId = existingById ? newId() : item.profile.id
+    if (existingById) {
+      const count = await writeImportedEntities(item.profile.id, null, item.entities)
+      importedEntities += count
+      importedProfiles += 1
+      targetProfileId = item.profile.id
+      mergedExisting = true
+      continue
+    }
+
     const name = resolveUniqueProfileName(item.profile.name, existingNames)
     existingNames.push(name)
 
     const { info } = await buildPasswordInfo(undefined)
     const profile: ProfileMeta = {
-      id: targetId,
+      id: item.profile.id,
       name,
       createdAt: item.profile.createdAt,
       updatedAt: now,
@@ -344,9 +366,16 @@ export async function importSnapshot(
     }
     await saveProfile(profile)
 
-    importedEntities += await writeImportedEntities(targetId, null, item.entities)
+    importedEntities += await writeImportedEntities(item.profile.id, null, item.entities)
     importedProfiles += 1
+    targetProfileId = item.profile.id
   }
 
-  return { importedProfiles, importedEntities, skippedProfiles: 0 }
+  return {
+    importedProfiles,
+    importedEntities,
+    skippedProfiles: 0,
+    targetProfileId,
+    mergedExisting: mergedExisting || undefined,
+  }
 }
