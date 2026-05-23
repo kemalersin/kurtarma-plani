@@ -29,7 +29,6 @@ import type { AiProviderConfig, AiProviderId } from '@/core/types/ai-settings'
 import { DEFAULT_BASE_URLS, fetchOllamaModels, fetchVllmModels } from '@/features/ai/providers'
 import {
   CLOUD_CORS_HINT,
-  effectiveDefaultBaseUrl,
   usesDevAiProxy,
 } from '@/features/ai/providers/proxy-url'
 import { formatCostUsd } from '@/features/ai/cost'
@@ -469,7 +468,7 @@ async function resetCatalog(): Promise<void> {
             :placeholder="
               editingExisting
                 ? 'Değiştirmek için yeni anahtar girin (boş bırakılırsa mevcut korunur)'
-                : 'sk-… (platform panelinden kopyalayın; FETCH_MODELS=1 gibi build metinleri değil)'
+                : 'sk-…'
             "
           />
         </FormItem>
@@ -479,7 +478,7 @@ async function resetCatalog(): Promise<void> {
         <FormItem label="Base URL">
           <Input
             v-model:value="draft.baseUrl"
-            :placeholder="effectiveDefaultBaseUrl(draft.provider)"
+            :placeholder="DEFAULT_BASE_URLS[draft.provider]"
           />
           <Typography.Paragraph
             v-if="usesDevAiProxy(draft.provider)"
