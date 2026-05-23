@@ -5,7 +5,18 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)](https://www.typescriptlang.org/)
 [![Kahve Ismarla](https://img.shields.io/badge/☕-Kahve_Ismarla-FFDD00)](https://polar.sh/checkout/polar_c_haAJ3cBdBFOHt7slvqdZ7kiN3MVY9g3AKebj91C72HB)
 
-Borçları kayıt altına alan, gelir-gider dengesini izleyen ve analiz eden **tek dosyalık statik SPA**. Backend yok; tüm veriler tarayıcıda **IndexedDB** üzerinde tutulur. Production çıktısı tek bir HTML dosyasıdır (`file://` ile açılabilir, çevrimdışı çalışır).
+Borçları kayıt altına alan, gelir-gider dengesini izleyen ve analiz eden **tek dosyalık statik SPA**. Backend yok; tüm veriler tarayıcıda **IndexedDB** üzerinde tutulur. Production çıktısı tek bir HTML dosyasıdır (`file://` ile açılabilir, çevrimdışı çalışır). Kurulum veya dosya indirme gerekmeden GitHub Pages üzerinde deneyebilirsiniz.
+
+<p align="center">
+  <a
+    href="https://kemalersin.github.io/kurtarma-plani/"
+    target="_blank"
+    rel="noopener noreferrer"
+    style="display: inline-block; padding: 0.75em 1.5em; font-size: 1.05em; font-weight: 600; color: #ffffff; background-color: #1677ff; border-radius: 6px; text-decoration: none;"
+  >
+    Canlı demo →
+  </a>
+</p>
 
 **Depo:** [github.com/kemalersin/kurtarma-plani](https://github.com/kemalersin/kurtarma-plani)  
 **Hazır derleme:** [dist/index.html](https://github.com/kemalersin/kurtarma-plani/tree/main/dist) (repoda commit edilir)  
@@ -15,8 +26,8 @@ Borçları kayıt altına alan, gelir-gider dengesini izleyen ve analiz eden **t
 
 ## Hızlı başlangıç
 
-1. [GitHub `dist/index.html`](https://github.com/kemalersin/kurtarma-plani/blob/main/dist/index.html) dosyasını indirin (Raw → kaydet).
-2. Dosyayı çift tıklayarak veya tarayıcıya sürükleyerek açın — sunucu gerekmez.
+1. Yukarıdaki **Canlı demo** düğmesinden uygulamayı açın — sunucu gerekmez.
+2. Alternatif: [GitHub `dist/index.html`](https://github.com/kemalersin/kurtarma-plani/blob/main/dist/index.html) dosyasını indirin (Raw → kaydet) ve `file://` ile açın.
 3. İlk açılışta profil oluşturun veya yedek/senkron dosyasından geri yükleyin.
 
 Geliştirici kurulumu için aşağıdaki [Geliştirme](#geliştirme) bölümüne bakın.

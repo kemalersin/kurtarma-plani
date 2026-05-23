@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import {
   Alert,
   Button,
+  Card,
   Checkbox,
   Form,
   FormItem,
@@ -215,16 +216,12 @@ function resetPasswordModal(): void {
 </script>
 
 <template>
-  <Space direction="vertical" :size="20" style="width: 100%">
-    <Alert
-      type="info"
-      show-icon
-      message="Yedekleme ve içe aktarma"
-      description="Yedek yalnızca şu an açık olan profili içerir. Dosya isteğe bağlı parolayla şifrelenebilir."
-    />
+  <div class="kp-data-backup">
+    <Typography.Paragraph class="kp-text-muted">
+      Yedek yalnızca şu an açık olan profili içerir. Dosya isteğe bağlı parolayla şifrelenebilir.
+    </Typography.Paragraph>
 
-    <div>
-      <Typography.Title :level="5" class="kp-section-title">Yedek al</Typography.Title>
+    <Card title="Yedek al" size="small" class="kp-data-backup__card">
       <Typography.Paragraph v-if="profileStore.activeProfile" class="kp-text-muted">
         Profil: <strong>{{ profileStore.activeProfile.name }}</strong>
       </Typography.Paragraph>
@@ -260,10 +257,9 @@ function resetPasswordModal(): void {
           Yedek dosyasını indir
         </Button>
       </div>
-    </div>
+    </Card>
 
-    <div>
-      <Typography.Title :level="5" class="kp-section-title">İçe aktar</Typography.Title>
+    <Card title="İçe aktar" size="small" class="kp-data-backup__card">
       <Typography.Paragraph class="kp-text-muted">
         Yedek dosyasından profil ve kayıtları içe aktarın. Varsayılan olarak
         <strong>yeni profil</strong> oluşturulur; aynı isimde profil varsa
@@ -301,8 +297,8 @@ function resetPasswordModal(): void {
         <template #icon><UploadOutlined /></template>
         Yedek dosyası seç
       </Button>
-    </div>
-  </Space>
+    </Card>
+  </div>
 
   <Modal
     :open="passwordModalOpen"
@@ -330,9 +326,12 @@ function resetPasswordModal(): void {
 </template>
 
 <style scoped>
-.kp-section-title {
-  margin-top: 0 !important;
-  margin-bottom: 8px !important;
+.kp-data-backup__card {
+  margin-bottom: 16px;
+}
+
+.kp-data-backup__card:last-child {
+  margin-bottom: 0;
 }
 
 .kp-text-muted {
