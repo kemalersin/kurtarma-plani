@@ -27,4 +27,4 @@ export const AES_SALT_BYTES = 16
 
 export const BANKING_PRESET_KEY = 'active'
 export const DEFAULT_BANKING_PRESET_FEED_URL =
-  'https://raw.githubusercontent.com/kurtarma-plani/banking-presets/main/tr-latest.json'
+  'https://raw.githubusercontent.com/kemalersin/kurtarma-plani/main/banking-presets/tr-latest.json'
