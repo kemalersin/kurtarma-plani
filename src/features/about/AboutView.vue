@@ -26,7 +26,7 @@ import KpNotice from '@/components/KpNotice.vue'
 import BrandMark from '@/components/icons/BrandMark.vue'
 import CoffeeIcon from '@/components/icons/CoffeeIcon.vue'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
-import { APP_BUILD_DATE, APP_GITHUB_DIST_URL, APP_GITHUB_URL, APP_NAME, APP_SUPPORT_URL, APP_VERSION } from '@/core/constants'
+import { APP_BUILD_DATE, APP_GITHUB_PAGES_RAW_INDEX_URL, APP_GITHUB_PAGES_URL, APP_GITHUB_URL, APP_NAME, APP_SUPPORT_URL, APP_VERSION } from '@/core/constants'
 
 const { formatDateLong } = useLocaleFormatters()
 
@@ -148,9 +148,15 @@ const techStack = [
         </div>
 
         <Space wrap :size="12">
-          <Button type="default" size="large" :href="APP_GITHUB_DIST_URL" target="_blank" rel="noopener noreferrer">
+          <Button type="default" size="large" :href="APP_GITHUB_URL" target="_blank" rel="noopener noreferrer">
             <template #icon><GithubOutlined /></template>
-            GitHub
+            Kaynak kodu
+          </Button>
+          <Button type="primary" size="large" :href="APP_GITHUB_PAGES_URL" target="_blank" rel="noopener noreferrer">
+            Canlı sürüm
+          </Button>
+          <Button size="large" :href="APP_GITHUB_PAGES_RAW_INDEX_URL" target="_blank" rel="noopener noreferrer">
+            index.html indir
           </Button>
         </Space>
       </Space>

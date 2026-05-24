@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { APP_GITHUB_DIST_URL, APP_GITHUB_PACKAGE_JSON_URL } from '@/core/constants'
+import { APP_GITHUB_PAGES_RAW_INDEX_URL, APP_GITHUB_PACKAGE_JSON_URL } from '@/core/constants'
 import { compareVersions, normalizeVersionTag } from '@/core/services/version-compare'
 
 const PackageJsonSchema = z.object({
@@ -29,7 +29,7 @@ export async function fetchRemoteAppVersion(): Promise<RemoteVersionInfo> {
   const version = await fetchPackageJsonVersion()
   return {
     version,
-    releaseUrl: APP_GITHUB_DIST_URL,
+    releaseUrl: APP_GITHUB_PAGES_RAW_INDEX_URL,
   }
 }
 

@@ -15,7 +15,8 @@ Borçları kayıt altına alan, gelir-gider dengesini izleyen ve analiz eden **t
 </p>
 
 **Depo:** [github.com/kemalersin/kurtarma-plani](https://github.com/kemalersin/kurtarma-plani)  
-**Hazır derleme:** [dist/index.html](https://github.com/kemalersin/kurtarma-plani/tree/main/dist) (repoda commit edilir)  
+**Canlı sürüm:** [kemalersin.github.io/kurtarma-plani](https://kemalersin.github.io/kurtarma-plani/) (`pages` dalı, CI ile otomatik)  
+**İndir:** [pages/index.html](https://raw.githubusercontent.com/kemalersin/kurtarma-plani/pages/index.html) (Raw → kaydet, `file://`)  
 **Kahve Ismarla:** [polar.sh](https://polar.sh/checkout/polar_c_haAJ3cBdBFOHt7slvqdZ7kiN3MVY9g3AKebj91C72HB)
 
 ---
@@ -37,7 +38,7 @@ Borçları kayıt altına alan, gelir-gider dengesini izleyen ve analiz eden **t
 ## Hızlı başlangıç
 
 1. Yukarıdaki **Canlı demo** düğmesinden uygulamayı açın — sunucu gerekmez.
-2. Alternatif: [GitHub `dist/index.html`](https://github.com/kemalersin/kurtarma-plani/blob/main/dist/index.html) dosyasını indirin (Raw → kaydet) ve `file://` ile açın.
+2. Alternatif: [`pages` dalındaki `index.html`](https://raw.githubusercontent.com/kemalersin/kurtarma-plani/pages/index.html) dosyasını indirin (Raw → kaydet) ve `file://` ile açın.
 3. İlk açılışta profil oluşturun veya yedek/senkron dosyasından geri yükleyin.
 
 Geliştirici kurulumu için aşağıdaki [Geliştirme](#geliştirme) bölümüne bakın.
@@ -85,7 +86,7 @@ Geliştirici kurulumu için aşağıdaki [Geliştirme](#geliştirme) bölümüne
 ### Güncelleme bildirimi
 
 - GitHub `package.json` sürümü ile karşılaştırma (varsayılan açık)
-- Yeni sürüm varsa üst bilgi bandı; indirme linki `dist/` klasörüne yönlendirir
+- Yeni sürüm varsa üst bilgi bandı; indirme linki `pages` dalındaki `index.html` dosyasına yönlendirir
 - Çevrimdışıyken kontrol yapılmaz
 
 ---
@@ -94,9 +95,10 @@ Geliştirici kurulumu için aşağıdaki [Geliştirme](#geliştirme) bölümüne
 
 | Konu | Not |
 |------|-----|
+| **Canlı sürüm** | [GitHub Pages](https://kemalersin.github.io/kurtarma-plani/) — `main` push → `pages` dalına build |
 | **Önerilen** | Chrome veya Edge (senkron dosyası seçici, File System Access) |
 | **Safari / `file://`** | Finans tam çalışır; senkron **manuel mod** (indir + dosya seç) |
-| **Build çıktısı** | `dist/index.html` — tek dosya, harici CDN yok |
+| **Build çıktısı** | Yerelde `dist/index.html`; repoda yalnızca `pages` dalında yayınlanır |
 | **Hash routing** | `#/home`, `#/debts` … — History API kullanılmaz |
 
 ---
@@ -146,7 +148,7 @@ npm test                 # Vitest (finans motoru + yardımcılar)
 npm run typecheck
 ```
 
-`dist/index.html` repoya commit edilir; kullanıcılar GitHub üzerinden doğrudan indirebilir.
+`main` dalına her push'ta GitHub Actions derler ve `pages` dalına yazar; GitHub Pages bu dalı yayınlar. Yerel build: `npm run build` → `dist/index.html` (gitignore).
 
 ---
 
@@ -161,7 +163,7 @@ src/
     services/sync/  Otomatik senkron (KP-SYNC1)
   components/       Paylaşılan UI (EntityListPage, FormDrawer, …)
 docs/               Wiki, mimari, senkron tasarımı
-dist/               Production tek dosya (index.html)
+.github/workflows/  CI — main → pages dalı deploy
 ```
 
 ---
@@ -200,7 +202,7 @@ dist/               Production tek dosya (index.html)
 
 Kaynak kod [LICENSE](LICENSE) dosyasındaki koşullara tabidir.
 
-**Derlenmiş dağıtım (`dist/index.html`):** Tek dosyalık çıktı, uygulama içindeki **Hakkında** (`#/about`) ekranındaki bilgiler (sürüm, özellik özeti, açık kaynak/GitHub bağlantısı, teknik özet, yasal uyarı, destek bağlantısı vb.) **silinerek veya gizlenerek dağıtılamaz**. Kaynak kodu değiştirip yeniden derleseniz bile bu ekranın içeriği korunmalıdır.
+**Derlenmiş dağıtım (`pages` dalı / GitHub Pages):** Tek dosyalık çıktı, uygulama içindeki **Hakkında** (`#/about`) ekranındaki bilgiler (sürüm, özellik özeti, açık kaynak/GitHub bağlantısı, teknik özet, yasal uyarı, destek bağlantısı vb.) **silinerek veya gizlenerek dağıtılamaz**. Kaynak kodu değiştirip yeniden derleseniz bile bu ekranın içeriği korunmalıdır.
 
 ---
 

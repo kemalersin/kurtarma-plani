@@ -11,7 +11,7 @@ import {
 } from 'ant-design-vue'
 import { SyncOutlined } from '@ant-design/icons-vue'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
-import { APP_GITHUB_DIST_URL, APP_VERSION } from '@/core/constants'
+import { APP_GITHUB_PAGES_RAW_INDEX_URL, APP_GITHUB_PAGES_TREE_URL, APP_VERSION } from '@/core/constants'
 import { useUpdateStore } from '@/stores/update'
 
 const updateStore = useUpdateStore()
@@ -78,7 +78,9 @@ async function checkNow(): Promise<void> {
         }}
       </DescriptionsItem>
       <DescriptionsItem label="Derleme">
-        <a :href="APP_GITHUB_DIST_URL" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a :href="APP_GITHUB_PAGES_TREE_URL" target="_blank" rel="noopener noreferrer">pages dalı</a>
+        ·
+        <a :href="APP_GITHUB_PAGES_RAW_INDEX_URL" target="_blank" rel="noopener noreferrer">index.html</a>
       </DescriptionsItem>
     </Descriptions>
 

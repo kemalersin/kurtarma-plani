@@ -13,7 +13,7 @@ const updateStore = useUpdateStore()
     <KpNotice
       tone="info"
       :title="`Yeni sürüm mevcut: v${updateStore.remoteVersion}`"
-      :detail="`Kullandığınız sürüm v${APP_VERSION}. GitHub'daki dist/index.html dosyasını indirip mevcut kopyanızın üzerine yazabilirsiniz.`"
+      :detail="`Kullandığınız sürüm v${APP_VERSION}. pages dalındaki index.html dosyasını indirip mevcut kopyanızın üzerine yazabilirsiniz.`"
       closable
       @close="updateStore.dismissNotice()"
     >
@@ -28,7 +28,7 @@ const updateStore = useUpdateStore()
           rel="noopener noreferrer"
         >
           <template #icon><CloudDownloadOutlined /></template>
-          GitHub
+          İndir
         </Button>
       </template>
     </KpNotice>

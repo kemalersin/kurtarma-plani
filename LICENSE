@@ -8,8 +8,8 @@ Kaynak kodu MIT benzeri izinlerle kullanılabilir; aşağıdaki dağıtım koşu
 ================================================================================
 
 - «Kaynak kod»: Bu depodaki kaynak dosyalar (src/, docs/, vb.).
-- «Derlenmiş çıktı»: vite build ile üretilen tek dosyalık dist/index.html ve
-  bundan türetilen kopyalar.
+- «Derlenmiş çıktı»: vite build ile üretilen tek dosyalık index.html; GitHub
+  Pages `pages` dalında yayınlanır.
 - «Hakkında ekranı»: Uygulama içindeki #/about rotasındaki Hakkında sayfası;
   kaynak karşılığı src/features/about/AboutView.vue.
 
@@ -30,7 +30,7 @@ herkese ücretsiz olarak verilir:
 3. Derlenmiş çıktının dağıtımı (zorunlu)
 ================================================================================
 
-dist/index.html veya bundan elde edilen tek dosyalık dağıtımlar, Hakkında
+pages dalındaki index.html veya bundan elde edilen tek dosyalık dağıtımlar, Hakkında
 ekranındaki bilgiler silinerek veya erişilemez kılınarak YAYINLANAMAZ.
 
 Dağıtılan her derlenmiş çıktıda Hakkında ekranı erişilebilir olmalı ve en az
