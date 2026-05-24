@@ -3,6 +3,7 @@
 [![Sürüm](https://img.shields.io/badge/sürüm-0.1.1-blue)](package.json)
 [![Vue 3](https://img.shields.io/badge/Vue-3-42b883)](https://vuejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)](https://www.typescriptlang.org/)
+[![Lisans](https://img.shields.io/badge/Lisans-Ozel-green)](LICENSE)
 [![Kahve Ismarla](https://img.shields.io/badge/☕-Kahve_Ismarla-FFDD00)](https://polar.sh/checkout/polar_c_haAJ3cBdBFOHt7slvqdZ7kiN3MVY9g3AKebj91C72HB)
 
 Borçları kayıt altına alan, gelir-gider dengesini izleyen ve analiz eden **tek dosyalık statik SPA**. Backend yok; tüm veriler tarayıcıda **IndexedDB** üzerinde tutulur. Production çıktısı tek bir HTML dosyasıdır (`file://` ile açılabilir, çevrimdışı çalışır). Kurulum veya dosya indirme gerekmeden GitHub Pages üzerinde deneyebilirsiniz.
@@ -175,6 +176,7 @@ dist/               Production tek dosya (index.html)
 | [docs/BANKING-TR.md](docs/BANKING-TR.md) | Türkiye bankacılık referans preset |
 | [TODO.md](TODO.md) | Milestone ve görev listesi |
 | [CHANGELOG.md](CHANGELOG.md) | Sürüm geçmişi |
+| [LICENSE](LICENSE) | Lisans ve dağıtım koşulları |
 
 ---
 
@@ -191,6 +193,14 @@ dist/               Production tek dosya (index.html)
 | M10 | Otomatik senkron S1–S5 tamam; WebDAV (S6) opsiyonel |
 
 **Güncel sürüm:** `0.1.1` — aktif geliştirme devam ediyor.
+
+---
+
+## Lisans
+
+Kaynak kod [LICENSE](LICENSE) dosyasındaki koşullara tabidir.
+
+**Derlenmiş dağıtım (`dist/index.html`):** Tek dosyalık çıktı, uygulama içindeki **Hakkında** (`#/about`) ekranındaki bilgiler (sürüm, özellik özeti, açık kaynak/GitHub bağlantısı, teknik özet, yasal uyarı, destek bağlantısı vb.) **silinerek veya gizlenerek dağıtılamaz**. Kaynak kodu değiştirip yeniden derleseniz bile bu ekranın içeriği korunmalıdır.
 
 ---
 
