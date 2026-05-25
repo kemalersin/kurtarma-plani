@@ -1,0 +1,590 @@
+openapi: 3.1.0
+info:
+  title: Envelope Sync Relay API
+  version: 1.0.0
+  description: |
+    Zero-knowledge document sync relay for offline-first applications.
+    Full specification: docs/envelope-sync-relay/
+
+    WebSocket notifications (v1.1): wss://{host}/v1/namespaces/{namespaceId}/notifications
+    See 13-WEBSOCKET-NOTIFICATIONS.md — not covered by this OpenAPI file.
+
+servers:
+  - url: https://sync.example.com/v1
+    description: Production
+  - url: http://localhost:8080/v1
+    description: Local development
+
+tags:
+  - name: Namespaces
+  - name: Devices
+  - name: Documents
+  - name: Limits
+  - name: Recovery
+  - name: Admin
+  - name: Health
+
+components:
+  securitySchemes:
+    DeviceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: device_token
+    AdminToken:
+      type: http
+      scheme: bearer
+      bearerFormat: admin_api_token
+
+  schemas:
+    ErrorBody:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+
+    Limits:
+      type: object
+      properties:
+        freeDeviceLimit:
+          type: integer
+        purchasedSlots:
+          type: integer
+        maxDevices:
+          type: integer
+        activeDevices:
+          type: integer
+
+    OnLimitReached:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [payment, block]
+        slotPackages:
+          type: array
+          items:
+            type: integer
+
+    EsrDocEnvelope:
+      type: object
+      required:
+        - magic
+        - schemaVersion
+        - namespaceId
+        - namespaceLabel
+        - documentId
+        - revision
+        - deviceId
+        - writtenAt
+        - contentType
+        - contentMagic
+        - contentSha256
+        - payload
+      properties:
+        magic:
+          type: string
+          const: ESR-DOC1
+        schemaVersion:
+          type: integer
+          minimum: 1
+          maximum: 1
+        namespaceId:
+          type: string
+          format: uuid
+        namespaceLabel:
+          type: string
+        documentId:
+          type: string
+          const: primary
+        revision:
+          type: string
+        deviceId:
+          type: string
+        writtenAt:
+          type: string
+          format: date-time
+        contentType:
+          type: string
+        contentMagic:
+          type: string
+          enum: [ENV-RAW1, ENV-ENC1]
+        contentSha256:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        payload:
+          type: string
+
+    DocumentHeadMeta:
+      type: object
+      properties:
+        revision:
+          type: string
+        writtenAt:
+          type: string
+          format: date-time
+        deviceId:
+          type: string
+        contentSha256:
+          type: string
+        contentMagic:
+          type: string
+        sizeBytes:
+          type: integer
+
+    Device:
+      type: object
+      properties:
+        deviceId:
+          type: string
+        clientDeviceId:
+          type: string
+        label:
+          type: string
+        pairedAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+        isCurrent:
+          type: boolean
+
+  responses:
+    Error400:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    Error401:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    Error403:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    Error404:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    Error409:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  version:
+                    type: string
+                  db:
+                    type: string
+                  blob:
+                    type: string
+
+  /namespaces:
+    post:
+      tags: [Namespaces]
+      summary: Create namespace (first device / host)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - namespaceId
+                - namespaceLabel
+                - recoveryKeySalt
+                - recoveryKeyHash
+                - deviceLabel
+                - clientDeviceId
+              properties:
+                namespaceId:
+                  type: string
+                  format: uuid
+                namespaceLabel:
+                  type: string
+                recoveryKeySalt:
+                  type: string
+                recoveryKeyHash:
+                  type: string
+                deviceLabel:
+                  type: string
+                clientDeviceId:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  namespaceId:
+                    type: string
+                  deviceToken:
+                    type: string
+                  deviceId:
+                    type: string
+                  limits:
+                    $ref: '#/components/schemas/Limits'
+        '409':
+          $ref: '#/components/responses/Error409'
+
+  /namespaces/{namespaceId}:
+    get:
+      tags: [Namespaces]
+      summary: Get namespace info
+      security:
+        - DeviceToken: []
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+        '401':
+          $ref: '#/components/responses/Error401'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /namespaces/{namespaceId}/devices:
+    get:
+      tags: [Devices]
+      summary: List devices
+      security:
+        - DeviceToken: []
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Device'
+                  limits:
+                    $ref: '#/components/schemas/Limits'
+    post:
+      tags: [Devices]
+      summary: Redeem pairing code (new device)
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pairingCode, deviceLabel, clientDeviceId]
+              properties:
+                pairingCode:
+                  type: string
+                deviceLabel:
+                  type: string
+                clientDeviceId:
+                  type: string
+      responses:
+        '201':
+          description: Paired
+        '400':
+          $ref: '#/components/responses/Error400'
+        '403':
+          $ref: '#/components/responses/Error403'
+
+  /namespaces/{namespaceId}/devices/{deviceId}:
+    delete:
+      tags: [Devices]
+      summary: Revoke device
+      security:
+        - DeviceToken: []
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Revoked
+        '403':
+          $ref: '#/components/responses/Error403'
+
+  /namespaces/{namespaceId}/pairing-tokens:
+    post:
+      tags: [Devices]
+      summary: Create pairing token
+      security:
+        - DeviceToken: []
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ttlSeconds:
+                  type: integer
+      responses:
+        '201':
+          description: Token created
+        '403':
+          $ref: '#/components/responses/Error403'
+
+  /namespaces/{namespaceId}/recover:
+    post:
+      tags: [Recovery]
+      summary: Recover namespace access
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recoveryKeyProof, deviceLabel, clientDeviceId]
+              properties:
+                recoveryKeyProof:
+                  type: object
+                  properties:
+                    salt:
+                      type: string
+                    hash:
+                      type: string
+                deviceLabel:
+                  type: string
+                clientDeviceId:
+                  type: string
+      responses:
+        '200':
+          description: Recovered
+        '401':
+          $ref: '#/components/responses/Error401'
+        '429':
+          description: Rate limited
+
+  /namespaces/{namespaceId}/documents/primary/head/meta:
+    get:
+      tags: [Documents]
+      summary: Get head metadata only
+      security:
+        - DeviceToken: []
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentHeadMeta'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /namespaces/{namespaceId}/documents/primary/head:
+    get:
+      tags: [Documents]
+      summary: Get full head envelope
+      security:
+        - DeviceToken: []
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EsrDocEnvelope'
+        '404':
+          $ref: '#/components/responses/Error404'
+
+  /namespaces/{namespaceId}/documents/primary:
+    put:
+      tags: [Documents]
+      summary: Push new document revision
+      security:
+        - DeviceToken: []
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [envelope]
+              properties:
+                expectedRevision:
+                  type: string
+                  nullable: true
+                envelope:
+                  $ref: '#/components/schemas/EsrDocEnvelope'
+      responses:
+        '201':
+          description: Pushed
+        '409':
+          $ref: '#/components/responses/Error409'
+        '422':
+          description: Invalid envelope
+
+  /namespaces/{namespaceId}/limits:
+    get:
+      tags: [Limits]
+      summary: Get slot limits
+      security:
+        - DeviceToken: []
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Limits'
+                  - type: object
+                    properties:
+                      onLimitReached:
+                        $ref: '#/components/schemas/OnLimitReached'
+                      canAddDevice:
+                        type: boolean
+
+  /namespaces/{namespaceId}/unlock:
+    post:
+      tags: [Limits]
+      summary: Redeem unlock code
+      security:
+        - DeviceToken: []
+      parameters:
+        - name: namespaceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [unlockCode]
+              properties:
+                unlockCode:
+                  type: string
+      responses:
+        '200':
+          description: Unlocked
+        '400':
+          $ref: '#/components/responses/Error400'
+        '409':
+          $ref: '#/components/responses/Error409'
+
+  /admin/unlock-codes:
+    post:
+      tags: [Admin]
+      summary: Generate unlock code
+      security:
+        - AdminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [namespaceId, slots]
+              properties:
+                namespaceId:
+                  type: string
+                  format: uuid
+                  format: uuid
+                slots:
+                  type: integer
+                expiresAt:
+                  type: string
+                  format: date-time
+                note:
+                  type: string
+      responses:
+        '201':
+          description: Code generated
