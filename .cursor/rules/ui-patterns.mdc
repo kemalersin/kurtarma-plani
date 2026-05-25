@@ -61,7 +61,7 @@ alwaysApply: false
 - **Liste sütunlarında tooltip yok.** `ellipsis: true` yerine **`ellipsis: { showTitle: false }`** (`EntityListPage` zaten `ellipsis: true` olanları çevirir); `Table` `:show-sorter-tooltip="false"`. Aksiyon ikonları (Düzenle/Sil) `KpTooltip` ile etiketli — kural sadece **veri sütunları** için. Hücre içinde `<Tooltip>` / `KpTooltip` koyma; gerekiyorsa hücre içeriğini netleştir veya `formatListCellValue` ile özel render
 - **Satır / kart tıklama (`EntityListPage`, `DrawerDataTable`):** ortak `list-item-click.ts` + **`ListCard`** — varsayılan `@edit` (düzenleme drawer). Sayfa `@row-click` + `row-action-label` / `row-action-icon` verirse (örn. krediler → taksit planı) kart/satır tıklaması `@row-click`; düzenleme **kalem ikonuyla**. Drawer tablolarında `customRow.onClick` kart tıklamasına eşlenir. Tıklama yok sayılanlar: `button`, `a`, `Popconfirm`, `Popover`, `.kp-list__row-actions`, `.kp-list-card__actions` (`@click.stop` mobil aksiyon grubunda). Masaüstü: `customRow` + `kp-list__row--clickable`. Mobil: `ListCard` + `kp-list-card--clickable` + `:active`/hover geri bildirimi (`app.css`)
 - **Liste sekmesi sarmalayıcı:** `EntityListPage` içeren tüm `<a-tabs>` panellerinde `<div class="kp-list-tab-pane">` (`app.css`) zorunlu — flex column + `flex:1; min-height:0`
-- Boş durum `<a-empty>`; `EntityListPage` overlay ile tablo alanında dikey+yatay ortalı (placeholder satırı gizli); yükleme `loading` prop
+- Boş durum `<a-empty>`; `EntityListPage` overlay ile tablo alanında dikey+yatay ortalı (placeholder satırı gizli); yükleme `loading` prop — masaüstü tablo `loading` bitene ve gövde çizilene kadar mount edilmez (sütun başlığı flaşı yok)
 - Hassas kayıt: `<a-tag>` rozet
 
 ## Liste URL durumu

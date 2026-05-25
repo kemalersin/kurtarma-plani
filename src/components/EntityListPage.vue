@@ -388,6 +388,38 @@ const showEmptyCards = computed(
   () => isMobile.value && !props.loading && filtered.value.length === 0,
 )
 
+/** Masaüstü tablo: veri çizilene kadar sütun başlıkları gösterilmez (auto-layout sıçraması önlenir). */
+const tableRevealReady = ref(false)
+
+const showDesktopTable = computed(
+  () =>
+    !isMobile.value &&
+    !props.loading &&
+    !showEmptyOverlay.value &&
+    tableRevealReady.value,
+)
+
+const showDesktopTablePending = computed(
+  () =>
+    !isMobile.value &&
+    !props.loading &&
+    !showEmptyOverlay.value &&
+    !tableRevealReady.value,
+)
+
+async function scheduleTableReveal(): Promise<void> {
+  tableRevealReady.value = false
+  if (props.loading || isMobile.value || showEmptyOverlay.value) return
+  await nextTick()
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (props.loading || isMobile.value || showEmptyOverlay.value) return
+      tableRevealReady.value = true
+      void measureTableScroll()
+    })
+  })
+}
+
 /** AntDV varsayılan boş metin (「Veri yok」); gerçek boş durum `kp-list__empty` overlay. */
 const tableLocale = { emptyText: ' ' }
 
@@ -654,7 +686,19 @@ watch(
   },
 )
 
-watch(() => props.loading, () => void measureTableScroll())
+watch(
+  () => props.loading,
+  (loading) => {
+    if (loading) tableRevealReady.value = false
+    else void scheduleTableReveal()
+  },
+  { immediate: true },
+)
+
+watch(isMobile, (mobile) => {
+  if (mobile) tableRevealReady.value = false
+  else if (!props.loading) void scheduleTableReveal()
+})
 watch(
   () => [sortedItems.value.length, filtered.value.length, isMobile.value] as const,
   () => void measureTableScroll(),
@@ -798,12 +842,17 @@ watch(
       class="kp-list__table kp-list__table--desktop"
       :class="{
         'kp-list__table--empty': showEmptyOverlay,
-        'kp-list__table--loading': loading,
+        'kp-list__table--loading': loading || showDesktopTablePending,
         'kp-list__table--fill-body': tableBodyFillsViewport,
       }"
       :style="tableWrapStyle"
     >
-      <div v-if="loading" class="kp-list__loading" aria-busy="true" aria-live="polite">
+      <div
+        v-if="loading || showDesktopTablePending"
+        class="kp-list__loading"
+        aria-busy="true"
+        aria-live="polite"
+      >
         <Spin size="large" />
       </div>
 
@@ -812,6 +861,7 @@ watch(
       </div>
 
       <Table
+        v-else-if="showDesktopTable"
         class="kp-list__table-inner"
         :data-source="sortedItems"
         :columns="allColumns"
