@@ -5,7 +5,8 @@ export const APP_GITHUB_URL = 'https://github.com/kemalersin/kurtarma-plani'
 export const APP_GITHUB_REPO = 'kemalersin/kurtarma-plani'
 export const APP_GITHUB_BRANCH = 'main'
 export const APP_GITHUB_PAGES_BRANCH = 'pages'
-export const APP_GITHUB_PAGES_URL = 'https://kemalersin.github.io/kurtarma-plani/'
+/** Canlı dağıtım (GitHub Pages + özel alan adı). */
+export const APP_GITHUB_PAGES_URL = 'https://kurtar.co/'
 export const APP_GITHUB_PAGES_TREE_URL = `${APP_GITHUB_URL}/tree/${APP_GITHUB_PAGES_BRANCH}`
 export const APP_GITHUB_PAGES_RAW_INDEX_URL = `https://raw.githubusercontent.com/${APP_GITHUB_REPO}/${APP_GITHUB_PAGES_BRANCH}/index.html`
 export const APP_GITHUB_PACKAGE_JSON_URL = `https://raw.githubusercontent.com/${APP_GITHUB_REPO}/${APP_GITHUB_BRANCH}/package.json`

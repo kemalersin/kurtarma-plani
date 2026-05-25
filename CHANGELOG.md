@@ -4,6 +4,10 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 ## [Unreleased]
 
+### Added — GitHub Pages özel alan adı
+
+- `public/CNAME`: `kurtar.co` ve `www.kurtar.co`; canlı site `https://kurtar.co/` (DNS: kök A kayıtları + `www` → `kemalersin.github.io` CNAME).
+
 ### Changed — tablo sütun genişliği
 
 - Liste, drawer ve analiz tablolarında sütun genişliği otomatik (`table-layout: auto`, `scroll.x: max-content`); elle `width` / `minWidth` ve 112px / 280px varsayılanları kaldırıldı. **İstisna:** `__actions` sütunu 88px (2 düğme) / 132px (3 düğme).
