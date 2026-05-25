@@ -6,7 +6,7 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 ### Added — GitHub Pages özel alan adı
 
-- `public/CNAME`: `kurtar.co` ve `www.kurtar.co`; canlı site `https://kurtar.co/` (DNS: kök A kayıtları + `www` → `kemalersin.github.io` CNAME).
+- `public/CNAME`: `kurtar.co` (tek satır; GitHub HTTPS için zorunlu). `www` yalnızca DNS CNAME → `kemalersin.github.io`.
 
 ### Changed — tablo sütun genişliği
 
