@@ -482,7 +482,7 @@ async function confirmPasswordAndSync(): Promise<void> {
       type="warning"
       show-icon
       message="Manuel senkron modu"
-      description="Bu tarayıcıda dosya otomatik yazılamaz (Safari veya sınırlı ortam). Uzak sürümü almak için iCloud/Dropbox klasörünüzdeki .sync dosyasını «Güncel dosyayı seç» ile işaretleyin; yerel değişiklikleri göndermek için «Yerel sürümü indir» ile dosyayı indirip aynı klasörde eski dosyanın üzerine kaydedin."
+      description="Bu tarayıcıda dosya otomatik yazılamaz (Safari veya sınırlı ortam). Uzak sürümü almak için iCloud/Dropbox klasörünüzdeki senkron dosyasını «Güncel dosyayı seç» ile işaretleyin; yerel değişiklikleri göndermek için «Yerel sürümü indir» ile dosyayı indirip aynı klasörde eski dosyanın üzerine kaydedin."
     />
 
     <Alert

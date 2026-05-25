@@ -4,7 +4,7 @@ export type PageLayout = 'narrow' | 'wide' | 'wide-fill'
 
 declare module 'vue-router' {
   interface RouteMeta {
-    gate?: 'setup' | 'select'
+    gate?: 'onboarding' | 'setup' | 'select'
     requiresProfile?: boolean
     /**
      * - `narrow`: 800px sütun (ayarlar, kurulum)

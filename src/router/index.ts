@@ -2,8 +2,15 @@ import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-rou
 import { useProfileStore } from '@/stores/profile'
 import { useSyncStore } from '@/stores/sync'
 import { ensureSyncBootstrap } from '@/core/services/sync/sync-scheduler'
+import { isOnboardingCompleted } from '@/core/onboarding'
 
 const routes: RouteRecordRaw[] = [
+  {
+    path: '/onboarding',
+    name: 'onboarding',
+    component: () => import('@/features/profile/OnboardingView.vue'),
+    meta: { gate: 'onboarding' },
+  },
   {
     path: '/setup',
     name: 'setup',
@@ -89,6 +96,12 @@ router.beforeEach(async (to) => {
   if (!profileStore.loaded) await profileStore.load()
 
   if (!profileStore.hasAnyProfile) {
+    const onboardingDone = isOnboardingCompleted()
+    if (!onboardingDone) {
+      if (to.name !== 'onboarding') return { name: 'onboarding' }
+      return true
+    }
+    if (to.name === 'onboarding') return { name: 'setup' }
     if (to.name !== 'setup') return { name: 'setup' }
     return true
   }
@@ -98,7 +111,7 @@ router.beforeEach(async (to) => {
     return true
   }
 
-  if (to.name === 'select' || to.name === 'setup') {
+  if (to.name === 'select' || to.name === 'setup' || to.name === 'onboarding') {
     return { name: 'home' }
   }
 

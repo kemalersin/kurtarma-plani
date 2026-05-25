@@ -4,6 +4,10 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 ## [Unreleased]
 
+### Added — ilk açılış onboarding
+
+- Profil yokken kurulumdan önce çok adımlı tanıtım (`#/onboarding`): yerel veri, senkron, AI asistan, yasal uyarı; ilerleme çubuğu ve adım geçişleri; tamamlanınca `localStorage` ile bir kez gösterilmez.
+
 ### Removed — AI bağlam YAML
 
 - YAML dışa aktarım ve `js-yaml` bağımlılığı kaldırıldı; JSON + Markdown yeterli.

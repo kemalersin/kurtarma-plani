@@ -217,7 +217,7 @@ function onMenuClick(info: MenuInfo): void {
     <Typography.Paragraph type="secondary" class="kp-ai-export-preview-hint">
       Bu dosya yedek değildir; ChatGPT, Claude Code vb. araçlara bağlam olarak
       yapıştırılabilir. API anahtarları ve sohbet geçmişi dahil edilmez.
-      JSON dosyasında yalnızca ödenmemiş taksitler listelenir; kalan borç gecikme
+      Yapılandırılmış dosyada yalnızca ödenmemiş taksitler listelenir; kalan borç gecikme
       faizi dahildir.
       <span v-if="previewOmitted.archived || previewOmitted.sensitive">
         ({{ previewOmitted.archived }} arşiv,
