@@ -9,13 +9,13 @@
 Borçları kayıt altına alan, gelir-gider dengesini izleyen ve analiz eden **tek dosyalık statik SPA**. Backend yok; tüm veriler tarayıcıda **IndexedDB** üzerinde tutulur. Production çıktısı tek bir HTML dosyasıdır (`file://` ile açılabilir, çevrimdışı çalışır). Kurulum veya dosya indirme gerekmeden GitHub Pages üzerinde deneyebilirsiniz.
 
 <p align="center">
-  <a href="https://kemalersin.github.io/kurtarma-plani/">
+  <a href="https://kurtar.co/">
     <img alt="Canlı demo — GitHub Pages" src="https://img.shields.io/badge/Canlı_demo-→-1677ff?style=for-the-badge&logo=github&logoColor=white">
   </a>
 </p>
 
 **Depo:** [github.com/kemalersin/kurtarma-plani](https://github.com/kemalersin/kurtarma-plani)  
-**Canlı sürüm:** [kemalersin.github.io/kurtarma-plani](https://kemalersin.github.io/kurtarma-plani/) (`pages` dalı, CI ile otomatik)  
+**Canlı sürüm:** [kurtar.co](https://kurtar.co/) (`pages` dalı, CI ile otomatik; yedek: [github.io/kurtarma-plani](https://kemalersin.github.io/kurtarma-plani/))  
 **İndir:** [pages/index.html](https://raw.githubusercontent.com/kemalersin/kurtarma-plani/pages/index.html) (Raw → kaydet, `file://`)  
 **Kahve Ismarla:** [polar.sh](https://polar.sh/checkout/polar_c_haAJ3cBdBFOHt7slvqdZ7kiN3MVY9g3AKebj91C72HB)
 
@@ -95,7 +95,7 @@ Geliştirici kurulumu için aşağıdaki [Geliştirme](#geliştirme) bölümüne
 
 | Konu | Not |
 |------|-----|
-| **Canlı sürüm** | [GitHub Pages](https://kemalersin.github.io/kurtarma-plani/) — `main` push → `pages` dalına build |
+| **Canlı sürüm** | [kurtar.co](https://kurtar.co/) — `main` push → `pages` dalına build |
 | **Önerilen** | Chrome veya Edge (senkron dosyası seçici, File System Access) |
 | **Safari / `file://`** | Finans tam çalışır; senkron **manuel mod** (indir + dosya seç) |
 | **Build çıktısı** | Yerelde `dist/index.html`; repoda yalnızca `pages` dalında yayınlanır |
@@ -149,6 +149,19 @@ npm run typecheck
 ```
 
 `main` dalına her push'ta GitHub Actions derler ve `pages` dalına yazar; GitHub Pages bu dalı yayınlar. Yerel build: `npm run build` → `dist/index.html` (gitignore).
+
+### Özel alan adı (`kurtar.co`)
+
+| Tür | Host | Değer |
+|-----|------|--------|
+| **A** | `@` | `185.199.108.153` |
+| **A** | `@` | `185.199.109.153` |
+| **A** | `@` | `185.199.110.153` |
+| **A** | `@` | `185.199.111.153` |
+| **CNAME** | `www` | `kemalersin.github.io` |
+
+- Repo → **Settings → Pages → Custom domain:** `kurtar.co` (HTTPS açık).
+- `public/CNAME` deploy ile `pages` dalına kopyalanır (`kurtar.co`, `www.kurtar.co`).
 
 ---
 
