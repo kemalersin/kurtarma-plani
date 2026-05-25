@@ -13,6 +13,10 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 - Kalan borç = ödenmemiş taksit tutarları toplamı + vadesi geçmiş taksitler için biriken gecikme faizi (kredi, taksitli avans plan drawer ve listeler).
 - Erken kapama tahmini gecikmiş taksitlerde vadesi geçmiş dönem faizi + biriken gecikme faizini de içerir.
 
+### Added — erken kapama (taksit planı)
+
+- Kredi ve taksitli nakit avans taksit planı drawer'ında **Erken kapama** düğmesi; tahmini tutar, ödeme tarihi ve kaynak hesap/kasa ile kalan taksitleri tek seferde kapatma.
+
 ### Added — yinelenen gelir/gider
 
 - Gelir ve gider formlarında **Yinelenen** seçeneği (günlük / haftalık / aylık / yıllık); plan tarihi ilk yinelenme.

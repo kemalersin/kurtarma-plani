@@ -12,7 +12,6 @@ import {
   message,
 } from 'ant-design-vue'
 import KpStatRow, { type KpStat } from '@/components/KpStatRow.vue'
-import { InfoCircleOutlined } from '@ant-design/icons-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
 import SensitiveRecordSwitch from '@/components/SensitiveRecordSwitch.vue'
@@ -21,7 +20,7 @@ import {
   readSensitiveDraft,
   sensitiveSaveOptions,
 } from '@/composables/useSensitiveEntityForm'
-import KpTooltip from '@/components/KpTooltip.vue'
+import KpFormLabel from '@/components/KpFormLabel.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
@@ -383,12 +382,9 @@ function close(): void {
       </FormItem>
       <FormItem>
         <template #label>
-          <Space :size="6">
-            <span>Aylık vergi oranı (%)</span>
-            <KpTooltip title="KKDF + BSMV gibi sabit oranlı vergiler. Faiz üzerine eklenir.">
-              <InfoCircleOutlined />
-            </KpTooltip>
-          </Space>
+          <KpFormLabel hint="KKDF + BSMV gibi sabit oranlı vergiler. Faiz üzerine eklenir.">
+            Aylık vergi oranı (%)
+          </KpFormLabel>
         </template>
         <Space.Compact style="width: 100%">
           <LocaleInputNumber
@@ -403,12 +399,9 @@ function close(): void {
       </FormItem>
       <FormItem>
         <template #label>
-          <Space :size="6">
-            <span>Erken kapama faizsiz</span>
-            <KpTooltip title="Sözleşmeniz erken kapama için faiz kesmiyor mu? İşaretleyin.">
-              <InfoCircleOutlined />
-            </KpTooltip>
-          </Space>
+          <KpFormLabel hint="Sözleşmeniz erken kapama için faiz kesmiyor mu? İşaretleyin.">
+            Erken kapama faizsiz
+          </KpFormLabel>
         </template>
         <Switch v-model:checked="draft.earlyPayoffWithoutInterest" />
       </FormItem>
@@ -423,7 +416,7 @@ function close(): void {
       <KpStatRow :items="previewStats" />
     </div>
 
-    <template #extra>
+    <template #actions>
       <Space>
         <Button :disabled="saving" @click="close">Vazgeç</Button>
         <Button type="primary" :loading="saving" @click="submit">Kaydet</Button>

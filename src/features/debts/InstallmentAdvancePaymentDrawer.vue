@@ -6,12 +6,12 @@ import {
   Textarea,
   Button,
   Space,
-  Alert,
   Switch,
   message,
 } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
+import KpFormLabel from '@/components/KpFormLabel.vue'
 import KpStatRow from '@/components/KpStatRow.vue'
 import KpTooltip from '@/components/KpTooltip.vue'
 import { disableAfter } from '@/core/util/datepicker'
@@ -19,6 +19,7 @@ import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
 import PaymentSourcePicker from '@/components/PaymentSourcePicker.vue'
 import { useEntitiesStore } from '@/stores/entities'
+import { useProfileStore } from '@/stores/profile'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type {
   InstallmentCashAdvance,
@@ -29,6 +30,12 @@ import { computeLateFee, lateDays } from '@/finance/loan'
 import { D } from '@/finance/decimal'
 import { isInstallmentUpcoming, canMarkInstallmentAsPaid } from './installmentDisplay'
 import { advancePaidThroughIndex } from './installmentAdvanceHelpers'
+import {
+  buildInstallmentPaymentStats,
+  installmentAmountHint,
+  installmentPaymentDateHint,
+  installmentPaymentSourceTooltip,
+} from './installmentPaymentFormHints'
 
 interface Props {
   open: boolean
@@ -43,6 +50,7 @@ const emit = defineEmits<{
 }>()
 
 const entities = useEntitiesStore()
+const profileStore = useProfileStore()
 const allPayments = entities.list<InstallmentCashAdvancePayment>(
   'installmentCashAdvancePayment',
 )
@@ -140,6 +148,39 @@ const lateDaysCount = computed<number>(() => {
 function formatMoney(value: string | number): string {
   return formatCurrency(value, props.advance?.currency)
 }
+
+const profileCurrency = computed(
+  () => profileStore.activeProfile?.localeSettings.currency ?? 'TRY',
+)
+
+const paymentSourceTooltip = computed(() =>
+  installmentPaymentSourceTooltip(profileCurrency.value),
+)
+
+const paymentDateHint = computed(() =>
+  nextPaymentDate.value
+    ? installmentPaymentDateHint(formatDate(nextPaymentDate.value))
+    : undefined,
+)
+
+const amountHint = computed(() =>
+  installmentAmountHint({
+    markAsPaid: markAsPaid.value,
+    hasLaterPayments: hasLaterPayments.value,
+    hasLateFee: lateDaysCount.value > 0,
+  }),
+)
+
+const statItems = computed(() =>
+  buildInstallmentPaymentStats({
+    dueDateLabel: props.row ? formatDate(props.row.dueDate) : '—',
+    planInstallmentLabel: props.row ? formatMoney(props.row.installment) : '—',
+    markAsPaid: markAsPaid.value,
+    lateDaysCount: lateDaysCount.value,
+    lateFeeLabel: formatMoney(lateFee.value),
+    totalDueLabel: formatMoney(totalDue.value),
+  }),
+)
 
 watch(
   () => [props.open, props.row?.index, props.existing?.id] as const,
@@ -312,43 +353,28 @@ function close(): void {
     @update:open="emit('update:open', $event)"
   >
     <Space direction="vertical" :size="16" style="width: 100%">
-      <KpStatRow
-        :min-column-width="100"
-        :items="[
-          { label: 'Vade', value: row ? formatDate(row.dueDate) : '—' },
-          { label: 'Plan taksit', value: row ? formatMoney(row.installment) : '—', tone: 'primary' },
-          { label: 'Gecikme', value: `${lateDaysCount} gün`, tone: lateDaysCount > 0 ? 'danger' : 'default' },
-        ]"
-      />
+      <KpStatRow :min-column-width="100" :items="statItems" />
 
       <Form layout="vertical" :colon="false" @submit.prevent="submit">
         <FormItem v-if="showPaidToggle" label="Ödendi olarak işaretle">
           <Switch v-model:checked="markAsPaid" />
         </FormItem>
-        <FormItem
-          v-if="markAsPaid"
-          label="Ödeme tarihi"
-          required
-          :extra="
-            nextPaymentDate
-              ? `Sonraki ödeme ${formatDate(nextPaymentDate)} — bu tarihe kadar ileri alınabilir.`
-              : undefined
-          "
-        >
+        <FormItem v-if="markAsPaid" required>
+          <template #label>
+            <KpFormLabel :hint="paymentDateHint">Ödeme tarihi</KpFormLabel>
+          </template>
           <LocaleDatePicker
             v-model:value="draft.paidDate"
             :disabled-date="disabledPaymentDate"
             style="width: 100%"
           />
         </FormItem>
-        <FormItem
-          :label="markAsPaid ? 'Ödenen tutar' : 'Taksit tutarı'"
-          :extra="
-            hasLaterPayments
-              ? 'Sonraki taksit ödemeleri olduğu için tutar plan taksitine eşitlenir.'
-              : undefined
-          "
-        >
+        <FormItem>
+          <template #label>
+            <KpFormLabel :hint="amountHint">
+              {{ markAsPaid ? 'Ödenen tutar' : 'Taksit tutarı' }}
+            </KpFormLabel>
+          </template>
           <LocaleInputNumber
             v-model:value="draft.paidAmount"
             kind="currency"
@@ -360,20 +386,12 @@ function close(): void {
           v-if="markAsPaid"
           v-model:accountId="draft.sourceAccountId"
           v-model:cashRegisterId="draft.sourceCashRegisterId"
-          hint="Boş bırakılırsa cashflow bakiyesinden düşmez."
+          :label-tooltip="paymentSourceTooltip"
         />
         <FormItem label="Notlar">
           <Textarea v-model:value="draft.notes" :rows="2" />
         </FormItem>
       </Form>
-
-      <Alert
-        v-if="markAsPaid && lateDaysCount > 0"
-        type="warning"
-        show-icon
-        :message="`Gecikme faizi: ${formatMoney(lateFee)}`"
-        :description="`Önerilen toplam: ${formatMoney(totalDue)}`"
-      />
 
       <div v-if="existing?.paidDate" class="kp-form-drawer-danger-row">
         <KpTooltip
@@ -399,7 +417,7 @@ function close(): void {
       </div>
     </Space>
 
-    <template #extra>
+    <template #actions>
       <Space>
         <Button :disabled="saving" @click="close">Vazgeç</Button>
         <Button type="primary" :loading="saving" @click="submit">Kaydet</Button>

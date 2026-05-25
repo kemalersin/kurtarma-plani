@@ -211,7 +211,7 @@ function close(): void {
       </div>
     </Form>
 
-    <template #extra>
+    <template #actions>
       <Space>
         <Button :disabled="saving" @click="close">Vazgeç</Button>
         <Button type="primary" :loading="saving" @click="submit">Kaydet</Button>

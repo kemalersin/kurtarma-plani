@@ -300,7 +300,7 @@ function close(): void {
       <SensitiveRecordSwitch v-model:sensitive="draft.sensitive" v-model:archived="draft.archived" />
     </Form>
 
-    <template #extra>
+    <template #actions>
       <Space>
         <Button :disabled="saving" @click="close">Vazgeç</Button>
         <Button type="primary" :loading="saving" @click="submit">Kaydet</Button>

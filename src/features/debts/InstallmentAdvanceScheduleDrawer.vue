@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import {
+  Button,
   Empty,
   message,
+  Tag,
 } from 'ant-design-vue'
 import DismissibleDrawerAlert from '@/components/DismissibleDrawerAlert.vue'
 import KpStatRow, { type KpStat } from '@/components/KpStatRow.vue'
@@ -27,6 +29,7 @@ import {
 import { buildScheduleDrawerColumns } from './schedule-table-columns'
 import type { KpTableColumn } from '@/core/util/table-columns'
 import InstallmentAdvancePaymentDrawer from './InstallmentAdvancePaymentDrawer.vue'
+import SchedulePayoffDrawer from './SchedulePayoffDrawer.vue'
 import { payoffStatTooltip } from './payoffStatTooltip'
 import { displayInstallmentAmount } from './installmentDisplay'
 
@@ -97,23 +100,41 @@ function installmentDisplay(row: ScheduleRow): string {
   return formatMoney(displayInstallmentAmount(row.installment, payment))
 }
 
-const stats = computed<KpStat[]>(() => [
-  {
-    label: 'Kalan borç',
-    value: formatMoney(remainingDebt.value),
-    tone: 'primary',
-  },
-  {
+const canEarlyPayoff = computed(() => {
+  if (!schedule.value || !props.advance) return false
+  return (
+    paidIndex.value < schedule.value.rows.length && Number(payoff.value) > 0
+  )
+})
+
+const isClosed = computed(() => {
+  const total = schedule.value?.rows.length ?? 0
+  return total > 0 && paidIndex.value >= total
+})
+
+const stats = computed<KpStat[]>(() => {
+  const payoffStat: KpStat = {
     label: 'Erken kapama (bugün)',
     value: formatMoney(payoff.value),
-    labelTooltip: payoffStatTooltip(props.advance?.earlyPayoffWithoutInterest),
-  },
-  { label: 'Toplam ödenen', value: formatMoney(totalPaid.value), tone: 'success' },
-  {
-    label: 'Ödenen taksit',
-    value: `${paidIndex.value} / ${schedule.value?.rows.length ?? 0}`,
-  },
-])
+  }
+  if (!isClosed.value) {
+    payoffStat.labelTooltip = payoffStatTooltip(props.advance?.earlyPayoffWithoutInterest)
+  }
+
+  return [
+    {
+      label: 'Kalan borç',
+      value: formatMoney(remainingDebt.value),
+      tone: 'primary',
+    },
+    payoffStat,
+    { label: 'Toplam ödenen', value: formatMoney(totalPaid.value), tone: 'success' },
+    {
+      label: 'Ödenen taksit',
+      value: `${paidIndex.value} / ${schedule.value?.rows.length ?? 0}`,
+    },
+  ]
+})
 
 type RowStatus = 'paid' | 'late' | 'due' | 'upcoming'
 
@@ -167,6 +188,7 @@ const columns = computed(() => {
 })
 
 const markOpen = ref(false)
+const payoffOpen = ref(false)
 const activeRow = ref<ScheduleRow | null>(null)
 const activeExisting = ref<InstallmentCashAdvancePayment | null>(null)
 
@@ -218,6 +240,12 @@ function scheduleRowProps(row: ScheduleRow): Record<string, unknown> {
     width="min(960px, 100vw)"
     @update:open="emit('update:open', $event)"
   >
+    <template #actions>
+      <Button v-if="advance && canEarlyPayoff" type="primary" @click="payoffOpen = true">
+        Erken kapama
+      </Button>
+      <Tag v-else-if="advance && isClosed" color="success">Kapandı</Tag>
+    </template>
     <div v-if="!advance">
       <Empty />
     </div>
@@ -254,5 +282,7 @@ function scheduleRowProps(row: ScheduleRow): Record<string, unknown> {
     :row="activeRow"
     :existing="activeExisting"
   />
+
+  <SchedulePayoffDrawer v-model:open="payoffOpen" :advance="advance" />
 </template>
 

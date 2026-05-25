@@ -13,7 +13,7 @@
   --kp-mobile-viewport-max: 768px;
   /** EntityListPage: tablo ↔ kart kırılımı */
   --kp-list-mobile-max: 640px;
-  /** Sağ kenara yaslanmış popconfirm / popover / dropdown */
+  /** Popconfirm / popover / dropdown: viewport kenarından yatay boşluk */
   --kp-popoverlay-edge-margin: 12px;
 }
 
@@ -137,8 +137,36 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: min(480px, calc(100vh - 160px));
+  flex: 1 1 auto;
+  min-height: min(480px, calc(100dvh - var(--kp-page-spinner-offset, 160px)));
   padding: 48px 16px;
+  box-sizing: border-box;
+}
+
+/** Spinner görünürken sayfa kökü görünür içerik alanını doldurur */
+.kp-content > .kp-page:has(.kp-page-spinner) {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.kp-content > .kp-page:has(.kp-page-spinner) > * {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --kp-page-spinner-offset: 104px;
+  }
+
+  .kp-page-spinner {
+    min-height: 0;
+    padding: 24px 16px;
+  }
 }
 
 /** Yönetim sekmesi: liste dikey alanı doldurur */
@@ -176,6 +204,7 @@ body {
   border-radius: var(--kp-radius, 8px);
   padding: 12px 14px;
   background: #fff;
+  color: rgba(0, 0, 0, 0.88);
 }
 
 .kp-list-card--clickable {
@@ -197,6 +226,7 @@ body {
 [data-theme='dark'] .kp-list-card {
   background: #1f1f1f;
   border-color: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.88);
 }
 
 [data-theme='dark'] .kp-list-card--clickable:active {
@@ -225,6 +255,7 @@ body {
   flex: 1;
   min-width: 0;
   word-break: break-word;
+  color: inherit;
 }
 
 .kp-list-card__actions {
@@ -254,6 +285,7 @@ body {
   margin: 0;
   font-size: 14px;
   word-break: break-word;
+  color: inherit;
 }
 
 [data-theme='dark'] .kp-list-card__field dt {
@@ -362,6 +394,29 @@ body {
     overflow: hidden;
   }
 
+  .kp-form-drawer--mobile-footer.ant-drawer .ant-drawer-body {
+    padding-bottom: 0;
+  }
+
+  .kp-form-drawer__footer-actions {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+  }
+
+  .kp-form-drawer__footer-actions .ant-space {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .kp-form-drawer__footer-actions .ant-space-item {
+    flex: 1;
+  }
+
+  .kp-form-drawer__footer-actions .ant-btn {
+    width: 100%;
+  }
+
   /** Sekmeli sayfalar (mobilde PageHeader gizli): tab satırı üst boşluğu */
   .kp-content .ant-tabs-tab {
     padding-top: 2px;
@@ -442,12 +497,116 @@ body {
   background: rgba(22, 119, 255, 0.1);
 }
 
+.kp-form-drawer__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/** Taksit planı drawer: uzun başlıkta header #extra (erken kapama) görünür kalsın */
+.kp-form-drawer.ant-drawer:has(.kp-drawer-table-page) .ant-drawer-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.kp-form-drawer.ant-drawer:has(.kp-drawer-table-page) .ant-drawer-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kp-form-drawer.ant-drawer:has(.kp-drawer-table-page) .ant-drawer-extra {
+  flex: 0 0 auto;
+  padding-inline-start: 12px;
+}
+
 /** Form drawer: tehlikeli aksiyon (sil / ödemeyi kaldır) — header (#extra) içinde değil, form altında */
 .kp-form-drawer-danger-row {
   display: flex;
   justify-content: flex-start;
   padding-top: 8px;
   border-top: 1px dashed var(--ant-color-border-secondary, rgba(0, 0, 0, 0.06));
+}
+
+/** Bilgi ikonu (KpInfoHint / KpTooltip hint): tıklanabilir tetikleyici */
+.kp-info-hint-trigger {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  cursor: pointer;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+.kp-info-hint-trigger:focus-visible {
+  outline: 2px solid var(--ant-color-primary, #1677ff);
+  outline-offset: 2px;
+}
+
+.kp-info-hint__icon {
+  font-size: 12px;
+  color: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25));
+  transition: color 0.15s ease;
+}
+
+.kp-info-hint-trigger:hover .kp-info-hint__icon,
+.kp-info-hint-trigger:focus-visible .kp-info-hint__icon {
+  color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
+}
+
+/** Bilgi ipucu popover: genişlik açılışta sabit (margin yok — sonradan daralmayı önler) */
+.kp-info-hint-popover .ant-popover-inner-content {
+  word-break: break-word;
+}
+
+.kp-form-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.kp-form-label--hint-trigger {
+  cursor: pointer;
+}
+
+.kp-info-hint-trigger--wide {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.kp-info-hint-trigger--wide .kp-form-label__text {
+  min-width: 0;
+}
+
+.kp-form-label__text {
+  min-width: 0;
+}
+
+[data-theme='dark'] .kp-info-hint__icon {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+[data-theme='dark'] .kp-info-hint-trigger:hover .kp-info-hint__icon,
+[data-theme='dark'] .kp-info-hint-trigger:focus-visible .kp-info-hint__icon {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/** Form drawer: Vazgeç + onay — header (#actions) ile aynı düğme stili, form altında sağa dayalı */
+.kp-form-drawer-submit-row {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  padding-top: 16px;
+  margin-top: 4px;
+  border-top: 1px solid var(--ant-color-border-secondary, rgba(0, 0, 0, 0.06));
 }
 
 /* JSON sözdizimi renkleri (JsonCodeBlock, v-html) */

@@ -11,7 +11,6 @@ import {
   message,
 } from 'ant-design-vue'
 import KpStatRow, { type KpStat } from '@/components/KpStatRow.vue'
-import { InfoCircleOutlined } from '@ant-design/icons-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
 import SensitiveRecordSwitch from '@/components/SensitiveRecordSwitch.vue'
@@ -22,7 +21,7 @@ import {
 } from '@/composables/useSensitiveEntityForm'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
-import KpTooltip from '@/components/KpTooltip.vue'
+import KpFormLabel from '@/components/KpFormLabel.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
 import BankFormDrawer from '@/features/admin/BankFormDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
@@ -315,12 +314,9 @@ function close(): void {
       </FormItem>
       <FormItem>
         <template #label>
-          <Space :size="6">
-            <span>Gecikme faizi (%)</span>
-            <KpTooltip title="Boş bırakılırsa hesaplamada sözleşme × 1.3 (BDDK uygulaması) kullanılır.">
-              <InfoCircleOutlined />
-            </KpTooltip>
-          </Space>
+          <KpFormLabel hint="Boş bırakılırsa hesaplamada sözleşme × 1.3 (BDDK uygulaması) kullanılır.">
+            Gecikme faizi (%)
+          </KpFormLabel>
         </template>
         <Space.Compact style="width: 100%">
           <LocaleInputNumber
@@ -335,12 +331,9 @@ function close(): void {
       </FormItem>
       <FormItem>
         <template #label>
-          <Space :size="6">
-            <span>Aylık vergi oranı (%)</span>
-            <KpTooltip title="KKDF + BSMV gibi sabit oranlı vergiler. Faiz üzerine eklenir.">
-              <InfoCircleOutlined />
-            </KpTooltip>
-          </Space>
+          <KpFormLabel hint="KKDF + BSMV gibi sabit oranlı vergiler. Faiz üzerine eklenir.">
+            Aylık vergi oranı (%)
+          </KpFormLabel>
         </template>
         <Space.Compact style="width: 100%">
           <LocaleInputNumber
@@ -364,7 +357,7 @@ function close(): void {
       <KpStatRow :items="previewStats" />
     </div>
 
-    <template #extra>
+    <template #actions>
       <Space>
         <Button :disabled="saving" @click="close">Vazgeç</Button>
         <Button type="primary" :loading="saving" @click="submit">Kaydet</Button>

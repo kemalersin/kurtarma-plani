@@ -97,41 +97,73 @@ export const useEntitiesStore = defineStore('entities', () => {
     draft: Omit<T, 'id' | 'createdAt' | 'updatedAt'> & { id?: string },
     options?: { sensitive?: boolean },
   ): Promise<T> {
+    const [saved] = await saveMany<T>(type, [draft], options)
+    return saved
+  }
+
+  async function saveMany<T extends { id: string; updatedAt: string; createdAt: string }>(
+    type: EntityType,
+    drafts: Array<Omit<T, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }>,
+    options?: { sensitive?: boolean },
+  ): Promise<T[]> {
+    if (drafts.length === 0) return []
+
     const repo = getRepo()
     const state = ensure<T>(type)
     const now = new Date().toISOString()
-    const existing = draft.id
-      ? state.items.find((item) => item.id === draft.id)
-      : undefined
-    const id = draft.id ?? newId()
-    const data = {
-      ...draft,
-      id,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-    } as T
+    const existingById = new Map(state.items.map((item) => [item.id, item]))
 
-    await repo.put<T>({
-      id,
-      type,
-      updatedAt: now,
-      data,
-      sensitive: options?.sensitive ? true : undefined,
-    } satisfies EntityRecord<T>)
+    const saved: T[] = drafts.map((draft) => {
+      const existing = draft.id ? existingById.get(draft.id) : undefined
+      const id = draft.id ?? newId()
+      return {
+        ...draft,
+        id,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      } as T
+    })
+
+    await repo.putMany<T>(
+      saved.map(
+        (data) =>
+          ({
+            id: data.id,
+            type,
+            updatedAt: now,
+            data,
+            sensitive: options?.sensitive ? true : undefined,
+          }) satisfies EntityRecord<T>,
+      ),
+    )
 
     const sensitiveById = { ...state.sensitiveById }
-    if (options?.sensitive) sensitiveById[id] = true
-    else delete sensitiveById[id]
-    state.sensitiveById = sensitiveById
-
-    if (existing) {
-      state.items = state.items.map((item) => (item.id === id ? data : item))
-    } else {
-      state.items = [...state.items, data]
+    const updatedById = new Map(saved.map((item) => [item.id, item]))
+    const seen = new Set<string>()
+    const items: T[] = []
+    for (const item of state.items) {
+      if (updatedById.has(item.id)) {
+        items.push(updatedById.get(item.id)!)
+        seen.add(item.id)
+      } else {
+        items.push(item)
+      }
     }
+    for (const item of saved) {
+      if (!seen.has(item.id)) items.push(item)
+    }
+
+    if (options?.sensitive) {
+      for (const item of saved) sensitiveById[item.id] = true
+    } else {
+      for (const item of saved) delete sensitiveById[item.id]
+    }
+
+    state.items = items
+    state.sensitiveById = sensitiveById
     collections.value = { ...collections.value }
     notifySyncLocalChange()
-    return data
+    return saved
   }
 
   async function remove(type: EntityType, id: string): Promise<void> {
@@ -161,6 +193,7 @@ export const useEntitiesStore = defineStore('entities', () => {
     loaded,
     loading,
     save,
+    saveMany,
     remove,
     reset,
     isSensitive,

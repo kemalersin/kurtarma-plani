@@ -1,5 +1,6 @@
 import type { TableColumnType } from 'ant-design-vue'
 import type { VNode } from 'vue'
+import type { KpTableColumn } from '@/core/util/table-columns'
 
 export type ListCellContent =
   | { kind: 'text'; text: string }
@@ -47,6 +48,10 @@ export function resolveListCellContent<T extends Record<string, unknown>>(
       return { kind: 'text', text: String(rendered) }
     }
     return { kind: 'vnode', vnode: rendered as VNode }
+  }
+  const kpDisplay = (column as KpTableColumn<T>).kpDisplay
+  if (kpDisplay) {
+    return { kind: 'text', text: kpDisplay(record) }
   }
   if (column.dataIndex != null) {
     const val = record[column.dataIndex as keyof T]

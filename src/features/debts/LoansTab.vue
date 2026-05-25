@@ -19,6 +19,11 @@ import {
   compareIsoDate,
 } from '@/features/debts/debtListSorters'
 import { buildScheduleForLoan, paidThroughIndex, remainingDebtForLoan } from './loanHelpers'
+import {
+  installmentDebtStatusKey,
+  installmentDebtStatusLabel,
+  installmentDebtStatusTag,
+} from './installmentDebtListStatus'
 
 const entities = useEntitiesStore()
 const { formatCurrency, formatDate } = useLocaleFormatters()
@@ -130,23 +135,15 @@ function summary(loan: Loan): LoanSummary {
 }
 
 function statusLabel(loan: Loan): string {
-  const s = summary(loan)
-  if (s.overdue > 0) return `${s.overdue} gecikmiş`
-  if (s.totalCount > 0 && s.paidCount >= s.totalCount) return 'Kapandı'
-  return 'Devam ediyor'
+  return installmentDebtStatusLabel(summary(loan))
 }
 
 function statusTag(loan: Loan) {
-  const s = summary(loan)
-  if (s.overdue > 0) return { color: 'error', label: statusLabel(loan) }
-  return null
+  return installmentDebtStatusTag(summary(loan))
 }
 
 function statusKey(loan: Loan): 'overdue' | 'closed' | 'active' {
-  const s = summary(loan)
-  if (s.overdue > 0) return 'overdue'
-  if (s.totalCount > 0 && s.paidCount >= s.totalCount) return 'closed'
-  return 'active'
+  return installmentDebtStatusKey(summary(loan))
 }
 
 const filters = computed<ListFilter<Loan>[]>(() => [

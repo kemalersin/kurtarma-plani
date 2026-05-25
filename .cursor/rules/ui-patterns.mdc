@@ -84,7 +84,7 @@ alwaysApply: false
 - Form drawer'ları **`FormDrawer`** (`src/components/FormDrawer.vue`) + benzersiz `stackId`; `useDrawerStack` z-index ve **alttaki panel sola kaydırma** (`DRAWER_STACK_OFFSET_PX`, `contentWrapperStyle`)
 - Üstte yeni drawer açılınca alttaki `translateX` ile sola kayar; kapanınca geri gelir
 - Drawer açılışında (`afterOpenChange`) formun **ilk odaklanabilir alanı** otomatik focus (`focusFirstFormField`); `autofocus` attr kullanma
-- **Drawer header (`#extra`):** yalnızca **Vazgeç** + **Kaydet** (birincil). **Sil / tehlikeli aksiyon header'da yok** — düzenleme drawer'ında silme form gövdesinin altında `.kp-form-drawer-danger-row` (ghost danger + gerekirse `Popconfirm`); liste satırlarında `TableRowActions` / `EntityListPage`
+- **Drawer aksiyonları (`FormDrawer`):** **Vazgeç** + **Kaydet** → `#actions` slot (masaüstü header, **mobil footer**). Header'da kalacak ikincil aksiyonlar (örn. Erken kapama) → `#extra`. **Sil / tehlikeli aksiyon** header'da yok — form altında `.kp-form-drawer-danger-row`; liste satırlarında `TableRowActions` / `EntityListPage`
 - Liste/combobox **「Yeni Kayıt」** → ilgili form drawer mevcut drawer **üstüne** (yüksek z-index)
 - `<a-select>` + `#dropdownRender` slot footer'da `<a-button>` "Yeni Kayıt"
 
@@ -134,6 +134,14 @@ alwaysApply: false
 - Tüm formlar **`FormDrawer`** üzerinden; mobilde `width: 100%`, tam viewport yüksekliği (`app.css` `.kp-form-drawer`)
 - Mobilde **`useDrawerStack` yatay kaydırma yok** (üst üste tam ekran)
 - Ham `<Drawer>` doğrudan kullanma; stack `stackId` + `FormDrawer` zorunlu
+
+## Drawer bilgi alert'leri
+
+- Drawer üstündeki **bağlam / açıklama** `info` alert'leri ham `<Alert>` **değil** — **`DismissibleDrawerAlert`** (`src/components/DismissibleDrawerAlert.vue`) + **`useDismissibleHint`**
+- `hint-key` benzersiz ve kebab-case: `<bağlam>.info` (örn. `loan-schedule.info`, `schedule-payoff.info`). Aynı metin paylaşılıyorsa ortak anahtar kullan
+- Kapatma tercihi `localStorage` (`kp.dismissedHint.<key>`); drawer tekrar açıldığında gösterilmez
+- **İstisna:** anlık form doğrulama / engelleyici uyarı (`type="warning"`, koşula bağlı görünür-gizlenir) — dismissible değil; ham `<Alert>` kalabilir
+- Örnekler: `LoanScheduleDrawer`, `InstallmentAdvanceScheduleDrawer`, `SchedulePayoffDrawer`, `CreditCardStatementDrawer`, `CashAdvanceLedgerDrawer`
 
 ## Drawer içi tablolar
 

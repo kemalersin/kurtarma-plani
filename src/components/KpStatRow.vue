@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { InfoCircleOutlined } from '@ant-design/icons-vue'
-import KpTooltip from '@/components/KpTooltip.vue'
+import KpInfoHint from '@/components/KpInfoHint.vue'
 import { useMobileViewport } from '@/composables/useMatchMedia'
 
 /**
@@ -29,7 +28,7 @@ export interface KpStat {
   value: string | number
   /** Değerin altında küçük yardımcı not (opsiyonel) */
   hint?: string
-  /** Etiket yanında bilgi ikonu tooltip metni (masaüstü; mobilde aria-label) */
+  /** Etiket yanında bilgi ikonu (KpInfoHint); hover veya tıklama ile açılır */
   labelTooltip?: string
   /** Renk vurgusu — default `default` */
   tone?: StatTone
@@ -66,9 +65,7 @@ const gridStyle = computed(() => ({
           :title="!isMobileViewport && !item.labelTooltip ? item.label : undefined"
           >{{ item.label }}</span
         >
-        <KpTooltip v-if="item.labelTooltip" :title="item.labelTooltip">
-          <InfoCircleOutlined class="kp-stat__info" role="img" aria-label="Bilgi" />
-        </KpTooltip>
+        <KpInfoHint v-if="item.labelTooltip" :title="item.labelTooltip" />
       </span>
       <span
         class="kp-stat__value"
@@ -120,17 +117,6 @@ const gridStyle = computed(() => ({
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
-}
-
-.kp-stat__info {
-  flex-shrink: 0;
-  font-size: 12px;
-  color: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25));
-  cursor: help;
-}
-
-.kp-stat__info:hover {
-  color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
 }
 
 .kp-stat__value {
@@ -201,14 +187,6 @@ const gridStyle = computed(() => ({
 
 [data-theme='dark'] .kp-stat:hover {
   background: rgba(255, 255, 255, 0.06);
-}
-
-[data-theme='dark'] .kp-stat__info {
-  color: rgba(255, 255, 255, 0.25);
-}
-
-[data-theme='dark'] .kp-stat__info:hover {
-  color: rgba(255, 255, 255, 0.45);
 }
 
 [data-theme='dark'] .kp-stat__label {

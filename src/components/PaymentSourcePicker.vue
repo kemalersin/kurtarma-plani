@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { FormItem, RadioGroup, Space, message } from 'ant-design-vue'
+import KpFormLabel from '@/components/KpFormLabel.vue'
 import BankAccountSelect from '@/components/BankAccountSelect.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
 import AccountFormDrawer from '@/features/admin/AccountFormDrawer.vue'
@@ -29,8 +30,10 @@ interface Props {
   required?: boolean
   /** Üst etiket. Boş → kind'a göre default. */
   label?: string
-  /** Etiketin yanına bilgi metni (KpTooltip yerine basit hint). */
+  /** Input altı açıklama; `labelTooltip` yoksa `extra` olarak gösterilir. */
   hint?: string
+  /** Etiket yanında bilgi ikonu; verilirse `extra` kullanılmaz. */
+  labelTooltip?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -40,6 +43,7 @@ const props = withDefaults(defineProps<Props>(), {
   required: false,
   label: '',
   hint: '',
+  labelTooltip: '',
 })
 
 const emit = defineEmits<{
@@ -206,10 +210,15 @@ const currencyHint = computed(
 const combinedHint = computed(() =>
   props.hint ? `${props.hint} ${currencyHint.value}` : currencyHint.value,
 )
+
+const formExtra = computed(() => (props.labelTooltip ? undefined : combinedHint.value))
 </script>
 
 <template>
-  <FormItem :label="labelText" :required="required" :extra="combinedHint">
+  <FormItem :required="required" :extra="formExtra">
+    <template #label>
+      <KpFormLabel :hint="labelTooltip || undefined">{{ labelText }}</KpFormLabel>
+    </template>
     <Space direction="vertical" :size="8" style="width: 100%">
       <RadioGroup
         :value="endpoint"

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Drawer } from 'ant-design-vue'
-import { computed, nextTick, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, useSlots, useTemplateRef, watch } from 'vue'
 import { KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/composables/useMatchMedia'
 import { useDrawerStack } from '@/composables/useDrawerStack'
 import { focusFirstFormField } from '@/composables/useDrawerFormFocus'
@@ -27,6 +27,7 @@ const emit = defineEmits<{
 }>()
 
 const isMobileViewport = useMatchMedia(KP_MOBILE_VIEWPORT_MQ)
+const slots = useSlots()
 const { push, pop, zIndex, contentWrapperStyle } = useDrawerStack(props.stackId)
 const formRoot = useTemplateRef<HTMLElement>('formRoot')
 
@@ -36,9 +37,17 @@ const drawerRootClass = computed(() =>
   [
     'kp-form-drawer',
     props.layout === 'table' ? 'kp-form-drawer--table-layout' : '',
+    isMobileViewport.value && !!slots.actions
+      ? 'kp-form-drawer--mobile-footer'
+      : '',
   ]
     .filter(Boolean)
     .join(' '),
+)
+
+const hasActionsSlot = computed(() => !!slots.actions)
+const showHeaderExtra = computed(
+  () => !!slots.extra || (hasActionsSlot.value && !isMobileViewport.value),
 )
 
 watch(
@@ -77,8 +86,16 @@ function close(): void {
     <div ref="formRoot" class="kp-form-drawer__body">
       <slot />
     </div>
-    <template v-if="$slots.extra" #extra>
-      <slot name="extra" />
+    <template v-if="showHeaderExtra" #extra>
+      <div class="kp-form-drawer__header-actions">
+        <slot name="extra" />
+        <slot v-if="!isMobileViewport" name="actions" />
+      </div>
+    </template>
+    <template v-if="isMobileViewport && $slots.actions" #footer>
+      <div class="kp-form-drawer__footer-actions">
+        <slot name="actions" />
+      </div>
     </template>
   </Drawer>
 </template>

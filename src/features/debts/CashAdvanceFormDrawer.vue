@@ -10,7 +10,6 @@ import {
   Textarea,
   message,
 } from 'ant-design-vue'
-import { InfoCircleOutlined } from '@ant-design/icons-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
 import SensitiveRecordSwitch from '@/components/SensitiveRecordSwitch.vue'
@@ -19,7 +18,7 @@ import {
   readSensitiveDraft,
   sensitiveSaveOptions,
 } from '@/composables/useSensitiveEntityForm'
-import KpTooltip from '@/components/KpTooltip.vue'
+import KpFormLabel from '@/components/KpFormLabel.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
@@ -248,12 +247,9 @@ function close(): void {
       </FormItem>
       <FormItem>
         <template #label>
-          <Space :size="6">
-            <span>Gecikme faizi (%)</span>
-            <KpTooltip title="Boş bırakılırsa sözleşme faizi × 1.087 varsayılır.">
-              <InfoCircleOutlined />
-            </KpTooltip>
-          </Space>
+          <KpFormLabel hint="Boş bırakılırsa sözleşme faizi × 1.087 varsayılır.">
+            Gecikme faizi (%)
+          </KpFormLabel>
         </template>
         <Space.Compact style="width: 100%">
           <LocaleInputNumber
@@ -273,7 +269,7 @@ function close(): void {
       <SensitiveRecordSwitch v-model:sensitive="draft.sensitive" v-model:archived="draft.archived" />
     </Form>
 
-    <template #extra>
+    <template #actions>
       <Space>
         <Button :disabled="saving" @click="close">Vazgeç</Button>
         <Button type="primary" :loading="saving" @click="submit">Kaydet</Button>

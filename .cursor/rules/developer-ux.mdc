@@ -31,6 +31,7 @@ Kaynak: `docs/WIKI.md` §9. Bu kural tüm geliştirme oturumlarında geçerlidir
 - **Kaydırma çubukları:** `body` dışında yalnızca hover'da görünür (`app.css` global kural)
 - **Tooltip (mobil):** `KpTooltip`; `≤768px` tooltip yok (ui-patterns.mdc)
 - **Drawer (mobil):** `FormDrawer` tam ekran; stack sola kaydırma yok (ui-patterns.mdc)
+- **Drawer bilgi alert'leri:** bağlam/açıklama için `DismissibleDrawerAlert` + benzersiz `hint-key`; anlık form uyarıları istisna (ui-patterns.mdc)
 - **Modal:** kullanılabilir alanın dikey ortasında; JSON blokları `JsonCodeBlock` ile renklendirilmiş + satır kırılımı
 - **Sekmeli sayfalar:** seçili sekme URL'de (`?tab=`); yenilemede aynı sekme — `useRoutedTabs`
 
@@ -52,6 +53,7 @@ Kaynak: `docs/WIKI.md` §9. Bu kural tüm geliştirme oturumlarında geçerlidir
 ## Drawer + combobox
 
 - Form drawer: **`FormDrawer`** + `stackId`; `useDrawerStack` — z-index artar; masaüstünde **alttaki drawer sola kayar** (44px/katman); **mobilde tam ekran, kaydırma yok**
+- Drawer üstü **bilgi alert'leri:** `DismissibleDrawerAlert` + benzersiz `hint-key` (ui-patterns.mdc)
 - Açılışta ilk form alanına otomatik focus
 - Liste/combobox **「Yeni Kayıt」** → drawer mevcut drawer **üstüne**; üst kapanınca alttaki kalır
 

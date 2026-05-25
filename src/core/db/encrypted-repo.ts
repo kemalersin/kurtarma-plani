@@ -65,16 +65,30 @@ export class EncryptedRepo {
   }
 
   async put<T>(record: EntityRecord<T>): Promise<void> {
-    const { payload, encrypted } = await this.encode(record.data)
-    const row: ProfileEntityRow = {
-      id: record.id,
-      type: record.type,
-      updatedAt: record.updatedAt,
-      encrypted,
-      payload,
-      ...(record.sensitive ? { sensitive: true } : {}),
-    }
-    await this.table().put(row)
+    await this.putMany([record])
+  }
+
+  /** Atomik toplu yazım — tek Dexie transaction. */
+  async putMany<T>(records: EntityRecord<T>[]): Promise<void> {
+    if (records.length === 0) return
+    const rows = await Promise.all(
+      records.map(async (record) => {
+        const { payload, encrypted } = await this.encode(record.data)
+        const row: ProfileEntityRow = {
+          id: record.id,
+          type: record.type,
+          updatedAt: record.updatedAt,
+          encrypted,
+          payload,
+          ...(record.sensitive ? { sensitive: true } : {}),
+        }
+        return row
+      }),
+    )
+    const db = openProfileDb(this.profileId)
+    await db.transaction('rw', db.entities, async () => {
+      await db.entities.bulkPut(rows)
+    })
   }
 
   async get<T>(id: string): Promise<EntityRecord<T> | undefined> {

@@ -27,6 +27,11 @@ import {
   buildScheduleForInstallmentAdvance,
   remainingDebtForInstallmentAdvance,
 } from './installmentAdvanceHelpers'
+import {
+  installmentDebtStatusKey,
+  installmentDebtStatusLabel,
+  installmentDebtStatusTag,
+} from './installmentDebtListStatus'
 
 const entities = useEntitiesStore()
 const { formatCurrency, formatDate } = useLocaleFormatters()
@@ -133,23 +138,15 @@ function summary(adv: InstallmentCashAdvance): AdvanceSummary {
 }
 
 function statusKey(adv: InstallmentCashAdvance): 'overdue' | 'closed' | 'active' {
-  const s = summary(adv)
-  if (s.overdue > 0) return 'overdue'
-  if (s.totalCount > 0 && s.paidCount >= s.totalCount) return 'closed'
-  return 'active'
+  return installmentDebtStatusKey(summary(adv))
 }
 
 function statusLabel(adv: InstallmentCashAdvance): string {
-  const s = summary(adv)
-  if (s.overdue > 0) return `${s.overdue} gecikmiş`
-  if (s.totalCount > 0 && s.paidCount >= s.totalCount) return 'Kapandı'
-  return 'Devam ediyor'
+  return installmentDebtStatusLabel(summary(adv))
 }
 
 function statusTag(adv: InstallmentCashAdvance) {
-  const s = summary(adv)
-  if (s.overdue > 0) return { color: 'error', label: statusLabel(adv) }
-  return null
+  return installmentDebtStatusTag(summary(adv))
 }
 
 const filters = computed<ListFilter<InstallmentCashAdvance>[]>(() => [

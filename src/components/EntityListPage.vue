@@ -1088,6 +1088,14 @@ watch(
   display: none;
 }
 
+.kp-list__cards-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--kp-table-body-min-h, 120px);
+}
+
 .kp-list__table--desktop :deep(.ant-table-wrapper),
 .kp-list__table--desktop :deep(.ant-spin-nested-loading),
 .kp-list__table--desktop :deep(.ant-spin-container),

@@ -119,7 +119,8 @@ Yeni özellik eklerken `TODO.md` ve `CHANGELOG.md` güncelle.
   - Kredi kartı: limit tier'ına göre `purchase + late + cashAdvance` aylık oranları
   - Nakit avans: `cashAdvanceAprMonthly + cashAdvanceLateAprMonthly`
   - Taksitli avans: `cashAdvance.monthlyAprCeiling`
-- **İşlem (transaction) drawer'ları:** Kart için `CreditCardTxnDrawer` (purchase/payment/cashAdvance), nakit avans için `CashAdvanceTxnDrawer` (draw/payment), taksitli avans için `InstallmentAdvancePaymentDrawer` (gecikme faizi Alert ile)
+- **Detay drawer bilgi alert'leri:** `DismissibleDrawerAlert` + `hint-key` (taksit planı, erken kapama, ekstre, nakit avans ledger)
+- **İşlem (transaction) drawer'ları:** Kart için `CreditCardTxnDrawer` (purchase/payment/cashAdvance), nakit avans için `CashAdvanceTxnDrawer` (draw/payment), taksitli avans için `InstallmentAdvancePaymentDrawer` (gecikme faizi form ipuçları)
 - **Bağlı hesap stack drawer:** `InstallmentAdvanceFormDrawer` içinde `SelectWithCreate` ile "Yeni nakit avans hesabı" üst drawer olarak açılabilir
 
 ## TCMB preset (implementasyon)

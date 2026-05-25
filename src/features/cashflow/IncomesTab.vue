@@ -8,10 +8,12 @@ import IncomeFormDrawer from './IncomeFormDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import { ADMIN_PRIMARY_NAME_COLUMN_WIDTH } from '@/features/admin/admin-list-columns'
+import type { KpTableColumn } from '@/core/util/table-columns'
 import { cashflowStatus, type CashflowStatus } from '@/finance/cashflow'
 import {
   CASHFLOW_STATUS_LABELS,
   cashflowStatusLabel,
+  cashflowStatusTag,
 } from '@/features/cashflow/cashflowLabels'
 import { REALIZE_ACTION_BUTTON_STYLE } from '@/features/cashflow/realizeButtonStyle'
 import {
@@ -231,9 +233,10 @@ const columns = computed<TableColumnType<Income>[]>(() => [
   {
     key: 'status',
     title: 'Durum',
-    customRender: ({ record }) => statusLabel(record as Income),
+    kpDisplay: (i) => statusLabel(i),
+    kpTag: (i) => cashflowStatusTag(i),
     sorter: compareCashflowStatus,
-  },
+  } satisfies KpTableColumn<Income>,
   {
     key: '__realize',
     title: '',
