@@ -8,6 +8,10 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 - Profil yokken kurulumdan önce çok adımlı tanıtım (`#/onboarding`): yerel veri, senkron, AI asistan, yasal uyarı; ilerleme çubuğu ve adım geçişleri; tamamlanınca `localStorage` ile bir kez gösterilmez.
 
+### Fixed — onboarding önceliği
+
+- Tanıtım tamamlanmamışsa profil/kurulum yapılmış olsa bile `#/onboarding` gösterilir; bitince profil varsa seçim veya ana sayfaya, yoksa kuruluma yönlendirilir.
+
 ### Removed — AI bağlam YAML
 
 - YAML dışa aktarım ve `js-yaml` bağımlılığı kaldırıldı; JSON + Markdown yeterli.

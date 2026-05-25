@@ -15,9 +15,11 @@ import { useRouter } from 'vue-router'
 import { KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/composables/useMatchMedia'
 import BrandMark from '@/components/icons/BrandMark.vue'
 import { APP_GITHUB_URL, APP_NAME } from '@/core/constants'
-import { completeOnboarding } from '@/core/onboarding'
+import { completeOnboarding, postOnboardingRoute } from '@/core/onboarding'
+import { useProfileStore } from '@/stores/profile'
 
 const router = useRouter()
+const profileStore = useProfileStore()
 const isMobileShell = useMatchMedia(KP_MOBILE_VIEWPORT_MQ)
 const navButtonSize = computed(() => (isMobileShell.value ? 'middle' : 'large'))
 
@@ -109,7 +111,7 @@ const progressPercent = computed(
 
 function goNext(): void {
   if (isLast.value) {
-    startSetup()
+    finishOnboarding()
     return
   }
   stepIndex.value += 1
@@ -120,9 +122,14 @@ function goBack(): void {
   stepIndex.value -= 1
 }
 
-function startSetup(): void {
+function finishOnboarding(): void {
   completeOnboarding()
-  void router.push({ name: 'setup' })
+  void router.push(
+    postOnboardingRoute({
+      hasAnyProfile: profileStore.hasAnyProfile,
+      unlocked: profileStore.unlocked,
+    }),
+  )
 }
 </script>
 
@@ -223,7 +230,7 @@ function startSetup(): void {
         v-if="!isLast"
         type="button"
         class="kp-onboarding__skip"
-        @click="startSetup"
+        @click="finishOnboarding"
       >
         Kuruluma atla
       </button>

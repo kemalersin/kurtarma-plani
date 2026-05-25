@@ -2,7 +2,7 @@ import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-rou
 import { useProfileStore } from '@/stores/profile'
 import { useSyncStore } from '@/stores/sync'
 import { ensureSyncBootstrap } from '@/core/services/sync/sync-scheduler'
-import { isOnboardingCompleted } from '@/core/onboarding'
+import { isOnboardingCompleted, postOnboardingRoute } from '@/core/onboarding'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -95,13 +95,21 @@ router.beforeEach(async (to) => {
   if (!syncStore.loaded) await syncStore.load()
   if (!profileStore.loaded) await profileStore.load()
 
+  const onboardingDone = isOnboardingCompleted()
+
+  if (!onboardingDone) {
+    if (to.name !== 'onboarding') return { name: 'onboarding' }
+    return true
+  }
+
+  if (to.name === 'onboarding') {
+    return postOnboardingRoute({
+      hasAnyProfile: profileStore.hasAnyProfile,
+      unlocked: profileStore.unlocked,
+    })
+  }
+
   if (!profileStore.hasAnyProfile) {
-    const onboardingDone = isOnboardingCompleted()
-    if (!onboardingDone) {
-      if (to.name !== 'onboarding') return { name: 'onboarding' }
-      return true
-    }
-    if (to.name === 'onboarding') return { name: 'setup' }
     if (to.name !== 'setup') return { name: 'setup' }
     return true
   }
@@ -111,7 +119,7 @@ router.beforeEach(async (to) => {
     return true
   }
 
-  if (to.name === 'select' || to.name === 'setup' || to.name === 'onboarding') {
+  if (to.name === 'select' || to.name === 'setup') {
     return { name: 'home' }
   }
 
