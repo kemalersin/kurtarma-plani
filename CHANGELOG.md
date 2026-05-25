@@ -4,6 +4,10 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 ## [Unreleased]
 
+### Changed — güncelleme bildirimi
+
+- «Yeni sürüm mevcut» uyarısı ve **Hakkında** ekranındaki **index.html indir** düğmesi `index.html` dosyasını doğrudan indirir; başarısız olursa ham URL yeni sekmede açılır.
+
 ### Added — ilk açılış onboarding
 
 - Profil yokken kurulumdan önce çok adımlı tanıtım (`#/onboarding`): yerel veri, senkron, AI asistan, yasal uyarı; ilerleme çubuğu ve adım geçişleri; tamamlanınca `localStorage` ile bir kez gösterilmez.
