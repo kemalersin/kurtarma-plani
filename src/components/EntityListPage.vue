@@ -44,9 +44,9 @@ import { formatListCellValue } from '@/core/util/list-cell'
 import { useListFilterPopoverProps } from '@/core/ui/list-filter-popover'
 import { useClosePopoverOnScroll } from '@/composables/useClosePopoverOnScroll'
 import {
-  LIST_ACTIONS_COLUMN_WIDTH,
-  listColumnScrollWidth,
+  listActionsColumnWidth,
   prepareListTableColumns,
+  TABLE_SCROLL_X,
 } from '@/core/util/table-columns'
 import { textIncludesSearch } from '@/core/util/search'
 import { handleListItemClick } from '@/core/util/list-item-click'
@@ -409,7 +409,7 @@ const detailColumns = computed(() => dataColumns.value.slice(1))
 
 /**
  * AntDV Table sütunları:
- *  - `prepareListTableColumns`: açık `width` korunur; diğerlerine `minWidth`
+ *  - `prepareListTableColumns`: elle genişlik kaldırılır; `table-layout: auto`
  *  - `ellipsis: true` → `{ showTitle: false }` (sütunlarda otomatik tooltip yok)
  *  - aktif `sortOrder` enjekte edilir (controlled sort)
  *  - sonuna `__actions` sütunu eklenir
@@ -448,30 +448,9 @@ const allColumns = computed<TableColumnType<T>[]>(() => {
       key: '__actions',
       title: '',
       align: 'right',
-      width: hasRowAction.value ? 132 : LIST_ACTIONS_COLUMN_WIDTH,
+      width: listActionsColumnWidth({ rowAction: hasRowAction.value }),
     },
   ]
-})
-
-/** Sütunların minimum toplam genişliği (px). */
-const tableColumnsMinWidth = computed(() =>
-  allColumns.value.reduce(
-    (sum, col) => sum + listColumnScrollWidth(col as TableColumnType<unknown>),
-    0,
-  ),
-)
-
-/** Tablo sarmalayıcı genişliği — ölçüm sonrası scroll.x kararı için. */
-const tableViewportWidth = ref(0)
-
-/**
- * Tablo genişliği: sütun minimumları ile konteyner genişliğinin büyük olanı.
- * Her durumda en az container kadar genişlik; dar ekranda sütun toplamı aşılırsa yatay kaydırma.
- */
-const tableScrollX = computed(() => {
-  const minW = tableColumnsMinWidth.value
-  const vw = tableViewportWidth.value
-  return Math.max(minW, vw > 0 ? vw : minW)
 })
 
 const tableRowHeight = ref(48)
@@ -491,7 +470,7 @@ const tableScrollY = computed(() => {
 })
 
 const tableScroll = computed(() => {
-  const s: { x: number; y?: number } = { x: tableScrollX.value }
+  const s: { x: typeof TABLE_SCROLL_X; y?: number } = { x: TABLE_SCROLL_X }
   const y = tableScrollY.value
   if (y != null) s.y = y
   return s
@@ -611,7 +590,6 @@ async function measureTableScroll(): Promise<void> {
       ? paginationEl.offsetHeight + 16 /* margin-top */
       : 56
     tablePaginationH.value = paginationOuter
-    tableViewportWidth.value = wrap.clientWidth
     tableBodyMinHeight.value = Math.max(
       120,
       tableMinHeight.value - tableHeadH.value - tablePaginationH.value,
@@ -844,7 +822,7 @@ watch(
         :custom-row="tableCustomRow"
         :show-sorter-tooltip="false"
         size="middle"
-        table-layout="fixed"
+        table-layout="auto"
         :scroll="tableScroll"
         @change="onTableChange"
       >

@@ -55,8 +55,8 @@ alwaysApply: false
   - Liste alanı **en az** sayfanın kalan boşluğunu kaplar: `.kp-content` içinde kalan yükseklik `ResizeObserver` ile ölçülür → `--kp-table-min-h` (sarmalayıcı) + `--kp-table-body-min-h` (tablo gövdesi / mobil kart listesi). Az satırda boş alan kalmaz.
   - **Dahili dikey scroll yok** — tablo/kart `scroll.y` kullanma; gövde `overflow-y: visible`. Satır sayısı alanı aştığında içerik doğal yüksekliğe büyür; kaydırma **AppShell `.kp-content`** (sayfa kaydırma çubuğu) ile yapılır.
   - Sekmeli liste sayfalarında flex zinciri: `.kp-page--fill` → sayfa kökü (`kp-admin` / `kp-debts` …) → `<a-tabs>` (`content-holder` + `tabpane`: `flex:1; min-height:0`) → `.kp-list-tab-pane` → `EntityListPage` (`.kp-list` → tablo/kart `flex:1`). `height:100%` ile tab pane **kilitleme** — taşan içerik sayfa kaydırmalı olmalı.
-- **Yatay:** `EntityListPage` `scroll.x` = `max(sütun min toplamı, konteyner genişliği)` — tablo **her durumda en az container kadar** geniş; sütunlar dar ekranda min genişliklerini korur, geniş ekranda fazla alan sütunlara dağılır. `ant-table-cell-scrollbar` gizli (boş sağ şerit yok)
-- **Sütun genişliği:** `prepareListTableColumns` — açık `width` korunur; yoksa `minWidth` (varsayılan 112px). **İstisna:** birincil ad `adminPrimaryNameColumn(title)` — **280px** (`ADMIN_PRIMARY_NAME_COLUMN_WIDTH`). İşlem sütunu `__actions` — 88px
+- **Yatay:** `scroll.x` = `TABLE_SCROLL_X` (`max-content`) — tablo genişliği içeriğe göre; dar konteynerde yatay kaydırma. `ant-table-cell-scrollbar` gizli (boş sağ şerit yok)
+- **Sütun genişliği:** `prepareListTableColumns` — sütun tanımındaki `width` / `minWidth` / `maxWidth` / `fixed` **kaldırılır**; `table-layout: auto`. Elle px verme. **İstisna:** `__actions` — `listActionsColumnWidth()` (88px düzenle+sil; 132px satır aksiyonu+düzenle+sil); drawer tabloda 88px
 - `<a-table>` client-side sort/page/filter (Dexie query)
 - **Liste sütunlarında tooltip yok.** `ellipsis: true` yerine **`ellipsis: { showTitle: false }`** (`EntityListPage` zaten `ellipsis: true` olanları çevirir); `Table` `:show-sorter-tooltip="false"`. Aksiyon ikonları (Düzenle/Sil) `KpTooltip` ile etiketli — kural sadece **veri sütunları** için. Hücre içinde `<Tooltip>` / `KpTooltip` koyma; gerekiyorsa hücre içeriğini netleştir veya `formatListCellValue` ile özel render
 - **Satır / kart tıklama (`EntityListPage`, `DrawerDataTable`):** ortak `list-item-click.ts` + **`ListCard`** — varsayılan `@edit` (düzenleme drawer). Sayfa `@row-click` + `row-action-label` / `row-action-icon` verirse (örn. krediler → taksit planı) kart/satır tıklaması `@row-click`; düzenleme **kalem ikonuyla**. Drawer tablolarında `customRow.onClick` kart tıklamasına eşlenir. Tıklama yok sayılanlar: `button`, `a`, `Popconfirm`, `Popover`, `.kp-list__row-actions`, `.kp-list-card__actions` (`@click.stop` mobil aksiyon grubunda). Masaüstü: `customRow` + `kp-list__row--clickable`. Mobil: `ListCard` + `kp-list-card--clickable` + `:active`/hover geri bildirimi (`app.css`)
@@ -146,7 +146,7 @@ alwaysApply: false
 ## Drawer içi tablolar
 
 - Ham `<Table>` yerine **`DrawerDataTable`** (`src/components/DrawerDataTable.vue`) — liste tablolarıyla aynı kurallar:
-  - `prepareListTableColumns`; `scroll.x` yalnızca sütun min toplamı konteynere sığmıyorsa (aksi halde gereksiz yatay scrollbar)
+  - `prepareListTableColumns`; masaüstünde `scroll.x: TABLE_SCROLL_X` (`max-content`)
   - Mobil (`≤640px`): **`ListCard`** kart listesi; `customRow.onClick` veya `row-actions` → `@edit` ile kart tıklama (`list-item-click.ts`)
   - `table-layout: fixed`, `:show-sorter-tooltip="false"`, başlık `nowrap`
   - `ant-table-cell-scrollbar` gizli; gövde `overflow: auto`
