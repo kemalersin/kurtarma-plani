@@ -494,6 +494,7 @@ body {
 /*
  * Kaydırma çubukları: `body` hariç tüm kaydırılabilir alanlarda
  * çubuk yalnızca hover'da görünür (kural: ui-patterns.mdc).
+ * Mobilde (≤768px) hover olmadığı için çubuk her zaman görünür.
  */
 body {
   scrollbar-width: auto;
@@ -533,6 +534,24 @@ body {
 
 [data-theme='dark'] *:not(html):not(body):hover::-webkit-scrollbar-thumb {
   background-color: rgba(255, 255, 255, 0.22);
+}
+
+@media (max-width: 768px) {
+  *:not(html):not(body) {
+    scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
+  }
+
+  [data-theme='dark'] *:not(html):not(body) {
+    scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+  }
+
+  *:not(html):not(body)::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.22);
+  }
+
+  [data-theme='dark'] *:not(html):not(body)::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.22);
+  }
 }
 
 /* Kurulum / profil seç: birincil kaydırma alanı — çubuk her zaman görünür */
