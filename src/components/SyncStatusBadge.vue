@@ -7,6 +7,14 @@ import KpTooltip from '@/components/KpTooltip.vue'
 import { useSyncStore, type SyncRuntimeStatus } from '@/stores/sync'
 import { useProfileStore } from '@/stores/profile'
 
+const props = withDefaults(
+  defineProps<{
+    /** Navbar (masaüstü) veya sol menü (mobil). */
+    layout?: 'navbar' | 'menu'
+  }>(),
+  { layout: 'navbar' },
+)
+
 const syncStore = useSyncStore()
 const profileStore = useProfileStore()
 const router = useRouter()
@@ -69,7 +77,11 @@ function onClick(): void {
   <KpTooltip v-if="visible" :title="tooltip">
     <Tag
       class="kp-sync-badge"
-      :class="{ 'kp-sync-badge--pulse': statusMeta.pulse }"
+      :class="{
+        'kp-sync-badge--pulse': statusMeta.pulse,
+        'kp-sync-badge--menu': props.layout === 'menu',
+      }"
+      :size="props.layout === 'menu' ? 'small' : 'default'"
       :color="statusMeta.color"
       role="button"
       tabindex="0"
@@ -91,6 +103,17 @@ function onClick(): void {
   margin: 0;
   cursor: pointer;
   user-select: none;
+}
+
+.kp-sync-badge--menu {
+  margin: 0;
+  max-width: 100%;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
 }
 
 .kp-sync-badge--pulse {

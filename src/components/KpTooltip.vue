@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Popover, Tooltip } from 'ant-design-vue'
-import { computed, useAttrs } from 'vue'
+import { computed, ref, useAttrs } from 'vue'
 import { useHoverCapable, useMobileViewport } from '@/composables/useMatchMedia'
 
 defineOptions({ inheritAttrs: false })
@@ -65,15 +65,26 @@ const hintPopoverInnerStyle = {
   maxWidth: 'min(320px, calc(100vw - 24px))',
   boxSizing: 'border-box' as const,
 }
+
+/** Hover tooltip: düğmeye tıklanınca hemen kapanır (hint modunda tıklama toggle korunur). */
+const tooltipOpen = ref(false)
+
+function dismissTooltipOnPointerDown(): void {
+  if (!props.hint) {
+    tooltipOpen.value = false
+  }
+}
 </script>
 
 <template>
   <Tooltip
     v-if="showDefaultTooltip || showHintTooltip"
+    v-model:open="tooltipOpen"
     :title="title"
     :trigger="tooltipTriggers"
     :placement="hint ? 'top' : undefined"
     :destroy-tooltip-on-hide="true"
+    :mouse-leave-delay="0"
     v-bind="attrs"
   >
     <span
@@ -85,7 +96,9 @@ const hintPopoverInnerStyle = {
     >
       <slot />
     </span>
-    <slot v-else />
+    <span v-else class="kp-tooltip-trigger-wrap" @pointerdown="dismissTooltipOnPointerDown">
+      <slot />
+    </span>
   </Tooltip>
   <Popover
     v-else-if="showHintPopover"

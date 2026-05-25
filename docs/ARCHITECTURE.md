@@ -79,7 +79,11 @@ Export seçenekleri (dialog):
 
 Import: şema sürümü + Zod doğrulama; şifreli dosyada parola istenir.
 
-**Otomatik senkron (planlanan):** Export/import dialog’undan bağımsız, açılıp kapatılabilir senkron dosyası — ayrıntı [SYNC.md](./SYNC.md).
+**AI bağlam dışa aktarımı (navbar):** `kurtarma-plani-ai-context` — JSON / Markdown; **içe aktarılamaz**. Modül: `src/core/services/ai-context-export/`. Arşiv kayıtları varsayılan hariç; hassas kayıt kullanıcı onayıyla; tam taksit planları; banking preset dahil değil.
+
+**Entity şeması değişince:** `entities.ts` veya Dexie migration ile birlikte AI bağlam (`ai-context-export`, `AI_CONTEXT_VERSION`) ve gerekiyorsa yedek/senkron (`ExportSnapshotSchema`, `buildSnapshot` / `importSnapshot`, `stripSecrets`; kırıcı değişiklikte `SCHEMA_VERSION`, senkron üst zarfında `SYNC_SCHEMA_VERSION`) aynı teslimatta gözden geçirilir. Yalnızca geriye uyumlu alan ekleme çoğu zaman export Zod’unu değiştirmez (`entities[].data` = `unknown`).
+
+**Otomatik senkron:** `KP-SYNC1` dış zarf + içeride export ile aynı snapshot (`KP-RAW1` / `KP-ENC1`). Ayrıntı [SYNC.md](./SYNC.md).
 
 Excel/PDF yalnızca UI’daki tablo/grafik export’u içindir; snapshot ile karıştırılmaz.
 

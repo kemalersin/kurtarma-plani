@@ -401,7 +401,7 @@ async function resetCatalog(): Promise<void> {
       </Space>
     </Card>
 
-    <Card title="Kullanım geçmişi" size="small" class="kp-ai-settings__card">
+    <Card title="Kullanım geçmişi" size="small" class="kp-ai-settings__card kp-ai-settings__card--last">
       <Typography.Paragraph class="kp-text-muted">
         Sohbet temizlenince ilgili oturum kayıtları silinir. Toplam (tüm oturumlar):
         {{ formatCostUsd(ai.totalUsageCost) }}
@@ -414,73 +414,73 @@ async function resetCatalog(): Promise<void> {
         :locale="{ emptyText: 'Henüz kullanım kaydı yok.' }"
       />
     </Card>
-
-    <Modal
-      v-model:open="drawerOpen"
-      :title="draft?.label ? `Sağlayıcı: ${draft.label}` : 'Sağlayıcı'"
-      ok-text="Kaydet"
-      cancel-text="Vazgeç"
-      :confirm-loading="saving"
-      :body-style="{ paddingBottom: '8px' }"
-      @ok="saveDraft"
-      @cancel="drawerOpen = false"
-    >
-      <Form v-if="draft" layout="vertical" :colon="false" class="kp-ai-settings__modal-form">
-        <FormItem label="Etiket" required>
-          <Input v-model:value="draft.label" />
-        </FormItem>
-        <FormItem
-          v-if="draft.provider !== 'ollama' && draft.provider !== 'vllm'"
-          label="API anahtarı"
-          required
-        >
-          <InputPassword
-            v-model:value="apiKeyDraft"
-            autocomplete="off"
-            :placeholder="
-              editingExisting
-                ? 'Değiştirmek için yeni anahtar girin (boş bırakılırsa mevcut korunur)'
-                : 'sk-…'
-            "
-          />
-        </FormItem>
-        <FormItem v-else label="API anahtarı (opsiyonel)">
-          <InputPassword v-model:value="apiKeyDraft" autocomplete="off" />
-        </FormItem>
-        <FormItem label="Base URL">
-          <Input
-            v-model:value="draft.baseUrl"
-            :placeholder="DEFAULT_BASE_URLS[draft.provider]"
-          />
-          <Typography.Paragraph
-            v-if="usesDevAiProxy(draft.provider)"
-            type="secondary"
-            class="kp-ai-settings__field-hint"
-          >
-            Boş bırakılırsa geliştirmede otomatik proxy kullanılır.
-          </Typography.Paragraph>
-        </FormItem>
-        <FormItem label="Varsayılan model" required>
-          <Space direction="vertical" style="width: 100%">
-            <Select
-              v-model:value="draft.defaultModelId"
-              show-search
-              :options="modelSelectOptions"
-              placeholder="Model seçin"
-              :filter-option="(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())"
-            />
-            <Button
-              v-if="draft.provider === 'ollama' || draft.provider === 'vllm'"
-              :loading="loadingRemote"
-              @click="loadRemoteModels"
-            >
-              Uzak model listesini yükle
-            </Button>
-          </Space>
-        </FormItem>
-      </Form>
-    </Modal>
   </div>
+
+  <Modal
+    v-model:open="drawerOpen"
+    :title="draft?.label ? `Sağlayıcı: ${draft.label}` : 'Sağlayıcı'"
+    ok-text="Kaydet"
+    cancel-text="Vazgeç"
+    :confirm-loading="saving"
+    :body-style="{ paddingBottom: '8px' }"
+    @ok="saveDraft"
+    @cancel="drawerOpen = false"
+  >
+    <Form v-if="draft" layout="vertical" :colon="false" class="kp-ai-settings__modal-form">
+      <FormItem label="Etiket" required>
+        <Input v-model:value="draft.label" />
+      </FormItem>
+      <FormItem
+        v-if="draft.provider !== 'ollama' && draft.provider !== 'vllm'"
+        label="API anahtarı"
+        required
+      >
+        <InputPassword
+          v-model:value="apiKeyDraft"
+          autocomplete="off"
+          :placeholder="
+            editingExisting
+              ? 'Değiştirmek için yeni anahtar girin (boş bırakılırsa mevcut korunur)'
+              : 'sk-…'
+          "
+        />
+      </FormItem>
+      <FormItem v-else label="API anahtarı (opsiyonel)">
+        <InputPassword v-model:value="apiKeyDraft" autocomplete="off" />
+      </FormItem>
+      <FormItem label="Base URL">
+        <Input
+          v-model:value="draft.baseUrl"
+          :placeholder="DEFAULT_BASE_URLS[draft.provider]"
+        />
+        <Typography.Paragraph
+          v-if="usesDevAiProxy(draft.provider)"
+          type="secondary"
+          class="kp-ai-settings__field-hint"
+        >
+          Boş bırakılırsa geliştirmede otomatik proxy kullanılır.
+        </Typography.Paragraph>
+      </FormItem>
+      <FormItem label="Varsayılan model" required>
+        <Space direction="vertical" style="width: 100%">
+          <Select
+            v-model:value="draft.defaultModelId"
+            show-search
+            :options="modelSelectOptions"
+            placeholder="Model seçin"
+            :filter-option="(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())"
+          />
+          <Button
+            v-if="draft.provider === 'ollama' || draft.provider === 'vllm'"
+            :loading="loadingRemote"
+            @click="loadRemoteModels"
+          >
+            Uzak model listesini yükle
+          </Button>
+        </Space>
+      </FormItem>
+    </Form>
+  </Modal>
 </template>
 
 <style scoped>
@@ -501,6 +501,31 @@ async function resetCatalog(): Promise<void> {
   margin-top: 12px;
 }
 
+@media (max-width: 768px) {
+  .kp-ai-settings__catalog-actions.ant-space {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 8px !important;
+  }
+
+  .kp-ai-settings__catalog-actions > :deep(.ant-space-item) {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 !important;
+  }
+
+  .kp-ai-settings__catalog-actions > :deep(.ant-space-item) > * {
+    display: block;
+    width: 100%;
+  }
+
+  .kp-ai-settings__catalog-actions :deep(.ant-btn) {
+    width: 100%;
+  }
+}
+
 .kp-ai-settings__prompt-desc {
   margin-bottom: 12px;
 }
@@ -519,6 +544,10 @@ async function resetCatalog(): Promise<void> {
 
 .kp-ai-settings__card {
   margin-bottom: 16px;
+}
+
+.kp-ai-settings__card--last {
+  margin-bottom: 0;
 }
 
 .kp-ai-settings__add {

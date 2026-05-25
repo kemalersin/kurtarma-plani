@@ -468,6 +468,7 @@ async function confirmPasswordAndSync(): Promise<void> {
 </script>
 
 <template>
+  <div class="kp-sync-settings">
   <Space direction="vertical" :size="16" style="width: 100%">
     <Alert
       type="info"
@@ -626,7 +627,7 @@ async function confirmPasswordAndSync(): Promise<void> {
         </Typography.Paragraph>
       </Form>
 
-      <Space v-if="syncStore.loaded" wrap>
+      <Space v-if="syncStore.loaded" wrap class="kp-sync-actions">
         <Button type="primary" :loading="syncStore.saving" :disabled="!canConfigure" @click="saveOptions">
           Senkron ayarlarını kaydet
         </Button>
@@ -656,31 +657,32 @@ async function confirmPasswordAndSync(): Promise<void> {
       <span class="kp-sync-device__label">Cihaz kimliği:</span>
       <code class="kp-sync-device__id">{{ syncStore.deviceId }}</code>
     </Typography.Paragraph>
-
-    <input
-      ref="manualFileInput"
-      type="file"
-      accept=".sync,.json,application/json"
-      class="kp-sync-manual-input"
-      @change="onManualFileSelected"
-    />
-
-    <Modal
-      v-model:open="passwordModalOpen"
-      :title="passwordModalTitle"
-      :confirm-loading="syncStore.syncing"
-      :ok-text="passwordModalOkText"
-      cancel-text="İptal"
-      @ok="confirmPasswordAndSync"
-    >
-      <Form layout="vertical" :colon="false">
-        <FormItem :label="passwordModalLabel" :validate-status="syncPasswordError ? 'error' : ''" :help="syncPasswordError">
-          <InputPassword v-model:value="syncPassword" autocomplete="current-password" @press-enter="confirmPasswordAndSync" />
-        </FormItem>
-        <Checkbox v-model:checked="rememberPassword">Bu oturumda parolayı hatırla</Checkbox>
-      </Form>
-    </Modal>
   </Space>
+
+  <input
+    ref="manualFileInput"
+    type="file"
+    accept=".sync,.json,application/json"
+    class="kp-sync-manual-input"
+    @change="onManualFileSelected"
+  />
+
+  <Modal
+    v-model:open="passwordModalOpen"
+    :title="passwordModalTitle"
+    :confirm-loading="syncStore.syncing"
+    :ok-text="passwordModalOkText"
+    cancel-text="İptal"
+    @ok="confirmPasswordAndSync"
+  >
+    <Form layout="vertical" :colon="false">
+      <FormItem :label="passwordModalLabel" :validate-status="syncPasswordError ? 'error' : ''" :help="syncPasswordError">
+        <InputPassword v-model:value="syncPassword" autocomplete="current-password" @press-enter="confirmPasswordAndSync" />
+      </FormItem>
+      <Checkbox v-model:checked="rememberPassword">Bu oturumda parolayı hatırla</Checkbox>
+    </Form>
+  </Modal>
+  </div>
 </template>
 
 <style scoped>
@@ -707,7 +709,8 @@ async function confirmPasswordAndSync(): Promise<void> {
 }
 
 .kp-sync-device {
-  margin-bottom: 0;
+  margin-top: 12px;
+  margin-bottom: 0 !important;
   font-size: 12px;
 }
 
@@ -720,6 +723,29 @@ async function confirmPasswordAndSync(): Promise<void> {
 }
 
 @media (max-width: 768px) {
+  .kp-sync-actions.ant-space {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 8px !important;
+  }
+
+  .kp-sync-actions > :deep(.ant-space-item) {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 !important;
+  }
+
+  .kp-sync-actions > :deep(.ant-space-item) > * {
+    display: block;
+    width: 100%;
+  }
+
+  .kp-sync-actions :deep(.ant-btn) {
+    width: 100%;
+  }
+
   .kp-sync-device {
     display: flex;
     flex-direction: column;

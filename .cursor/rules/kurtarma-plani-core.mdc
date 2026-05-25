@@ -19,6 +19,7 @@ alwaysApply: true
 - Parola opsiyonel; varsa Web Crypto (PBKDF2 + AES-GCM)
 - `sensitive` kayıtlar: export'ta kullanıcı onayı; AI snapshot'ında **asla** yok
 - API anahtarları: export'ta kullanıcı seçimi; AI provider'a **asla** gönderilmez
+- **IndexedDB entity şeması ↔ dışa aktarım:** `entities.ts` (Zod), yeni `EntityType` / alan veya Dexie migration değişince **aynı teslimatta** gözden geçir: **AI bağlam** (`ai-context-export`; gerekirse `AI_CONTEXT_VERSION`), **yedek/senkron** (`export.ts`, `snapshot.ts`; yeni tip, üst yapı veya geriye uyumsuzluk varsa `SCHEMA_VERSION` / `SYNC_SCHEMA_VERSION`). Sadece uyumlu alan ekleme çoğu zaman yalnızca AI bağlamı etkiler (`data` export’ta `unknown`). AI bağlam ile restore snapshot (`kurtarma-plani-export`) karıştırılmaz
 
 ## Bölgesel
 

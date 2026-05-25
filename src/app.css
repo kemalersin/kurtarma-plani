@@ -542,6 +542,13 @@ body {
   border-top: 1px dashed var(--ant-color-border-secondary, rgba(0, 0, 0, 0.06));
 }
 
+/** Hover tooltip tetikleyici (düğme tıklanınca hemen kapanır) */
+.kp-tooltip-trigger-wrap {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
 /** Bilgi ikonu (KpInfoHint / KpTooltip hint): tıklanabilir tetikleyici */
 .kp-info-hint-trigger {
   display: inline-flex;

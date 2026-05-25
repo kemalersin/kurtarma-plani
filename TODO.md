@@ -96,6 +96,7 @@
 - [x] **Sohbete görsel yükleme** (vision/multimodal; dosya + yapıştır; OpenAI/Anthropic/Gemini adapter)
 - [x] **Sohbete dosya ekleri** (PDF, TXT, CSV, JSON + görseller; provider bazlı format)
 - [x] **AI kayıt önerisi** (`kp-proposals` JSON → parse/resolve/apply; `AiProposalPanel`)
+- [x] **AI bağlam dışa aktarımı** (navbar; JSON/Markdown; önizleme + indirme; `ai-context-export`)
 
 ## M9 — Sertleştirme
 

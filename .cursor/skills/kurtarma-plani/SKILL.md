@@ -60,6 +60,7 @@ Detay: `.cursor/rules/developer-ux.mdc` (alwaysApply).
 | Parola | Zorunlu değil; varsa tüm profil verisi şifreli |
 | Hassas veri | `sensitive: true`; export onayı; AI'da yok |
 | API keys | Export opsiyonel; AI'ya asla |
+| Entity şeması | `entities.ts` / migration → aynı PR: `ai-context-export` (+ `AI_CONTEXT_VERSION`); gerekirse yedek/senkron (`export.ts`, `snapshot.ts`, `SCHEMA_VERSION` / `SYNC_SCHEMA_VERSION`) |
 | TCMB preset | Build embed + IndexedDB; çevrimiçi feed/import ile DB ezme; offline'da DB/embed |
 | Çevrimiçi | Finans offline-first; AI + preset feed yalnızca online |
 | AI | models.dev embed; stream; usage kalıcı; offline'da devre dışı |
