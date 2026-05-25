@@ -4,6 +4,10 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 ## [Unreleased]
 
+### Changed — tablo sütun genişliği
+
+- Liste, drawer ve analiz tablolarında sütun genişliği otomatik (`table-layout: auto`, `scroll.x: max-content`); elle `width` / `minWidth` ve 112px / 280px varsayılanları kaldırıldı. **İstisna:** `__actions` sütunu 88px (2 düğme) / 132px (3 düğme).
+
 ### Changed — güncelleme bildirimi
 
 - «Yeni sürüm mevcut» uyarısı ve **Hakkında** ekranındaki **index.html indir** düğmesi `index.html` dosyasını doğrudan indirir; başarısız olursa ham URL yeni sekmede açılır.

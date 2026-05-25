@@ -107,7 +107,6 @@ const txnColumns = computed<KpTableColumn<CreditCardTransaction>[]>(() => [
   {
     key: 'date',
     title: 'Tarih',
-    minWidth: 112,
     customRender: ({ record }) => formatDate((record as CreditCardTransaction).date),
     sorter: (a, b) => a.date.localeCompare(b.date),
     defaultSortOrder: 'descend',
@@ -115,7 +114,6 @@ const txnColumns = computed<KpTableColumn<CreditCardTransaction>[]>(() => [
   {
     key: 'type',
     title: 'Tür',
-    width: 120,
     customRender: ({ record }) => TYPE_LABELS[(record as CreditCardTransaction).type],
     kpDisplay: (record) => TYPE_LABELS[record.type],
     kpTag: (record) => ({
@@ -127,14 +125,12 @@ const txnColumns = computed<KpTableColumn<CreditCardTransaction>[]>(() => [
     key: 'description',
     title: 'Açıklama',
     dataIndex: 'description',
-    minWidth: 160,
     ellipsis: { showTitle: false },
   },
   {
     key: 'amount',
     title: 'Tutar',
     align: 'right',
-    minWidth: 120,
     customRender: ({ record }) =>
       formatCurrency((record as CreditCardTransaction).amount, props.card?.currency),
   },

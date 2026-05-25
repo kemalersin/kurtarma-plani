@@ -114,7 +114,7 @@ Yeni özellik eklerken `TODO.md` ve `CHANGELOG.md` güncelle.
 - `DebtsView` AdminView ile aynı **flex column** kalıbı (`kp-debts` + `kp-debts-tabs`); sekme panelleri `<div class="kp-list-tab-pane">` ile sarılı
 - **Tüm 4 sekme aktif** (Krediler, Kredi kartları, Nakit avans, Taksitli nakit avans)
 - **Satır tıklaması → detay drawer** (kredi: taksit planı, kart: dönem özeti, nakit avans: ledger, taksitli avans: taksit planı); **kalem ikonu → form drawer**. `EntityListPage` `@row-click` listener'ı varken `@edit` varsayılanını geçersiz kılar
-- Tüm listelerde: `adminPrimaryNameColumn('<Tip>')` (280px ad sütunu); status sütunu **string** (`Tag` yok — mobil kart `formatListCellValue` ile uyumlu)
+- Tüm listelerde: `adminPrimaryNameColumn('<Tip>')` (otomatik genişlik + ellipsis); status sütunu **string** veya `kpTag` (`EntityListPage` / `KpColumnTagCell`); sütunlara elle `width` / `minWidth` verme — `prepareListTableColumns`
 - Form drawer'larda **"Referansla doldur"** düğmesi:
   - Kredi: KKDF + BSMV alanı
   - Kredi kartı: limit tier'ına göre `purchase + late + cashAdvance` aylık oranları

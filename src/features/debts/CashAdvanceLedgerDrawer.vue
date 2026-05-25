@@ -81,7 +81,6 @@ const columns = computed<KpTableColumn<CashAdvanceTransaction>[]>(() => [
   {
     key: 'date',
     title: 'Tarih',
-    minWidth: 112,
     customRender: ({ record }) => formatDate((record as CashAdvanceTransaction).date),
     sorter: (a, b) => a.date.localeCompare(b.date),
     defaultSortOrder: 'descend',
@@ -89,7 +88,6 @@ const columns = computed<KpTableColumn<CashAdvanceTransaction>[]>(() => [
   {
     key: 'type',
     title: 'Tür',
-    width: 110,
     customRender: ({ record }) => TYPE_LABELS[(record as CashAdvanceTransaction).type],
     kpDisplay: (record) => TYPE_LABELS[record.type],
     kpTag: (record) => ({
@@ -101,14 +99,12 @@ const columns = computed<KpTableColumn<CashAdvanceTransaction>[]>(() => [
     key: 'description',
     title: 'Açıklama',
     dataIndex: 'description',
-    minWidth: 160,
     ellipsis: { showTitle: false },
   },
   {
     key: 'amount',
     title: 'Tutar',
     align: 'right',
-    minWidth: 120,
     customRender: ({ record }) =>
       formatCurrency((record as CashAdvanceTransaction).amount, props.account?.currency),
   },

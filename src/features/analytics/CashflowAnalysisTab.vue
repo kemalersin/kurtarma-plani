@@ -6,8 +6,7 @@ import KpChart from '@/components/KpChart.vue'
 import AnalyticsFilterBar from '@/features/analytics/AnalyticsFilterBar.vue'
 import { buildDonutOption } from '@/features/analytics/chartOptions'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
-import { listColumnScrollWidth, prepareListTableColumns } from '@/core/util/table-columns'
-import type { TableColumnType } from 'ant-design-vue'
+import { prepareListTableColumns, TABLE_SCROLL_X } from '@/core/util/table-columns'
 import type { AnalyticsFilterState } from '@/composables/useAnalyticsFilters'
 import type { AnalyticsData } from '@/features/analytics/useAnalyticsData'
 import type { CashflowMonthRow } from '@/features/analytics/reports'
@@ -85,7 +84,6 @@ const tableColumns = prepareListTableColumns<CashflowMonthRow>([
     title: 'Ay',
     dataIndex: 'month',
     key: 'month',
-    minWidth: 72,
     customRender: ({ text }) => monthLabel(String(text)),
     sorter: (a, b) => a.month.localeCompare(b.month),
   },
@@ -94,7 +92,6 @@ const tableColumns = prepareListTableColumns<CashflowMonthRow>([
     dataIndex: 'income',
     key: 'income',
     align: 'right',
-    minWidth: 112,
     sorter: (a, b) => Number(a.income) - Number(b.income),
     customRender: ({ text }) => formatCurrency(String(text), currency.value),
   },
@@ -103,7 +100,6 @@ const tableColumns = prepareListTableColumns<CashflowMonthRow>([
     dataIndex: 'expense',
     key: 'expense',
     align: 'right',
-    minWidth: 112,
     sorter: (a, b) => Number(a.expense) - Number(b.expense),
     customRender: ({ text }) => formatCurrency(String(text), currency.value),
   },
@@ -112,7 +108,6 @@ const tableColumns = prepareListTableColumns<CashflowMonthRow>([
     dataIndex: 'net',
     key: 'net',
     align: 'right',
-    minWidth: 112,
     sorter: (a, b) => Number(a.net) - Number(b.net),
     customRender: ({ text }) => {
       const val = String(text)
@@ -121,11 +116,6 @@ const tableColumns = prepareListTableColumns<CashflowMonthRow>([
     },
   },
 ])
-
-const tableScrollX = tableColumns.reduce(
-  (sum, col) => sum + listColumnScrollWidth(col as TableColumnType<unknown>),
-  0,
-)
 
 const isCashflowEmpty = computed(
   () =>
@@ -170,8 +160,8 @@ const isCashflowEmpty = computed(
         :data-source="data.cashflowRows"
         row-key="month"
         size="small"
-        table-layout="fixed"
-        :scroll="{ x: tableScrollX }"
+        table-layout="auto"
+        :scroll="{ x: TABLE_SCROLL_X }"
         :pagination="{ pageSize: 12, showSizeChanger: true }"
         :show-sorter-tooltip="false"
       />

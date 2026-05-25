@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, h } from 'vue'
 import { Card, Table } from 'ant-design-vue'
-import type { ColumnsType } from 'ant-design-vue/es/table'
 import type { EChartsOption } from 'echarts/types/dist/echarts'
 import KpChart from '@/components/KpChart.vue'
 import AnalyticsFilterBar from '@/features/analytics/AnalyticsFilterBar.vue'
@@ -9,6 +8,7 @@ import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { AnalyticsFilterState } from '@/composables/useAnalyticsFilters'
 import type { AnalyticsData } from '@/features/analytics/useAnalyticsData'
 import type { MovementRow } from '@/features/analytics/reports'
+import { prepareListTableColumns, TABLE_SCROLL_X } from '@/core/util/table-columns'
 
 const props = defineProps<{
   data: AnalyticsData
@@ -56,12 +56,11 @@ const trendOption = computed<EChartsOption>(() => {
   }
 })
 
-const columns: ColumnsType<MovementRow> = [
+const columns = prepareListTableColumns<MovementRow>([
   {
     title: 'Tarih',
     dataIndex: 'date',
     key: 'date',
-    width: 120,
     sorter: (a, b) => a.date.localeCompare(b.date),
     defaultSortOrder: 'descend',
     customRender: ({ text }) => formatDate(String(text)),
@@ -76,7 +75,6 @@ const columns: ColumnsType<MovementRow> = [
     title: 'Kaynak',
     dataIndex: 'sourceLabel',
     key: 'sourceLabel',
-    width: 160,
     filters: [
       { text: 'Gelir', value: 'Gelir' },
       { text: 'Gider', value: 'Gider' },
@@ -88,7 +86,6 @@ const columns: ColumnsType<MovementRow> = [
     title: 'Tutar',
     dataIndex: 'amount',
     key: 'amount',
-    width: 140,
     align: 'right',
     sorter: (a, b) => a.amount - b.amount,
     customRender: ({ text }) => {
@@ -97,7 +94,7 @@ const columns: ColumnsType<MovementRow> = [
       return h('span', { class: cls }, formatCurrency(val, currency.value))
     },
   },
-]
+])
 
 const isTrendEmpty = computed(() => props.data.assetTrend.values.every((v) => v === 0))
 </script>
@@ -117,7 +114,8 @@ const isTrendEmpty = computed(() => props.data.assetTrend.values.every((v) => v 
         row-key="id"
         size="small"
         :pagination="{ pageSize: 20, showSizeChanger: true, pageSizeOptions: ['10', '20', '50', '100'] }"
-        :scroll="{ x: 640 }"
+        table-layout="auto"
+        :scroll="{ x: TABLE_SCROLL_X }"
         :show-sorter-tooltip="false"
       />
     </Card>

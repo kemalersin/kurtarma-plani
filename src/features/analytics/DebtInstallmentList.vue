@@ -15,7 +15,7 @@ import dayjs, { type Dayjs } from 'dayjs'
 import LocaleRangePicker from '@/components/LocaleRangePicker.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import { textIncludesSearch } from '@/core/util/search'
-import { prepareListTableColumns } from '@/core/util/table-columns'
+import { prepareListTableColumns, TABLE_SCROLL_X } from '@/core/util/table-columns'
 import { useListFilterPopoverProps } from '@/core/ui/list-filter-popover'
 import { useClosePopoverOnScroll } from '@/composables/useClosePopoverOnScroll'
 import { useListQuery, type SortOrder } from '@/composables/useListQuery'
@@ -192,14 +192,12 @@ const baseColumns: ColumnsType<DebtInstallmentRow> = [
     title: 'Banka',
     dataIndex: 'bankName',
     key: 'bankName',
-    width: 140,
     ellipsis: { showTitle: false },
     sorter: (a, b) => a.bankName.localeCompare(b.bankName, 'tr'),
   },
   {
     title: 'Tür',
     key: 'debtKind',
-    width: 120,
     customRender: ({ record }) =>
       record.debtKind === 'loan' ? 'Kredi' : 'Taksitli avans',
   },
@@ -207,7 +205,6 @@ const baseColumns: ColumnsType<DebtInstallmentRow> = [
     title: 'Taksit',
     dataIndex: 'installmentIndex',
     key: 'installmentIndex',
-    width: 72,
     align: 'right',
     sorter: (a, b) => a.installmentIndex - b.installmentIndex,
   },
@@ -215,7 +212,6 @@ const baseColumns: ColumnsType<DebtInstallmentRow> = [
     title: 'Vade',
     dataIndex: 'dueDate',
     key: 'dueDate',
-    width: 120,
     sorter: (a, b) => a.dueDate.localeCompare(b.dueDate),
     defaultSortOrder: 'ascend',
     customRender: ({ text }) => formatDate(String(text)),
@@ -224,7 +220,6 @@ const baseColumns: ColumnsType<DebtInstallmentRow> = [
     title: 'Tutar',
     dataIndex: 'amount',
     key: 'amount',
-    width: 130,
     align: 'right',
     sorter: (a, b) => Number(a.amount) - Number(b.amount),
     customRender: ({ text }) => formatCurrency(String(text), props.currency),
@@ -232,7 +227,6 @@ const baseColumns: ColumnsType<DebtInstallmentRow> = [
   {
     title: 'Durum',
     key: 'status',
-    width: 110,
     customRender: ({ record }) => {
       const t = statusTag(record.status)
       return h(Tag, { color: t.color }, () => t.label)
@@ -446,7 +440,8 @@ function clearFilters(): void {
       row-key="key"
       size="small"
       :pagination="pagination"
-      :scroll="{ x: 860 }"
+      table-layout="auto"
+      :scroll="{ x: TABLE_SCROLL_X }"
       :show-sorter-tooltip="false"
       :locale="{ emptyText: filtered.length === 0 && rows.length > 0 ? 'Filtreye uygun taksit yok.' : 'Taksit kaydı yok.' }"
       @change="onTableChange"

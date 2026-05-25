@@ -6,7 +6,6 @@ import EntityListPage, { type ListFilter } from '@/components/EntityListPage.vue
 import TransferFormDrawer from './TransferFormDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
-import { ADMIN_PRIMARY_NAME_COLUMN_WIDTH } from '@/features/admin/admin-list-columns'
 import { compareByDisplayLabel } from '@/features/cashflow/cashflowListSorters'
 import type { Account, CashRegister, Transfer } from '@/core/types/entities'
 
@@ -128,8 +127,7 @@ const columns = computed<TableColumnType<Transfer>[]>(() => [
   {
     key: 'name',
     title: 'Açıklama',
-    width: ADMIN_PRIMARY_NAME_COLUMN_WIDTH,
-    ellipsis: true,
+    ellipsis: { showTitle: false },
     customRender: ({ record }) => descriptionLabel(record as Transfer),
     sorter: (a, b) => compareByDisplayLabel(a, b, descriptionLabel),
   },

@@ -13,8 +13,8 @@ import {
 } from '@/core/util/list-item-click'
 import {
   LIST_ACTIONS_COLUMN_WIDTH,
-  listColumnScrollWidth,
   prepareListTableColumns,
+  TABLE_SCROLL_X,
 } from '@/core/util/table-columns'
 
 const props = withDefaults(
@@ -60,7 +60,6 @@ const isMobile = useMatchMedia(KP_LIST_MOBILE_MQ)
 const tableLocale = { emptyText: ' ' }
 
 const wrapRef = ref<HTMLElement | null>(null)
-const viewportWidth = ref(0)
 const measuredScrollY = ref(120)
 const tableHeadH = ref(40)
 const tablePaginationH = ref(0)
@@ -150,19 +149,6 @@ function resolveRowKey(record: T, index: number): string | number {
   return value != null ? (value as string | number) : index
 }
 
-const columnsMinWidth = computed(() =>
-  displayColumns.value.reduce(
-    (sum, col) => sum + listColumnScrollWidth(col as TableColumnType<unknown>),
-    0,
-  ),
-)
-
-const needsHorizontalScroll = computed(() => {
-  const vw = viewportWidth.value
-  if (vw <= 0) return false
-  return columnsMinWidth.value > vw + 1
-})
-
 const effectiveScrollY = computed(() => {
   if (props.scrollY != null) return props.scrollY
   if (useFillHeight.value) return measuredScrollY.value
@@ -170,8 +156,8 @@ const effectiveScrollY = computed(() => {
 })
 
 const scroll = computed(() => {
-  const s: { x?: number; y?: number | string } = {}
-  if (needsHorizontalScroll.value) s.x = columnsMinWidth.value
+  const s: { x?: typeof TABLE_SCROLL_X; y?: number | string } = {}
+  if (!isMobile.value) s.x = TABLE_SCROLL_X
   const y = effectiveScrollY.value
   if (y != null) s.y = y
   return Object.keys(s).length > 0 ? s : undefined
@@ -191,8 +177,6 @@ async function measureTable(): Promise<void> {
   await nextTick()
   const wrap = wrapRef.value
   if (!wrap) return
-  viewportWidth.value = wrap.clientWidth
-
   const thead = wrap.querySelector<HTMLElement>('.ant-table-thead')
   const paginationEl = wrap.querySelector<HTMLElement>('.ant-table-pagination')
   tableHeadH.value = thead?.offsetHeight ?? 40
@@ -256,7 +240,7 @@ function showDeleteFor(record: T): boolean {
     ref="wrapRef"
     class="kp-drawer-table"
     :class="{
-      'kp-drawer-table--h-scroll': needsHorizontalScroll,
+      'kp-drawer-table--h-scroll': !isMobile,
       'kp-drawer-table--fill': useFillHeight,
       'kp-drawer-table--mobile-cards': showMobileCards,
       'kp-drawer-table--mobile-empty': showMobileEmpty,
@@ -322,7 +306,7 @@ function showDeleteFor(record: T): boolean {
       :locale="tableLocale"
       :custom-row="customRow"
       :show-sorter-tooltip="false"
-      table-layout="fixed"
+      table-layout="auto"
       :size="size"
     >
       <template #bodyCell="scope">

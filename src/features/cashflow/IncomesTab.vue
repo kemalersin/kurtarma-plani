@@ -7,7 +7,6 @@ import EntityListPage, { type ListFilter } from '@/components/EntityListPage.vue
 import IncomeFormDrawer from './IncomeFormDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
-import { ADMIN_PRIMARY_NAME_COLUMN_WIDTH } from '@/features/admin/admin-list-columns'
 import type { KpTableColumn } from '@/core/util/table-columns'
 import { cashflowStatus, type CashflowStatus } from '@/finance/cashflow'
 import {
@@ -191,8 +190,7 @@ const columns = computed<TableColumnType<Income>[]>(() => [
   {
     key: 'name',
     title: 'Açıklama',
-    width: ADMIN_PRIMARY_NAME_COLUMN_WIDTH,
-    ellipsis: true,
+    ellipsis: { showTitle: false },
     customRender: ({ record }) => descriptionLabel(record as Income),
     sorter: (a, b) => compareByDisplayLabel(a, b, descriptionLabel),
   },
@@ -241,7 +239,6 @@ const columns = computed<TableColumnType<Income>[]>(() => [
     key: '__realize',
     title: '',
     align: 'center',
-    width: 120,
     customRender: ({ record }) => {
       const row = record as Income
       if (row.recurrence) return null

@@ -34,6 +34,7 @@ import { formatCostUsd } from '@/features/ai/cost'
 import { normalizeApiKey } from '@/features/ai/provider-auth'
 import { useConnectivity } from '@/composables/useConnectivity'
 import KpTooltip from '@/components/KpTooltip.vue'
+import { TABLE_SCROLL_X } from '@/core/util/table-columns'
 import { useProfileStore } from '@/stores/profile'
 
 const ai = useAiStore()
@@ -141,11 +142,11 @@ const catalogModelCount = computed(() => {
 })
 
 const usageColumns = [
-  { title: 'Tarih', dataIndex: 'at', key: 'at', width: 160 },
+  { title: 'Tarih', dataIndex: 'at', key: 'at' },
   { title: 'Model', dataIndex: 'modelId', key: 'modelId' },
-  { title: 'Girdi', dataIndex: 'inputTokens', key: 'inputTokens', width: 90 },
-  { title: 'Çıktı', dataIndex: 'outputTokens', key: 'outputTokens', width: 90 },
-  { title: 'Maliyet', dataIndex: 'costUsd', key: 'costUsd', width: 100 },
+  { title: 'Girdi', dataIndex: 'inputTokens', key: 'inputTokens' },
+  { title: 'Çıktı', dataIndex: 'outputTokens', key: 'outputTokens' },
+  { title: 'Maliyet', dataIndex: 'costUsd', key: 'costUsd' },
 ]
 
 const usageRows = computed(() =>
@@ -411,6 +412,9 @@ async function resetCatalog(): Promise<void> {
         :data-source="usageRows"
         :pagination="{ pageSize: 5, hideOnSinglePage: true }"
         size="small"
+        table-layout="auto"
+        :scroll="{ x: TABLE_SCROLL_X }"
+        :show-sorter-tooltip="false"
         :locale="{ emptyText: 'Henüz kullanım kaydı yok.' }"
       />
     </Card>
