@@ -2,7 +2,15 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Empty, Table } from 'ant-design-vue'
 import type { TableColumnType, TablePaginationConfig } from 'ant-design-vue'
+import KpColumnTagCell from '@/components/KpColumnTagCell.vue'
+import ListCard from '@/components/ListCard.vue'
 import TableRowActions from '@/components/TableRowActions.vue'
+import { KP_LIST_MOBILE_MQ, useMatchMedia } from '@/composables/useMatchMedia'
+import { formatListCellValue } from '@/core/util/list-cell'
+import {
+  handleDrawerListItemClick,
+  resolveCustomRowClick,
+} from '@/core/util/list-item-click'
 import {
   LIST_ACTIONS_COLUMN_WIDTH,
   listColumnScrollWidth,
@@ -47,6 +55,8 @@ const emit = defineEmits<{
   (e: 'delete', record: T): void
 }>()
 
+const isMobile = useMatchMedia(KP_LIST_MOBILE_MQ)
+
 const tableLocale = { emptyText: ' ' }
 
 const wrapRef = ref<HTMLElement | null>(null)
@@ -86,6 +96,46 @@ const displayColumns = computed<TableColumnType<T>[]>(() => {
     },
   ]
 })
+
+const cardColumns = computed(() =>
+  displayColumns.value.filter((c) => !String(c.key ?? '').startsWith('__')),
+)
+
+const primaryCardColumn = computed(() => cardColumns.value[0])
+
+const detailCardColumns = computed(() => cardColumns.value.slice(1))
+
+function cardCellValue(column: TableColumnType<T>, record: T, index: number): string {
+  const kpCol = column as TableColumnType<T> & { kpDisplay?: (row: T) => string }
+  if (kpCol.kpDisplay) return kpCol.kpDisplay(record)
+  return formatListCellValue(
+    column as TableColumnType<Record<string, unknown>>,
+    record as T & Record<string, unknown>,
+    index,
+  )
+}
+
+function tableCellValue(column: TableColumnType<T>, record: T, index: number): string {
+  return cardCellValue(column, record, index)
+}
+
+function isCardClickable(record: T): boolean {
+  return Boolean(resolveCustomRowClick(record, props.customRow) || props.rowActions)
+}
+
+function onCardClick(record: T, event: MouseEvent): void {
+  handleDrawerListItemClick(record, event, {
+    customRow: props.customRow,
+    onEdit: (item) => emit('edit', item),
+  })
+}
+
+function resolveRowKey(record: T, index: number): string | number {
+  if (typeof props.rowKey === 'function') return props.rowKey(record)
+  const raw = record as Record<string, unknown>
+  const value = raw[props.rowKey]
+  return value != null ? (value as string | number) : index
+}
 
 const columnsMinWidth = computed(() =>
   displayColumns.value.reduce(
@@ -202,7 +252,47 @@ function showDeleteFor(record: T): boolean {
       <Empty :description="emptyText" />
     </div>
 
+    <ul
+      v-if="isMobile && dataSource.length > 0"
+      class="kp-list__cards-list kp-drawer-table__cards"
+    >
+      <ListCard
+        v-for="(record, index) in dataSource"
+        :key="resolveRowKey(record, index)"
+        :clickable="isCardClickable(record)"
+        @click="onCardClick(record, $event)"
+      >
+        <template v-if="primaryCardColumn" #title>
+          {{ cardCellValue(primaryCardColumn, record, index) }}
+        </template>
+        <template v-if="rowActions" #actions>
+          <TableRowActions
+            :show-delete="showDeleteFor(record)"
+            :delete-title="deleteTitle"
+            @edit="emit('edit', record)"
+            @delete="emit('delete', record)"
+          />
+        </template>
+        <dl v-if="detailCardColumns.length" class="kp-list-card__fields">
+          <div
+            v-for="col in detailCardColumns"
+            :key="String(col.key ?? col.dataIndex)"
+            class="kp-list-card__field"
+          >
+            <dt>{{ col.title }}</dt>
+            <dd>
+              <KpColumnTagCell :column="col" :record="record">
+                {{ cardCellValue(col, record, index) }}
+              </KpColumnTagCell>
+            </dd>
+          </div>
+        </dl>
+      </ListCard>
+    </ul>
+
     <Table
+      v-show="!isMobile || dataSource.length === 0"
+      class="kp-drawer-table__table"
       :class="tableClass"
       :data-source="dataSource"
       :columns="displayColumns"
@@ -224,9 +314,14 @@ function showDeleteFor(record: T): boolean {
             @delete="emit('delete', scope.record as T)"
           />
         </template>
-        <template v-else-if="$slots.bodyCell">
-          <slot name="bodyCell" v-bind="scope" />
-        </template>
+        <KpColumnTagCell
+          v-else
+          :column="scope.column"
+          :record="scope.record as T"
+        >
+          <slot v-if="$slots.bodyCell" name="bodyCell" v-bind="scope" />
+          <template v-else>{{ tableCellValue(scope.column, scope.record as T, scope.index) }}</template>
+        </KpColumnTagCell>
       </template>
     </Table>
   </div>
@@ -341,5 +436,21 @@ function showDeleteFor(record: T): boolean {
   max-width: 0 !important;
   padding: 0 !important;
   border: none !important;
+}
+
+.kp-drawer-table__cards {
+  width: 100%;
+}
+
+.kp-drawer-table--fill > .kp-drawer-table__cards {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+@media (max-width: 640px) {
+  .kp-drawer-table__table {
+    display: none !important;
+  }
 }
 </style>

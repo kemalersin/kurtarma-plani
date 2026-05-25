@@ -4,7 +4,11 @@
   --kp-page-max-width: 800px;
   --kp-page-padding-x: 16px;
   --kp-page-padding-x-wide: 24px;
-  --kp-page-padding-bottom: 32px;
+  /** AppShell `.kp-content` (router-view sarmalayıcı) */
+  --kp-content-padding-x: 16px;
+  --kp-content-padding-top: 16px;
+  /** Alt boşluk: dar sayfa — content + page yatay padding toplamı (`:has` ile geniş sayfada override) */
+  --kp-content-padding-bottom: calc(var(--kp-content-padding-x) + var(--kp-page-padding-x));
   /** AppShell, drawer, tooltip (768px) */
   --kp-mobile-viewport-max: 768px;
   /** EntityListPage: tablo ↔ kart kırılımı */
@@ -77,7 +81,6 @@ body {
   max-width: var(--kp-page-max-width);
   margin: 0 auto;
   padding-inline: var(--kp-page-padding-x);
-  padding-bottom: var(--kp-page-padding-bottom);
   box-sizing: border-box;
 }
 
@@ -86,16 +89,47 @@ body {
   max-width: none;
   margin: 0;
   padding-inline: var(--kp-page-padding-x-wide);
-  padding-bottom: var(--kp-page-padding-bottom);
   box-sizing: border-box;
 }
 
-/** Liste sekmeli sayfalar: viewport yüksekliğini doldur (tablo scroll) */
+/** Liste sekmeli sayfalar: kısa içerikte alanı doldur; uzun içerikte sayfa kaydırması */
 .kp-page--fill {
-  flex: 1;
-  min-height: 0;
+  flex: 1 0 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+/**
+ * Fill sayfa içi flex zinciri: `flex:1; min-height:0` yalnızca viewport yüksekliğine kilitler;
+ * `flex:1 0 auto` ile tablo uzayınca `.kp-content` kaydırılır.
+ */
+.kp-page--fill > * {
+  flex: 1 0 auto;
+  width: 100%;
+  min-width: 0;
+}
+
+.kp-page--fill [class$='-tabs'] {
+  flex: 1 0 auto;
+  min-height: 0;
+}
+
+.kp-page--fill [class$='-tabs'] .ant-tabs-content-holder,
+.kp-page--fill [class$='-tabs'] .ant-tabs-content,
+.kp-page--fill [class$='-tabs'] .ant-tabs-tabpane {
+  flex: 1 0 auto;
+  min-height: 0;
+}
+
+/** Geniş / doldurma sayfalarında alt boşluk = yan boşluk (tek katman: kp-content) */
+.kp-content:has(> .kp-page--wide),
+.kp-content:has(> .kp-page--fill) {
+  --kp-content-padding-bottom: calc(
+    var(--kp-content-padding-x) + var(--kp-page-padding-x-wide)
+  );
 }
 
 /** Veri yüklenirken tam sayfa ortalanmış spinner */
@@ -112,9 +146,127 @@ body {
 .kp-list-tab-pane {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 0 auto;
   min-height: 0;
   width: 100%;
+}
+
+/** Analiz rapor — kart içi tablolar dar ekranda yatay kaydırma */
+.kp-analytics-tab {
+  min-width: 0;
+}
+
+.kp-analytics-tab__table-card {
+  min-width: 0;
+}
+
+.kp-analytics-tab__table-card .ant-card-body {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.kp-analytics-tab__table-card .ant-table-pagination {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+/** EntityListPage / DrawerDataTable mobil kart listesi */
+.kp-list-card {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: var(--kp-radius, 8px);
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.kp-list-card--clickable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease;
+}
+
+.kp-list-card--clickable:active {
+  background: rgba(22, 119, 255, 0.06);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .kp-list-card--clickable:hover {
+    background: rgba(22, 119, 255, 0.04);
+  }
+}
+
+[data-theme='dark'] .kp-list-card {
+  background: #1f1f1f;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='dark'] .kp-list-card--clickable:active {
+  background: rgba(22, 119, 255, 0.14);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-theme='dark'] .kp-list-card--clickable:hover {
+    background: rgba(22, 119, 255, 0.1);
+  }
+}
+
+.kp-list-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.kp-list-card__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.kp-list-card__actions {
+  flex-shrink: 0;
+}
+
+.kp-list-card__fields {
+  margin: 0;
+  display: grid;
+  gap: 6px 12px;
+}
+
+.kp-list-card__field {
+  display: grid;
+  grid-template-columns: minmax(88px, 38%) 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.kp-list-card__field dt {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.kp-list-card__field dd {
+  margin: 0;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+[data-theme='dark'] .kp-list-card__field dt {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.kp-list__cards-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .kp-toolbar {
@@ -160,6 +312,22 @@ body {
   }
 }
 
+/** Ana içerik (AppShell): mobilde daraltılmış kenar boşluğu (çift padding yok) */
+@media (max-width: 768px) {
+  :root {
+    --kp-page-padding-x: 0;
+    --kp-page-padding-x-wide: 0;
+    --kp-content-padding-x: 12px;
+    --kp-content-padding-top: 12px;
+    --kp-content-padding-bottom: var(--kp-content-padding-x);
+  }
+
+  .kp-content:has(> .kp-page--wide),
+  .kp-content:has(> .kp-page--fill) {
+    --kp-content-padding-bottom: var(--kp-content-padding-x);
+  }
+}
+
 /* Mobil: tooltip yok; form drawer tam ekran (ui-patterns.mdc) */
 @media (max-width: 768px) {
   .ant-tooltip {
@@ -192,6 +360,11 @@ body {
 
   .kp-form-drawer.ant-drawer:has(.kp-drawer-table-page) .kp-form-drawer__body {
     overflow: hidden;
+  }
+
+  /** Sekmeli sayfalar (mobilde PageHeader gizli): tab satırı üst boşluğu */
+  .kp-content .ant-tabs-tab {
+    padding-top: 2px;
   }
 }
 
@@ -393,9 +566,10 @@ body {
 /*
  * Sağ kenara dayalı açılır katmanlar: viewport'tan boşluk; kısa onay metni tek satır.
  * `overlay-class-name="kp-popoverlay-edge"` veya *Right placement ile birlikte kullanılır.
+ * Liste filtre popover'ı hariç — yatay adjustX ile çakışıp mobilde titreme yapar.
  */
-.ant-popover-placement-topRight,
-.ant-popover-placement-bottomRight,
+.ant-popover-placement-topRight:not(.kp-list-filter-popover),
+.ant-popover-placement-bottomRight:not(.kp-list-filter-popover),
 .ant-dropdown-placement-topRight,
 .ant-dropdown-placement-bottomRight,
 .kp-popoverlay-edge.ant-popover {
@@ -414,7 +588,11 @@ body {
   justify-content: flex-end;
 }
 
-/* Liste filtre popover'ı (EntityListPage) */
+/* Liste filtre popover'ı (EntityListPage, analiz) */
+.kp-list-filter-popover.ant-popover {
+  margin-inline-end: 0;
+}
+
 .kp-list-filter-popover.ant-popover .ant-popover-inner {
   padding: 0;
   min-width: 280px;
@@ -490,12 +668,49 @@ body {
   border-top-color: rgba(255, 255, 255, 0.08);
 }
 
-/* Mobil: popover sağ kenara taşmasın */
+/* Mobil / dokunmatik: AntDV tooltip gösterilmez (KpTooltip yedek katmanı) */
+@media (max-width: 768px) {
+  .ant-tooltip {
+    display: none !important;
+    pointer-events: none !important;
+  }
+}
+
+/* Mobil: popover viewport içinde; genişlik sabit (titreme + taşma) */
 @media (max-width: 640px) {
   .kp-list-filter-popover.ant-popover {
-    max-width: calc(100vw - 16px);
+    max-width: calc(100vw - 24px);
   }
+
+  .kp-list-filter-popover.ant-popover .ant-popover-inner {
+    min-width: 0;
+    width: min(320px, calc(100vw - 24px));
+    box-sizing: border-box;
+  }
+
   .kp-list-filter {
+    width: min(320px, calc(100vw - 24px));
+    min-width: 0;
     max-width: none;
+    box-sizing: border-box;
+  }
+
+  /* Kart başlığındaki filtre düğmesi: başlık satırı kaymasın */
+  .kp-analytics-tab__table-card .ant-card-head {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .kp-analytics-tab__table-card .ant-card-head-title {
+    flex: 1;
+    min-width: 0;
+    padding-inline-end: 8px;
+  }
+
+  .kp-analytics-tab__table-card .ant-card-extra {
+    flex-shrink: 0;
+    margin-inline-start: 0;
+    padding-inline-start: 0;
   }
 }

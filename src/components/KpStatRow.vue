@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { InfoCircleOutlined } from '@ant-design/icons-vue'
 import KpTooltip from '@/components/KpTooltip.vue'
+import { useMobileViewport } from '@/composables/useMatchMedia'
 
 /**
  * Tek satırda gösterilen istatistik/özet kartı.
@@ -44,6 +45,8 @@ const props = withDefaults(defineProps<Props>(), {
   minColumnWidth: 150,
 })
 
+const isMobileViewport = useMobileViewport()
+
 const gridStyle = computed(() => ({
   gridTemplateColumns: `repeat(auto-fit, minmax(${props.minColumnWidth}px, 1fr))`,
 }))
@@ -58,14 +61,20 @@ const gridStyle = computed(() => ({
       :data-tone="item.tone ?? 'default'"
     >
       <span class="kp-stat__label-row">
-        <span class="kp-stat__label" :title="item.labelTooltip ? undefined : item.label">{{
-          item.label
-        }}</span>
+        <span
+          class="kp-stat__label"
+          :title="!isMobileViewport && !item.labelTooltip ? item.label : undefined"
+          >{{ item.label }}</span
+        >
         <KpTooltip v-if="item.labelTooltip" :title="item.labelTooltip">
           <InfoCircleOutlined class="kp-stat__info" role="img" aria-label="Bilgi" />
         </KpTooltip>
       </span>
-      <span class="kp-stat__value" :title="String(item.value)">{{ item.value }}</span>
+      <span
+        class="kp-stat__value"
+        :title="!isMobileViewport ? String(item.value) : undefined"
+        >{{ item.value }}</span
+      >
       <span v-if="item.hint" class="kp-stat__hint">{{ item.hint }}</span>
     </div>
   </div>

@@ -519,7 +519,8 @@ function gotoCrumb(name?: string): void {
 }
 
 .kp-content {
-  padding: 16px 16px 24px;
+  padding: var(--kp-content-padding-top) var(--kp-content-padding-x)
+    var(--kp-content-padding-bottom);
   overflow: auto;
   display: flex;
   flex-direction: column;
@@ -545,10 +546,6 @@ function gotoCrumb(name?: string): void {
 
   .kp-sider__scrim {
     cursor: pointer;
-  }
-
-  .kp-content {
-    padding: 12px 12px 20px;
   }
 }
 </style>

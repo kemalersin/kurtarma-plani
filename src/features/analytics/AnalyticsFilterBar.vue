@@ -9,6 +9,8 @@ import {
   buildBankGroupedAccountOptions,
   filterBankGroupedAccountOption,
 } from '@/features/admin/accountSelectOptions'
+import { listFilterPopoverEndProps } from '@/core/ui/list-filter-popover'
+import { useClosePopoverOnScroll } from '@/composables/useClosePopoverOnScroll'
 
 const props = defineProps<{
   filters: AnalyticsFilterState
@@ -18,6 +20,9 @@ const props = defineProps<{
 }>()
 
 const open = ref(false)
+const filterTriggerRef = ref<HTMLElement | null>(null)
+
+useClosePopoverOnScroll(open, () => filterTriggerRef.value)
 
 const rangeValue = computed<[Dayjs, Dayjs]>(() => [
   dayjs(props.filters.range.value.from),
@@ -87,13 +92,7 @@ function clearFilters(): void {
 </script>
 
 <template>
-  <Popover
-    v-model:open="open"
-    trigger="click"
-    placement="bottomRight"
-    overlay-class-name="kp-list-filter-popover"
-    :destroy-tooltip-on-hide="false"
-  >
+  <Popover v-model:open="open" v-bind="listFilterPopoverEndProps">
     <template #content>
       <div class="kp-list-filter">
         <header class="kp-list-filter__head">Filtreler</header>
@@ -159,14 +158,22 @@ function clearFilters(): void {
       </div>
     </template>
 
-    <Badge :count="activeFilterCount" :show-zero="false" :offset="[-2, 2]" size="small">
-      <Button
-        :type="activeFilterCount > 0 ? 'primary' : 'default'"
-        :ghost="activeFilterCount > 0"
-        aria-label="Filtreler"
-      >
-        <template #icon><FilterOutlined /></template>
-      </Button>
-    </Badge>
+    <span ref="filterTriggerRef" class="kp-analytics-filter-trigger">
+      <Badge :count="activeFilterCount" :show-zero="false" :offset="[-2, 2]" size="small">
+        <Button
+          :type="activeFilterCount > 0 ? 'primary' : 'default'"
+          :ghost="activeFilterCount > 0"
+          aria-label="Filtreler"
+        >
+          <template #icon><FilterOutlined /></template>
+        </Button>
+      </Badge>
+    </span>
   </Popover>
 </template>
+
+<style scoped>
+.kp-analytics-filter-trigger {
+  display: inline-flex;
+}
+</style>

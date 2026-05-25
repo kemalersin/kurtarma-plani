@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import {
-  Tag,
   Empty,
   Alert,
   message,
@@ -17,6 +16,7 @@ import type { ScheduleRow } from '@/finance/loan'
 import { D } from '@/finance/decimal'
 import { buildScheduleForLoan, indexPayments, paidThroughIndex, payoffForLoan, remainingDebtForLoan } from './loanHelpers'
 import { buildScheduleDrawerColumns } from './schedule-table-columns'
+import type { KpTableColumn } from '@/core/util/table-columns'
 import { payoffStatTooltip } from './payoffStatTooltip'
 import { displayInstallmentAmount } from './installmentDisplay'
 import PaymentMarkDrawer from './PaymentMarkDrawer.vue'
@@ -120,7 +120,30 @@ const STATUS_COLORS: Record<RowStatus, string> = {
   upcoming: 'default',
 }
 
-const columns = computed(() => buildScheduleDrawerColumns(formatDate, formatMoney))
+const columns = computed(() => {
+  const base = buildScheduleDrawerColumns(formatDate, formatMoney)
+  return base.map((col) => {
+    const key = String(col.key ?? '')
+    if (key === 'installment') {
+      return {
+        ...col,
+        customRender: ({ record }: { record: ScheduleRow }) => installmentDisplay(record),
+        kpDisplay: (row: ScheduleRow) => installmentDisplay(row),
+      }
+    }
+    if (key === 'status') {
+      return {
+        ...col,
+        kpDisplay: (row: ScheduleRow) => STATUS_LABELS[statusFor(row)],
+        kpTag: (row: ScheduleRow) => {
+          const status = statusFor(row)
+          return { color: STATUS_COLORS[status], label: STATUS_LABELS[status] }
+        },
+      } satisfies KpTableColumn<ScheduleRow>
+    }
+    return col
+  })
+})
 
 const markOpen = ref(false)
 const activeRow = ref<ScheduleRow | null>(null)
@@ -198,18 +221,7 @@ function scheduleRowProps(row: ScheduleRow): Record<string, unknown> {
         :custom-row="scheduleRowProps"
         @edit="openMark"
         @delete="onDeletePayment"
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'installment'">
-            {{ installmentDisplay(record as ScheduleRow) }}
-          </template>
-          <template v-else-if="column.key === 'status'">
-            <Tag :color="STATUS_COLORS[statusFor(record as ScheduleRow)]">
-              {{ STATUS_LABELS[statusFor(record as ScheduleRow)] }}
-            </Tag>
-          </template>
-        </template>
-      </DrawerDataTable>
+      />
     </div>
   </FormDrawer>
 

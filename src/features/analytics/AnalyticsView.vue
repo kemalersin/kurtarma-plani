@@ -16,7 +16,7 @@ const { data, loading } = useAnalyticsData(filterState.filters)
 </script>
 
 <template>
-  <div class="kp-analytics">
+  <div class="kp-analytics kp-tabs-page">
     <div v-if="loading" class="kp-page-spinner">
       <Spin size="large" />
     </div>
@@ -24,6 +24,7 @@ const { data, loading } = useAnalyticsData(filterState.filters)
     <template v-else>
       <PageHeader
         class="kp-analytics__header"
+        tabbed
         title="Analiz & rapor"
         subtitle="Borç vadeleri, nakit akışı ve hesap hareketleri — filtreler liste başlığındaki düğmeden."
       />
@@ -49,7 +50,7 @@ const { data, loading } = useAnalyticsData(filterState.filters)
 }
 
 .kp-analytics__header {
-  margin-bottom: 16px;
+  flex-shrink: 0;
 }
 
 .kp-analytics-tabs :deep(.ant-tabs-nav) {

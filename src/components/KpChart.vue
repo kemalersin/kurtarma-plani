@@ -17,6 +17,7 @@ import { init, dispose, type EChartsType } from 'echarts/core'
 import type { EChartsOption } from 'echarts/types/dist/echarts'
 import { registerEcharts } from '@/core/echarts/setup'
 import { useUiStore } from '@/stores/ui'
+import { useMobileViewport } from '@/composables/useMatchMedia'
 
 registerEcharts()
 
@@ -38,6 +39,7 @@ const props = withDefaults(
 )
 
 const ui = useUiStore()
+const isMobileViewport = useMobileViewport()
 const container = ref<HTMLDivElement | null>(null)
 let chart: EChartsType | null = null
 let resizeObserver: ResizeObserver | null = null
@@ -45,6 +47,19 @@ let resizeObserver: ResizeObserver | null = null
 const heightStyle = computed(() =>
   typeof props.height === 'number' ? `${props.height}px` : props.height,
 )
+
+function chartOption(option: EChartsOption): EChartsOption {
+  if (!isMobileViewport.value) return option
+  const tip = option.tooltip
+  if (tip == null) return { ...option, tooltip: { show: false } }
+  if (Array.isArray(tip)) {
+    return {
+      ...option,
+      tooltip: tip.map((t) => ({ ...t, show: false })),
+    }
+  }
+  return { ...option, tooltip: { ...tip, show: false } }
+}
 
 function initChart(): void {
   if (!container.value || props.isEmpty) return
@@ -55,7 +70,7 @@ function initChart(): void {
   }
   const theme = ui.isDark ? 'dark' : ''
   chart = init(container.value, theme, { renderer: 'canvas' })
-  chart.setOption(props.option, { notMerge: true })
+  chart.setOption(chartOption(props.option), { notMerge: true })
   if (!resizeObserver) {
     resizeObserver = new ResizeObserver(() => {
       chart?.resize()
@@ -84,7 +99,7 @@ watch(
       void ensureChart()
       return
     }
-    chart.setOption(next, { notMerge: false })
+    chart.setOption(chartOption(next), { notMerge: false })
   },
   { deep: true },
 )
@@ -107,6 +122,15 @@ watch(
     if (!props.isEmpty) initChart()
   },
 )
+
+watch(isMobileViewport, () => {
+  if (props.isEmpty) return
+  if (chart) {
+    chart.setOption(chartOption(props.option), { notMerge: false })
+  } else {
+    void ensureChart()
+  }
+})
 
 onBeforeUnmount(() => {
   if (chart) {

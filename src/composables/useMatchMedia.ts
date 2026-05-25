@@ -3,6 +3,9 @@ import { onMounted, onUnmounted, ref, type Ref } from 'vue'
 /** AppShell, drawer, tooltip ile aynı kırılım (768px). */
 export const KP_MOBILE_VIEWPORT_MQ = '(max-width: 768px)'
 
+/** EntityListPage / DrawerDataTable: tablo ↔ kart kırılımı (640px). */
+export const KP_LIST_MOBILE_MQ = '(max-width: 640px)'
+
 /** Hover ile peek; dokunmatik birincil cihazlarda false. */
 export const KP_HOVER_CAPABLE_MQ = '(hover: hover) and (pointer: fine)'
 
@@ -27,4 +30,14 @@ export function useMatchMedia(query: string): Ref<boolean> {
   })
 
   return matches
+}
+
+/** AppShell, drawer, tooltip ile aynı kırılım (768px). */
+export function useMobileViewport(): Ref<boolean> {
+  return useMatchMedia(KP_MOBILE_VIEWPORT_MQ)
+}
+
+/** Hover ile peek; dokunmatik birincil cihazlarda false. */
+export function useHoverCapable(): Ref<boolean> {
+  return useMatchMedia(KP_HOVER_CAPABLE_MQ)
 }

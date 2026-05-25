@@ -64,15 +64,21 @@ const { activeTab } = useRoutedTabs(DEBTS_TABS, 'loans')
 .kp-debts-tabs :deep(.ant-tabs-content-holder) {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .kp-debts-tabs :deep(.ant-tabs-content) {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .kp-debts-tabs :deep(.ant-tabs-tabpane) {
-  height: 100%;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 </style>

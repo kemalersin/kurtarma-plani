@@ -653,7 +653,8 @@ async function confirmPasswordAndSync(): Promise<void> {
     </template>
 
     <Typography.Paragraph v-if="syncStore.deviceId" class="kp-text-muted kp-sync-device">
-      Cihaz kimliği: <code>{{ syncStore.deviceId }}</code>
+      <span class="kp-sync-device__label">Cihaz kimliği:</span>
+      <code class="kp-sync-device__id">{{ syncStore.deviceId }}</code>
     </Typography.Paragraph>
 
     <input
@@ -710,8 +711,32 @@ async function confirmPasswordAndSync(): Promise<void> {
   font-size: 12px;
 }
 
-.kp-sync-device code {
+.kp-sync-device__label {
+  margin-inline-end: 6px;
+}
+
+.kp-sync-device__id {
   font-size: 11px;
+}
+
+@media (max-width: 768px) {
+  .kp-sync-device {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .kp-sync-device__label {
+    display: block;
+    margin-inline-end: 0;
+  }
+
+  .kp-sync-device__id {
+    display: block;
+    max-width: 100%;
+    word-break: break-all;
+  }
 }
 
 .kp-sync-manual-input {

@@ -16,6 +16,8 @@ import dayjs, { type Dayjs } from 'dayjs'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import { textIncludesSearch } from '@/core/util/search'
 import { prepareListTableColumns } from '@/core/util/table-columns'
+import { useListFilterPopoverProps } from '@/core/ui/list-filter-popover'
+import { useClosePopoverOnScroll } from '@/composables/useClosePopoverOnScroll'
 import { useListQuery, type SortOrder } from '@/composables/useListQuery'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { ListFilter } from '@/components/EntityListPage.vue'
@@ -39,6 +41,10 @@ const sortKey = query.sortKey
 const sortOrder = query.sortOrder
 
 const filtersOpen = ref(false)
+const filterPopoverProps = useListFilterPopoverProps()
+const filterTriggerRef = ref<HTMLElement | null>(null)
+
+useClosePopoverOnScroll(filtersOpen, () => filterTriggerRef.value)
 
 const analyticsRangeValue = computed<[Dayjs, Dayjs]>(() => [
   dayjs(props.filters.range.value.from),
@@ -329,7 +335,7 @@ function clearFilters(): void {
 
 <template>
   <div class="kp-analytics-debt-list">
-    <div class="kp-analytics-debt-list__toolbar">
+    <div ref="filterTriggerRef" class="kp-analytics-debt-list__toolbar">
       <div class="kp-analytics-debt-list__search-group">
         <Input
           v-model:value="search"
@@ -343,10 +349,7 @@ function clearFilters(): void {
 
         <Popover
           v-model:open="filtersOpen"
-          trigger="click"
-          placement="bottomLeft"
-          overlay-class-name="kp-list-filter-popover"
-          :destroy-tooltip-on-hide="false"
+          v-bind="filterPopoverProps"
         >
           <template #content>
             <div class="kp-list-filter">

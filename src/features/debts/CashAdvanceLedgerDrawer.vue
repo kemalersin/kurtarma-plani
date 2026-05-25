@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import {
-  Tag,
   Button,
   Space,
   Alert,
@@ -10,7 +9,7 @@ import {
 } from 'ant-design-vue'
 import DrawerDataTable from '@/components/DrawerDataTable.vue'
 import KpStatRow, { type KpStat } from '@/components/KpStatRow.vue'
-import type { TableColumnType } from 'ant-design-vue'
+import type { KpTableColumn } from '@/core/util/table-columns'
 import FormDrawer from '@/components/FormDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
@@ -78,7 +77,7 @@ async function onDeleteTxn(t: CashAdvanceTransaction): Promise<void> {
   }
 }
 
-const columns = computed<TableColumnType<CashAdvanceTransaction>[]>(() => [
+const columns = computed<KpTableColumn<CashAdvanceTransaction>[]>(() => [
   {
     key: 'date',
     title: 'Tarih',
@@ -92,6 +91,11 @@ const columns = computed<TableColumnType<CashAdvanceTransaction>[]>(() => [
     title: 'Tür',
     width: 110,
     customRender: ({ record }) => TYPE_LABELS[(record as CashAdvanceTransaction).type],
+    kpDisplay: (record) => TYPE_LABELS[record.type],
+    kpTag: (record) => ({
+      color: TYPE_COLORS[record.type],
+      label: TYPE_LABELS[record.type],
+    }),
   },
   {
     key: 'description',
@@ -181,15 +185,7 @@ const stats = computed<KpStat[]>(() => {
         row-actions
         @edit="openEdit"
         @delete="onDeleteTxn"
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'type'">
-            <Tag :color="TYPE_COLORS[(record as CashAdvanceTransaction).type]">
-              {{ TYPE_LABELS[(record as CashAdvanceTransaction).type] }}
-            </Tag>
-          </template>
-        </template>
-      </DrawerDataTable>
+      />
     </div>
   </FormDrawer>
 

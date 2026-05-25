@@ -35,16 +35,21 @@ import {
 import type { TableColumnType, TablePaginationConfig } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import KpTooltip from '@/components/KpTooltip.vue'
+import ListCard from '@/components/ListCard.vue'
 import ColorSwatch from '@/components/ColorSwatch.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import { formatListCellValue } from '@/core/util/list-cell'
+import { useListFilterPopoverProps } from '@/core/ui/list-filter-popover'
+import { useClosePopoverOnScroll } from '@/composables/useClosePopoverOnScroll'
 import {
   LIST_ACTIONS_COLUMN_WIDTH,
   listColumnScrollWidth,
   prepareListTableColumns,
 } from '@/core/util/table-columns'
 import { textIncludesSearch } from '@/core/util/search'
+import { handleListItemClick } from '@/core/util/list-item-click'
 import { useListQuery, type SortOrder } from '@/composables/useListQuery'
+import { KP_LIST_MOBILE_MQ, useMatchMedia } from '@/composables/useMatchMedia'
 import { useEntitiesStore } from '@/stores/entities'
 
 export interface ListBankOption {
@@ -165,7 +170,7 @@ function isRecordSensitive(record: T): boolean {
   return entitiesStore.isSensitiveById(record.id)
 }
 
-const MOBILE_MQ = '(max-width: 640px)'
+const isMobile = useMatchMedia(KP_LIST_MOBILE_MQ)
 
 const query = useListQuery({ key: props.stateKey, defaultPageSize: 10 })
 
@@ -177,8 +182,11 @@ const sortOrder = query.sortOrder
 const page = query.page
 const pageSize = query.size
 
-const isMobile = ref(false)
 const filtersOpen = ref(false)
+const filterPopoverProps = useListFilterPopoverProps()
+const filterTriggerRef = ref<HTMLElement | null>(null)
+
+useClosePopoverOnScroll(filtersOpen, () => filterTriggerRef.value)
 
 /* ---------------------------------------------------------------- bank */
 
@@ -453,7 +461,6 @@ const tableScrollX = computed(() => {
 
 const tableScroll = computed(() => ({
   x: tableScrollX.value,
-  y: tableScrollY.value,
 }))
 
 const pagination = computed<TablePaginationConfig>(() => ({
@@ -471,16 +478,19 @@ const pagination = computed<TablePaginationConfig>(() => ({
 /* ---------------------------------------------- table sizing & helpers */
 
 const tableWrapRef = ref<HTMLElement | null>(null)
-const tableScrollY = ref(200)
+const cardsWrapRef = ref<HTMLElement | null>(null)
+const tableMinHeight = ref(200)
+const tableBodyMinHeight = ref(120)
 const tableHeadH = ref(40)
 const tablePaginationH = ref(56)
 let resizeObserver: ResizeObserver | null = null
-let mobileMq: MediaQueryList | null = null
+let contentResizeObserver: ResizeObserver | null = null
 
 const tableWrapStyle = computed(() => ({
   '--kp-table-head-h': `${tableHeadH.value}px`,
   '--kp-table-pagination-h': `${tablePaginationH.value}px`,
-  '--kp-table-body-min-h': `${tableScrollY.value}px`,
+  '--kp-table-min-h': `${tableMinHeight.value}px`,
+  '--kp-table-body-min-h': `${tableBodyMinHeight.value}px`,
 }))
 
 function cellValue(column: TableColumnType<T>, record: T, index: number): string {
@@ -518,57 +528,65 @@ function onTableChange(
   query.patch({ sortKey: key, sortOrder: order })
 }
 
-function onDesktopRowClick(record: T, event: MouseEvent): void {
-  if (isMobile.value) return
-  const target = event.target as HTMLElement
-  if (
-    target.closest('button') ||
-    target.closest('a') ||
-    target.closest('.ant-popconfirm') ||
-    target.closest('.ant-popover') ||
-    target.closest('.kp-list__row-actions')
-  ) {
-    return
-  }
-  if (hasRowAction.value) {
-    emit('row-click', record)
-  } else {
-    emit('edit', record)
-  }
+function onListItemClick(record: T, event: MouseEvent): void {
+  handleListItemClick(record, event, {
+    hasRowAction: hasRowAction.value,
+    onRowClick: (item) => emit('row-click', item),
+    onEdit: (item) => emit('edit', item),
+  })
 }
 
 function tableCustomRow(record: T): Record<string, unknown> {
   return {
     class: 'kp-list__row--clickable',
-    onClick: (event: MouseEvent) => onDesktopRowClick(record, event),
+    onClick: (event: MouseEvent) => onListItemClick(record, event),
   }
 }
 
-async function measureTableScroll(): Promise<void> {
-  if (isMobile.value) return
-  await nextTick()
-  const wrap = tableWrapRef.value
-  if (!wrap) return
-  const thead = wrap.querySelector<HTMLElement>('.ant-table-thead')
-  const paginationEl = wrap.querySelector<HTMLElement>('.ant-table-pagination')
-  tableHeadH.value = thead?.offsetHeight ?? 40
-  /**
-   * Pagination'a verdiğimiz `margin-top: 16px` + `padding-top: 4px`
-   * `offsetHeight` ile gelmez; `clientHeight - getBoundingClientRect()` farkından
-   * kaçınmak için margin'i sabit hesaba ekliyoruz.
-   */
-  const paginationOuter = paginationEl
-    ? paginationEl.offsetHeight + 16 /* margin-top */
-    : 56
-  tablePaginationH.value = paginationOuter
-  tableViewportWidth.value = wrap.clientWidth
-  const reserved = tableHeadH.value + tablePaginationH.value + 4
-  tableScrollY.value = Math.max(120, wrap.clientHeight - reserved)
+function resolveListContentEl(anchor: HTMLElement | null): HTMLElement | null {
+  return anchor?.closest('.kp-content') ?? null
 }
 
-function syncMobile(): void {
-  isMobile.value = mobileMq?.matches ?? false
-  void measureTableScroll()
+function measureRemainingHeight(anchor: HTMLElement | null): number {
+  const content = resolveListContentEl(anchor)
+  if (!content || !anchor) return 200
+  const cs = getComputedStyle(content)
+  const padBottom = Number.parseFloat(cs.paddingBottom) || 0
+  const contentRect = content.getBoundingClientRect()
+  const anchorRect = anchor.getBoundingClientRect()
+  const topInContent = anchorRect.top - contentRect.top + content.scrollTop
+  const available = content.clientHeight - topInContent - padBottom
+  return Math.max(160, Math.floor(available))
+}
+
+async function measureTableScroll(): Promise<void> {
+  await nextTick()
+  const anchor = isMobile.value ? cardsWrapRef.value : tableWrapRef.value
+  if (!anchor) return
+  tableMinHeight.value = measureRemainingHeight(anchor)
+
+  if (!isMobile.value) {
+    const wrap = tableWrapRef.value
+    if (!wrap) return
+    const thead = wrap.querySelector<HTMLElement>('.ant-table-thead')
+    const paginationEl = wrap.querySelector<HTMLElement>('.ant-table-pagination')
+    tableHeadH.value = thead?.offsetHeight ?? 40
+    const paginationOuter = paginationEl
+      ? paginationEl.offsetHeight + 16 /* margin-top */
+      : 56
+    tablePaginationH.value = paginationOuter
+    tableViewportWidth.value = wrap.clientWidth
+    tableBodyMinHeight.value = Math.max(
+      120,
+      tableMinHeight.value - tableHeadH.value - tablePaginationH.value - 4,
+    )
+    return
+  }
+
+  tableBodyMinHeight.value = Math.max(
+    120,
+    tableMinHeight.value - 56 /* mobil kart sayfalama yaklaşık */,
+  )
 }
 
 function clearFilters(): void {
@@ -584,21 +602,27 @@ function clearFilters(): void {
 }
 
 onMounted(() => {
-  mobileMq = window.matchMedia(MOBILE_MQ)
-  syncMobile()
-  mobileMq.addEventListener('change', syncMobile)
-
   resizeObserver = new ResizeObserver(() => {
     void measureTableScroll()
   })
   if (tableWrapRef.value) resizeObserver.observe(tableWrapRef.value)
+  if (cardsWrapRef.value) resizeObserver.observe(cardsWrapRef.value)
+
+  const content = resolveListContentEl(tableWrapRef.value ?? cardsWrapRef.value)
+  if (content) {
+    contentResizeObserver = new ResizeObserver(() => {
+      void measureTableScroll()
+    })
+    contentResizeObserver.observe(content)
+  }
+
   void measureTableScroll()
   requestAnimationFrame(() => void measureTableScroll())
 })
 
 onUnmounted(() => {
-  mobileMq?.removeEventListener('change', syncMobile)
   resizeObserver?.disconnect()
+  contentResizeObserver?.disconnect()
 })
 
 /**
@@ -638,7 +662,7 @@ watch(
         ]"
       />
 
-      <div class="kp-list__search-group">
+      <div ref="filterTriggerRef" class="kp-list__search-group">
         <Input
           v-model:value="search"
           :placeholder="searchPlaceholder"
@@ -651,10 +675,7 @@ watch(
         <Popover
           v-if="hasAnyFilter"
           v-model:open="filtersOpen"
-          trigger="click"
-          placement="bottomLeft"
-          overlay-class-name="kp-list-filter-popover"
-          :destroy-tooltip-on-hide="false"
+          v-bind="filterPopoverProps"
         >
           <template #content>
             <div class="kp-list-filter">
@@ -854,7 +875,7 @@ watch(
     </div>
 
     <!-- Mobil: kartlar -->
-    <div class="kp-list__cards kp-list__cards--mobile">
+    <div ref="cardsWrapRef" class="kp-list__cards kp-list__cards--mobile" :style="tableWrapStyle">
       <div v-if="loading" class="kp-list__cards-loading" aria-busy="true" aria-live="polite">
         <Spin size="large" />
       </div>
@@ -863,16 +884,18 @@ watch(
           <Empty :description="emptyText" />
         </div>
         <ul v-else class="kp-list__cards-list">
-          <li
+          <ListCard
             v-for="(item, index) in pagedItems"
             :key="item.id"
-            class="kp-list-card"
+            @click="onListItemClick(item, $event)"
           >
-            <header class="kp-list-card__head">
-              <h3 v-if="primaryColumn" class="kp-list-card__title">
+            <template #title>
+              <template v-if="primaryColumn">
                 {{ cellValue(primaryColumn, item, index) }}
-              </h3>
-              <Space class="kp-list-card__actions" :size="4">
+              </template>
+            </template>
+            <template #actions>
+              <Space :size="4">
                 <Tag v-if="isRecordSensitive(item)" color="orange">Hassas</Tag>
                 <Tag v-if="item.archived" color="default">Arşivli</Tag>
                 <Tag v-else color="green">Aktif</Tag>
@@ -906,7 +929,7 @@ watch(
                   </span>
                 </Popconfirm>
               </Space>
-            </header>
+            </template>
             <dl v-if="detailColumns.length" class="kp-list-card__fields">
               <div
                 v-for="col in detailColumns"
@@ -920,7 +943,7 @@ watch(
                 <dd v-else>{{ cellValue(col, item, index) }}</dd>
               </div>
             </dl>
-          </li>
+          </ListCard>
         </ul>
         <Pagination
           v-if="filtered.length > 0"
@@ -942,36 +965,41 @@ watch(
 .kp-list {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 0 auto;
   min-height: 0;
   width: 100%;
 }
 
-/** Masaüstü: arama+filtre (sol) · arşiv (satırın tam ortası) · yeni kayıt (sağ) */
+/** Masaüstü: arama+filtre (sol) · arşiv (orta) · yeni kayıt (sağ) — absolute yok, çakışma olmaz */
 .kp-list__toolbar {
-  position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
   flex-shrink: 0;
 }
 
+.kp-list__toolbar--no-archive {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .kp-list__search-group {
-  position: relative;
-  z-index: 1;
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 0 1 auto;
   min-width: 0;
+  max-width: 100%;
 }
 
 .kp-list__search {
   flex: 0 1 320px;
   width: 100%;
   max-width: 320px;
-  min-width: 200px;
+  min-width: 0;
 }
 
 .kp-list__filter-trigger {
@@ -979,27 +1007,30 @@ watch(
 }
 
 .kp-list__archive {
-  position: absolute;
-  left: 50%;
-  z-index: 2;
-  transform: translateX(-50%);
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+  max-width: 100%;
 }
 
 .kp-list__create {
-  position: relative;
-  z-index: 1;
-  margin-left: auto;
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+.kp-list__toolbar--no-archive .kp-list__create {
+  grid-column: 2;
 }
 
 .kp-list__table--desktop {
   position: relative;
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
+  flex: 1 0 auto;
+  min-height: var(--kp-table-min-h, 160px);
 }
 
 .kp-list__table-inner {
@@ -1007,36 +1038,17 @@ watch(
   min-height: 0;
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
 .kp-list__cards--mobile {
   display: none;
 }
 
-.kp-list__table--desktop :deep(.ant-table-wrapper) {
-  flex: 1;
-  min-height: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
+.kp-list__table--desktop :deep(.ant-table-wrapper),
 .kp-list__table--desktop :deep(.ant-spin-nested-loading),
-.kp-list__table--desktop :deep(.ant-spin-container) {
-  flex: 1;
-  min-height: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.kp-list__table--desktop :deep(.ant-table) {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
+.kp-list__table--desktop :deep(.ant-spin-container),
+.kp-list__table--desktop :deep(.ant-table),
 .kp-list__table--desktop :deep(.ant-table-container) {
   flex: 1;
   min-height: 0;
@@ -1051,11 +1063,8 @@ watch(
 .kp-list__table--desktop :deep(.ant-table-body) {
   flex: 1;
   min-height: var(--kp-table-body-min-h, 120px);
-  /**
-   * AntDV varsayılan `overflow-y: scroll` sağda boş scrollbar şeridi bırakır;
-   * `auto` yalnızca gerektiğinde dikey scrollbar gösterir (başlık hizası korunur).
-   */
-  overflow: auto !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
   padding-bottom: 6px;
 }
 
@@ -1148,17 +1157,19 @@ watch(
   }
 
   .kp-list__archive {
-    position: static;
     grid-area: archive;
+    grid-column: auto;
+    grid-row: auto;
     justify-self: center;
-    transform: none;
     width: fit-content;
     max-width: 100%;
   }
 
   .kp-list__search-group {
     grid-area: search;
-    flex: none;
+    grid-column: auto;
+    grid-row: auto;
+    justify-self: stretch;
     width: 100%;
   }
 
@@ -1170,7 +1181,8 @@ watch(
 
   .kp-list__create {
     grid-area: create;
-    margin-left: 0;
+    grid-column: auto;
+    grid-row: auto;
     justify-self: stretch;
   }
 
@@ -1182,28 +1194,13 @@ watch(
     display: flex;
     flex-direction: column;
     flex: 1;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .kp-list__cards--mobile :deep(.ant-spin-nested-loading),
-  .kp-list__cards--mobile :deep(.ant-spin-container) {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
+    min-height: var(--kp-table-min-h, 160px);
   }
 
   .kp-list__cards-list {
     flex: 1;
-    min-height: 0;
+    min-height: var(--kp-table-body-min-h, 120px);
     overflow: auto;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
   }
 
   .kp-list__cards-empty {
@@ -1219,68 +1216,5 @@ watch(
     margin-top: 12px;
     text-align: center;
   }
-}
-
-.kp-list-card {
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: var(--kp-radius, 8px);
-  padding: 12px 14px;
-  background: #fff;
-}
-
-[data-theme='dark'] .kp-list-card {
-  background: #1f1f1f;
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-.kp-list-card__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.kp-list-card__title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.35;
-  flex: 1;
-  min-width: 0;
-  word-break: break-word;
-}
-
-.kp-list-card__actions {
-  flex-shrink: 0;
-}
-
-.kp-list-card__fields {
-  margin: 0;
-  display: grid;
-  gap: 6px 12px;
-}
-
-.kp-list-card__field {
-  display: grid;
-  grid-template-columns: minmax(88px, 38%) 1fr;
-  gap: 8px;
-  align-items: baseline;
-}
-
-.kp-list-card__field dt {
-  margin: 0;
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.55);
-}
-
-.kp-list-card__field dd {
-  margin: 0;
-  font-size: 14px;
-  word-break: break-word;
-}
-
-[data-theme='dark'] .kp-list-card__field dt {
-  color: rgba(255, 255, 255, 0.55);
 }
 </style>

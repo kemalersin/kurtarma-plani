@@ -1,12 +1,20 @@
 <script setup lang="ts">
-defineProps<{
-  title: string
-  subtitle?: string
-}>()
+withDefaults(
+  defineProps<{
+    title: string
+    subtitle?: string
+    /** Mobilde başlık göster (varsayılan gizli). Yalnızca Panel ana sayfasında true. */
+    showOnMobile?: boolean
+  }>(),
+  { showOnMobile: false },
+)
 </script>
 
 <template>
-  <header class="kp-page-header">
+  <header
+    class="kp-page-header"
+    :class="{ 'kp-page-header--show-mobile': showOnMobile }"
+  >
     <h1 class="kp-page-header__title">{{ title }}</h1>
     <p v-if="subtitle || $slots.subtitle" class="kp-page-header__subtitle">
       <slot name="subtitle">{{ subtitle }}</slot>
@@ -40,6 +48,12 @@ defineProps<{
 
 [data-theme='dark'] .kp-page-header__subtitle {
   color: rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 768px) {
+  .kp-page-header:not(.kp-page-header--show-mobile) {
+    display: none;
+  }
 }
 
 @media (max-width: 640px) {

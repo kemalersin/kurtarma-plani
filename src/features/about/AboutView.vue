@@ -94,10 +94,10 @@ const techStack = [
             <Typography.Paragraph class="kp-about__hero-tagline">
               Kişisel finansal planlama — tek dosyada, çevrimdışı çalışır.
             </Typography.Paragraph>
-            <Space wrap :size="8">
+            <Space wrap :size="8" class="kp-about__hero-tags">
               <Tag color="blue">v{{ APP_VERSION }}</Tag>
               <Tag>Derleme {{ formatDateLong(APP_BUILD_DATE) }}</Tag>
-              <Tag color="green">Açık kaynak</Tag>
+              <Tag color="green" class="kp-about__oss-tag">Açık kaynak</Tag>
             </Space>
           </div>
         </div>
@@ -147,18 +147,38 @@ const techStack = [
           </div>
         </div>
 
-        <Space wrap :size="12">
-          <Button type="default" size="large" :href="APP_GITHUB_URL" target="_blank" rel="noopener noreferrer">
+        <div class="kp-about__opensource-actions">
+          <Button
+            class="kp-about__opensource-btn"
+            type="default"
+            size="large"
+            :href="APP_GITHUB_URL"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             <template #icon><GithubOutlined /></template>
             Kaynak kodu
           </Button>
-          <Button type="primary" size="large" :href="APP_GITHUB_PAGES_URL" target="_blank" rel="noopener noreferrer">
+          <Button
+            class="kp-about__opensource-btn"
+            type="primary"
+            size="large"
+            :href="APP_GITHUB_PAGES_URL"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             Canlı sürüm
           </Button>
-          <Button size="large" :href="APP_GITHUB_PAGES_RAW_INDEX_URL" target="_blank" rel="noopener noreferrer">
+          <Button
+            class="kp-about__download-btn"
+            size="large"
+            :href="APP_GITHUB_PAGES_RAW_INDEX_URL"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             index.html indir
           </Button>
-        </Space>
+        </div>
       </Space>
     </Card>
 
@@ -192,10 +212,6 @@ const techStack = [
 </template>
 
 <style scoped>
-.kp-about {
-  padding-bottom: 32px;
-}
-
 .kp-about__hero,
 .kp-about__feature,
 .kp-about__meta {
@@ -215,6 +231,10 @@ const techStack = [
     rgba(22, 119, 255, 0.08) 0%,
     rgba(22, 119, 255, 0.02) 100%
   );
+}
+
+.kp-about__hero :deep(.ant-card-body) {
+  position: relative;
 }
 
 [data-theme='dark'] .kp-about__hero {
@@ -312,6 +332,12 @@ const techStack = [
   align-items: flex-start;
 }
 
+.kp-about__opensource-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .kp-about__opensource-icon {
   font-size: 28px;
   color: #52c41a;
@@ -357,12 +383,35 @@ const techStack = [
     align-items: flex-start;
   }
 
+  .kp-about__oss-tag {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 1;
+    margin: 0;
+  }
+
   .kp-about__coffee-btn.ant-btn {
     width: 100%;
   }
 
   .kp-about__brand {
     font-size: 44px;
+  }
+
+  .kp-about__opensource-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .kp-about__opensource-btn.ant-btn,
+  .kp-about__download-btn.ant-btn {
+    width: 100%;
+  }
+
+  .kp-about__download-btn.ant-btn {
+    grid-column: 1 / -1;
   }
 }
 </style>

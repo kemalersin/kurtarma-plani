@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import {
-  Tag,
   Button,
   Space,
   Alert,
@@ -12,7 +11,7 @@ import {
 } from 'ant-design-vue'
 import DrawerDataTable from '@/components/DrawerDataTable.vue'
 import KpStatRow, { type KpStat } from '@/components/KpStatRow.vue'
-import type { TableColumnType } from 'ant-design-vue'
+import type { KpTableColumn } from '@/core/util/table-columns'
 import FormDrawer from '@/components/FormDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
@@ -104,7 +103,7 @@ const TYPE_COLORS: Record<CreditCardTxnType, string> = {
   cashAdvance: 'orange',
 }
 
-const txnColumns = computed<TableColumnType<CreditCardTransaction>[]>(() => [
+const txnColumns = computed<KpTableColumn<CreditCardTransaction>[]>(() => [
   {
     key: 'date',
     title: 'Tarih',
@@ -118,6 +117,11 @@ const txnColumns = computed<TableColumnType<CreditCardTransaction>[]>(() => [
     title: 'Tür',
     width: 120,
     customRender: ({ record }) => TYPE_LABELS[(record as CreditCardTransaction).type],
+    kpDisplay: (record) => TYPE_LABELS[record.type],
+    kpTag: (record) => ({
+      color: TYPE_COLORS[record.type],
+      label: TYPE_LABELS[record.type],
+    }),
   },
   {
     key: 'description',
@@ -240,15 +244,7 @@ const periodStats = computed<KpStat[]>(() => {
         row-actions
         @edit="openEdit"
         @delete="onDeleteTxn"
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'type'">
-            <Tag :color="TYPE_COLORS[(record as CreditCardTransaction).type]">
-              {{ TYPE_LABELS[(record as CreditCardTransaction).type] }}
-            </Tag>
-          </template>
-        </template>
-      </DrawerDataTable>
+      />
     </div>
   </FormDrawer>
 

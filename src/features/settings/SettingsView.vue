@@ -123,8 +123,9 @@ async function deleteCurrentProfile(): Promise<void> {
 </script>
 
 <template>
-  <div class="kp-settings">
+  <div class="kp-settings kp-tabs-page">
     <PageHeader
+      tabbed
       title="Ayarlar"
       subtitle="Profil bilgileri, bölgesel biçimler ve güvenlik tercihleri."
     />

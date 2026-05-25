@@ -289,6 +289,7 @@ const dashCardBody = { padding: '12px 16px 16px' }
       </div>
 
       <PageHeader
+        show-on-mobile
         :title="profile ? `Hoş geldiniz, ${profile.name}` : 'Panel'"
         subtitle="Finansal durum özeti"
       />

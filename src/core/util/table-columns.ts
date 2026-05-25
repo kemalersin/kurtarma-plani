@@ -1,5 +1,26 @@
 import type { TableColumnType } from 'ant-design-vue'
 
+/** Sütun hücresinde renkli etiket (tablo + mobil kart). */
+export type KpColumnTag = {
+  color?: string
+  label: string
+}
+
+/** Liste / drawer tablo sütunu genişletmeleri. */
+export type KpTableColumn<T> = TableColumnType<T> & {
+  kpDisplay?: (row: T) => string
+  kpTag?: (row: T) => KpColumnTag | null | undefined
+}
+
+export function resolveKpColumnTag<T>(
+  column: TableColumnType<T>,
+  record: T,
+): KpColumnTag | null {
+  const tag = (column as KpTableColumn<T>).kpTag?.(record)
+  if (!tag?.label) return null
+  return tag
+}
+
 /** Genişlik verilmemiş liste sütunları için taban minimum (px). */
 export const LIST_COLUMN_DEFAULT_MIN_WIDTH = 112
 

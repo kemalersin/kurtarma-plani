@@ -75,15 +75,21 @@ const { activeTab } = useRoutedTabs(ADMIN_TABS, 'banks')
 .kp-admin-tabs :deep(.ant-tabs-content-holder) {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .kp-admin-tabs :deep(.ant-tabs-content) {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .kp-admin-tabs :deep(.ant-tabs-tabpane) {
-  height: 100%;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 </style>

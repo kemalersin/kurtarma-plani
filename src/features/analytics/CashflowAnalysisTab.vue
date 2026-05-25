@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, h } from 'vue'
 import { Card, Table, Row, Col } from 'ant-design-vue'
-import type { ColumnsType } from 'ant-design-vue/es/table'
 import type { EChartsOption } from 'echarts/types/dist/echarts'
 import KpChart from '@/components/KpChart.vue'
 import AnalyticsFilterBar from '@/features/analytics/AnalyticsFilterBar.vue'
 import { buildDonutOption } from '@/features/analytics/chartOptions'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
+import { listColumnScrollWidth, prepareListTableColumns } from '@/core/util/table-columns'
+import type { TableColumnType } from 'ant-design-vue'
 import type { AnalyticsFilterState } from '@/composables/useAnalyticsFilters'
 import type { AnalyticsData } from '@/features/analytics/useAnalyticsData'
 import type { CashflowMonthRow } from '@/features/analytics/reports'
@@ -79,11 +80,12 @@ const expenseDonut = computed(() =>
   ),
 )
 
-const columns: ColumnsType<CashflowMonthRow> = [
+const tableColumns = prepareListTableColumns<CashflowMonthRow>([
   {
     title: 'Ay',
     dataIndex: 'month',
     key: 'month',
+    minWidth: 72,
     customRender: ({ text }) => monthLabel(String(text)),
     sorter: (a, b) => a.month.localeCompare(b.month),
   },
@@ -92,6 +94,7 @@ const columns: ColumnsType<CashflowMonthRow> = [
     dataIndex: 'income',
     key: 'income',
     align: 'right',
+    minWidth: 112,
     sorter: (a, b) => Number(a.income) - Number(b.income),
     customRender: ({ text }) => formatCurrency(String(text), currency.value),
   },
@@ -100,6 +103,7 @@ const columns: ColumnsType<CashflowMonthRow> = [
     dataIndex: 'expense',
     key: 'expense',
     align: 'right',
+    minWidth: 112,
     sorter: (a, b) => Number(a.expense) - Number(b.expense),
     customRender: ({ text }) => formatCurrency(String(text), currency.value),
   },
@@ -108,6 +112,7 @@ const columns: ColumnsType<CashflowMonthRow> = [
     dataIndex: 'net',
     key: 'net',
     align: 'right',
+    minWidth: 112,
     sorter: (a, b) => Number(a.net) - Number(b.net),
     customRender: ({ text }) => {
       const val = String(text)
@@ -115,7 +120,12 @@ const columns: ColumnsType<CashflowMonthRow> = [
       return h('span', { class: cls }, formatCurrency(val, currency.value))
     },
   },
-]
+])
+
+const tableScrollX = tableColumns.reduce(
+  (sum, col) => sum + listColumnScrollWidth(col as TableColumnType<unknown>),
+  0,
+)
 
 const isCashflowEmpty = computed(
   () =>
@@ -156,10 +166,12 @@ const isCashflowEmpty = computed(
         <AnalyticsFilterBar :filters="filters" :data="data" show-category />
       </template>
       <Table
-        :columns="columns"
+        :columns="tableColumns"
         :data-source="data.cashflowRows"
         row-key="month"
         size="small"
+        table-layout="fixed"
+        :scroll="{ x: tableScrollX }"
         :pagination="{ pageSize: 12, showSizeChanger: true }"
         :show-sorter-tooltip="false"
       />
