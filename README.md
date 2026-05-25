@@ -160,8 +160,9 @@ npm run typecheck
 | **A** | `@` | `185.199.111.153` |
 | **CNAME** | `www` | `kemalersin.github.io` |
 
-- Repo → **Settings → Pages → Custom domain:** `kurtar.co` (HTTPS açık).
-- `public/CNAME` deploy ile `pages` dalına kopyalanır (`kurtar.co`, `www.kurtar.co`).
+- Repo → **Settings → Pages → Custom domain:** `kurtar.co` (DNS yeşil olunca **Enforce HTTPS** açılır).
+- `public/CNAME` yalnızca `kurtar.co` içerir (GitHub tek satır ister; `www` yalnızca DNS CNAME).
+- HTTPS gelmezse: Custom domain’i kaldırıp yeniden ekleyin; 1 saate kadar bekleyin.
 
 ---
 
