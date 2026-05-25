@@ -11,6 +11,7 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 ### Fixed — onboarding önceliği
 
 - Tanıtım tamamlanmamışsa profil/kurulum yapılmış olsa bile `#/onboarding` gösterilir; bitince profil varsa seçim veya ana sayfaya, yoksa kuruluma yönlendirilir.
+- Profil varken «Kuruluma atla/başla» yerine «Devam et» / «Uygulamaya geç»; son adım metinleri kurulum odaklı değil.
 
 ### Removed — AI bağlam YAML
 

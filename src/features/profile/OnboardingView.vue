@@ -109,6 +109,40 @@ const progressPercent = computed(
   () => Math.round(((stepIndex.value + 1) / steps.length) * 100),
 )
 
+const needsSetup = computed(() => !profileStore.hasAnyProfile)
+
+const skipLabel = computed(() => (needsSetup.value ? 'Kuruluma atla' : 'Devam et'))
+
+const finishLabel = computed(() => {
+  if (needsSetup.value) return 'Kuruluma başla'
+  if (profileStore.unlocked) return 'Uygulamaya geç'
+  return 'Devam et'
+})
+
+const displayTitle = computed(() => {
+  const step = currentStep.value
+  if (step.key !== 'ready') return step.title
+  return needsSetup.value ? step.title : 'Hazırsınız'
+})
+
+const displayLead = computed(() => {
+  const step = currentStep.value
+  if (step.key !== 'ready') return step.lead
+  return needsSetup.value
+    ? step.lead
+    : 'Tanıtım tamamlandı. Uygulamayı kullanmaya devam edebilirsiniz.'
+})
+
+const displayBullets = computed(() => {
+  const step = currentStep.value
+  if (step.key !== 'ready') return step.bullets
+  if (needsSetup.value) return step.bullets
+  return [
+    { text: 'Finansal danışmanlık veya yatırım tavsiyesi sunulmaz' },
+    { text: 'Yasal uyarı Ayarlar bölümünde görüntülenebilir' },
+  ]
+})
+
 function goNext(): void {
   if (isLast.value) {
     finishOnboarding()
@@ -177,18 +211,18 @@ function finishOnboarding(): void {
             </div>
 
             <Typography.Title :level="4" class="kp-onboarding__title">
-              {{ currentStep.title }}
+              {{ displayTitle }}
             </Typography.Title>
 
             <Typography.Paragraph class="kp-text-muted kp-onboarding__lead">
-              {{ currentStep.lead }}
+              {{ displayLead }}
             </Typography.Paragraph>
 
             <ul
               class="kp-onboarding__bullets"
-              :class="{ 'kp-onboarding__bullets--empty': !currentStep.bullets.length }"
+              :class="{ 'kp-onboarding__bullets--empty': !displayBullets.length }"
             >
-              <li v-for="(bullet, idx) in currentStep.bullets" :key="idx">
+              <li v-for="(bullet, idx) in displayBullets" :key="idx">
                 <CheckOutlined class="kp-onboarding__bullet-icon" aria-hidden="true" />
                 <span>{{ bullet.text }}</span>
               </li>
@@ -221,7 +255,7 @@ function finishOnboarding(): void {
           class="kp-onboarding__nav-btn"
           @click="goNext"
         >
-          {{ isLast ? 'Kuruluma başla' : 'İleri' }}
+          {{ isLast ? finishLabel : 'İleri' }}
           <template v-if="!isLast" #icon><RightOutlined /></template>
         </Button>
       </footer>
@@ -232,7 +266,7 @@ function finishOnboarding(): void {
         class="kp-onboarding__skip"
         @click="finishOnboarding"
       >
-        Kuruluma atla
+        {{ skipLabel }}
       </button>
       <a
         v-else
