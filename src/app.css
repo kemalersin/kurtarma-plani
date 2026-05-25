@@ -494,7 +494,7 @@ body {
 /*
  * Kaydırma çubukları: `body` hariç tüm kaydırılabilir alanlarda
  * çubuk yalnızca hover'da görünür (kural: ui-patterns.mdc).
- * Mobilde (≤768px) hover olmadığı için çubuk her zaman görünür.
+ * Mobilde (≤768px) çubuk yalnızca kaydırma sırasında görünür (.kp-scrolling).
  */
 body {
   scrollbar-width: auto;
@@ -537,20 +537,38 @@ body {
 }
 
 @media (max-width: 768px) {
-  *:not(html):not(body) {
+  .kp-center-page {
+    scrollbar-color: transparent transparent;
+  }
+
+  .kp-center-page::-webkit-scrollbar-thumb {
+    background-color: transparent;
+  }
+
+  *:not(html):not(body).kp-scrolling {
     scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
   }
 
-  [data-theme='dark'] *:not(html):not(body) {
+  [data-theme='dark'] *:not(html):not(body).kp-scrolling {
     scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
   }
 
-  *:not(html):not(body)::-webkit-scrollbar-thumb {
+  *:not(html):not(body).kp-scrolling::-webkit-scrollbar-thumb,
+  .kp-center-page.kp-scrolling::-webkit-scrollbar-thumb {
     background-color: rgba(0, 0, 0, 0.22);
   }
 
-  [data-theme='dark'] *:not(html):not(body)::-webkit-scrollbar-thumb {
+  [data-theme='dark'] *:not(html):not(body).kp-scrolling::-webkit-scrollbar-thumb,
+  [data-theme='dark'] .kp-center-page.kp-scrolling::-webkit-scrollbar-thumb {
     background-color: rgba(255, 255, 255, 0.22);
+  }
+
+  .kp-center-page.kp-scrolling {
+    scrollbar-color: rgba(0, 0, 0, 0.28) transparent;
+  }
+
+  [data-theme='dark'] .kp-center-page.kp-scrolling {
+    scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
   }
 }
 

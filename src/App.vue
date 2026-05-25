@@ -9,6 +9,7 @@ import { useProfileStore } from '@/stores/profile'
 import { useSyncStore } from '@/stores/sync'
 import { useUpdateStore } from '@/stores/update'
 import { initSyncScheduler } from '@/core/services/sync/sync-scheduler'
+import { initMobileScrollbars } from '@/composables/initMobileScrollbars'
 import UpdateAvailableNotice from '@/components/UpdateAvailableNotice.vue'
 
 dayjs.locale('tr')
@@ -19,6 +20,7 @@ const syncStore = useSyncStore()
 const updateStore = useUpdateStore()
 
 let stopSyncScheduler: (() => void) | undefined
+let stopMobileScrollbars: (() => void) | undefined
 
 const themeConfig = computed(() => ({
   algorithm: ui.isDark ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
@@ -38,10 +40,12 @@ onMounted(async () => {
     void updateStore.checkOnLaunch()
   }
   stopSyncScheduler = initSyncScheduler()
+  stopMobileScrollbars = initMobileScrollbars()
 })
 
 onUnmounted(() => {
   stopSyncScheduler?.()
+  stopMobileScrollbars?.()
 })
 </script>
 
