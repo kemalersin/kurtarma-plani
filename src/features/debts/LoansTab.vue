@@ -12,10 +12,16 @@ import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { Bank, Loan, LoanPayment } from '@/core/types/entities'
 import { adminPrimaryNameColumn } from '@/features/admin/admin-list-columns'
 import type { KpTableColumn } from '@/core/util/table-columns'
+import {
+  compareByDisplayLabel,
+  compareNumeric,
+  compareProgressCounts,
+  compareIsoDate,
+} from '@/features/debts/debtListSorters'
 import { buildScheduleForLoan, paidThroughIndex, remainingDebtForLoan } from './loanHelpers'
 
 const entities = useEntitiesStore()
-const { formatCurrency } = useLocaleFormatters()
+const { formatCurrency, formatDate } = useLocaleFormatters()
 
 const loans = entities.list<Loan>('loan')
 const payments = entities.list<LoanPayment>('loanPayment')
@@ -198,7 +204,7 @@ const columns = computed<TableColumnType<Loan>[]>(() => [
     key: 'bank',
     title: 'Banka',
     customRender: ({ record }) => bankName((record as Loan).bankId),
-    sorter: (a, b) => bankName(a.bankId).localeCompare(bankName(b.bankId), 'tr'),
+    sorter: (a, b) => compareByDisplayLabel(a, b, (loan) => bankName(loan.bankId)),
   },
   {
     key: 'principal',
@@ -206,14 +212,20 @@ const columns = computed<TableColumnType<Loan>[]>(() => [
     align: 'right',
     customRender: ({ record }) =>
       formatCurrency((record as Loan).principal, (record as Loan).currency),
-    sorter: (a, b) => a.principal - b.principal,
+    sorter: (a, b) => compareNumeric(a, b, (loan) => loan.principal),
   },
   {
     key: 'term',
     title: 'Vade',
     align: 'right',
     customRender: ({ record }) => `${(record as Loan).termMonths} ay`,
-    sorter: (a, b) => a.termMonths - b.termMonths,
+    sorter: (a, b) => compareNumeric(a, b, (loan) => loan.termMonths),
+  },
+  {
+    key: 'startDate',
+    title: 'Başlangıç',
+    customRender: ({ record }) => formatDate((record as Loan).startDate),
+    sorter: (a, b) => compareIsoDate(a.startDate, b.startDate),
   },
   {
     key: 'installment',
@@ -221,6 +233,8 @@ const columns = computed<TableColumnType<Loan>[]>(() => [
     align: 'right',
     customRender: ({ record }) =>
       formatCurrency(summary(record as Loan).installment, (record as Loan).currency),
+    sorter: (a, b) =>
+      compareNumeric(a, b, (loan) => Number(summary(loan).installment)),
   },
   {
     key: 'remaining',
@@ -228,7 +242,7 @@ const columns = computed<TableColumnType<Loan>[]>(() => [
     align: 'right',
     customRender: ({ record }) =>
       formatCurrency(summary(record as Loan).remaining, (record as Loan).currency),
-    sorter: (a, b) => Number(summary(a).remaining) - Number(summary(b).remaining),
+    sorter: (a, b) => compareNumeric(a, b, (loan) => Number(summary(loan).remaining)),
   },
   {
     key: 'progress',
@@ -237,13 +251,14 @@ const columns = computed<TableColumnType<Loan>[]>(() => [
       const s = summary(record as Loan)
       return `${s.paidCount} / ${s.totalCount}`
     },
+    sorter: (a, b) => compareProgressCounts(summary(a), summary(b)),
   },
   {
     key: 'status',
     title: 'Durum',
     kpDisplay: (loan) => statusLabel(loan),
     kpTag: (loan) => statusTag(loan),
-    sorter: (a, b) => statusLabel(a).localeCompare(statusLabel(b), 'tr'),
+    sorter: (a, b) => compareByDisplayLabel(a, b, statusLabel),
   } satisfies KpTableColumn<Loan>,
   {
     key: 'archived',

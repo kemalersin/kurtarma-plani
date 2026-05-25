@@ -17,13 +17,19 @@ import type {
 import { adminPrimaryNameColumn } from '@/features/admin/admin-list-columns'
 import type { KpTableColumn } from '@/core/util/table-columns'
 import {
+  compareByDisplayLabel,
+  compareNumeric,
+  compareProgressCounts,
+  compareIsoDate,
+} from '@/features/debts/debtListSorters'
+import {
   advancePaidThroughIndex,
   buildScheduleForInstallmentAdvance,
   remainingDebtForInstallmentAdvance,
 } from './installmentAdvanceHelpers'
 
 const entities = useEntitiesStore()
-const { formatCurrency } = useLocaleFormatters()
+const { formatCurrency, formatDate } = useLocaleFormatters()
 
 const advances = entities.list<InstallmentCashAdvance>('installmentCashAdvance')
 const payments = entities.list<InstallmentCashAdvancePayment>(
@@ -201,7 +207,7 @@ const columns = computed<TableColumnType<InstallmentCashAdvance>[]>(() => [
     key: 'bank',
     title: 'Banka',
     customRender: ({ record }) => bankName((record as InstallmentCashAdvance).bankId),
-    sorter: (a, b) => bankName(a.bankId).localeCompare(bankName(b.bankId), 'tr'),
+    sorter: (a, b) => compareByDisplayLabel(a, b, (adv) => bankName(adv.bankId)),
   },
   {
     key: 'principal',
@@ -212,14 +218,20 @@ const columns = computed<TableColumnType<InstallmentCashAdvance>[]>(() => [
         (record as InstallmentCashAdvance).principal,
         (record as InstallmentCashAdvance).currency,
       ),
-    sorter: (a, b) => a.principal - b.principal,
+    sorter: (a, b) => compareNumeric(a, b, (adv) => adv.principal),
   },
   {
     key: 'term',
     title: 'Vade',
     align: 'right',
     customRender: ({ record }) => `${(record as InstallmentCashAdvance).termMonths} ay`,
-    sorter: (a, b) => a.termMonths - b.termMonths,
+    sorter: (a, b) => compareNumeric(a, b, (adv) => adv.termMonths),
+  },
+  {
+    key: 'startDate',
+    title: 'Başlangıç',
+    customRender: ({ record }) => formatDate((record as InstallmentCashAdvance).startDate),
+    sorter: (a, b) => compareIsoDate(a.startDate, b.startDate),
   },
   {
     key: 'installment',
@@ -230,6 +242,8 @@ const columns = computed<TableColumnType<InstallmentCashAdvance>[]>(() => [
         summary(record as InstallmentCashAdvance).installment,
         (record as InstallmentCashAdvance).currency,
       ),
+    sorter: (a, b) =>
+      compareNumeric(a, b, (adv) => Number(summary(adv).installment)),
   },
   {
     key: 'remaining',
@@ -240,7 +254,7 @@ const columns = computed<TableColumnType<InstallmentCashAdvance>[]>(() => [
         summary(record as InstallmentCashAdvance).remaining,
         (record as InstallmentCashAdvance).currency,
       ),
-    sorter: (a, b) => Number(summary(a).remaining) - Number(summary(b).remaining),
+    sorter: (a, b) => compareNumeric(a, b, (adv) => Number(summary(adv).remaining)),
   },
   {
     key: 'progress',
@@ -249,12 +263,14 @@ const columns = computed<TableColumnType<InstallmentCashAdvance>[]>(() => [
       const s = summary(record as InstallmentCashAdvance)
       return `${s.paidCount} / ${s.totalCount}`
     },
+    sorter: (a, b) => compareProgressCounts(summary(a), summary(b)),
   },
   {
     key: 'status',
     title: 'Durum',
     kpDisplay: (adv) => statusLabel(adv),
     kpTag: (adv) => statusTag(adv),
+    sorter: (a, b) => compareByDisplayLabel(a, b, statusLabel),
   } satisfies KpTableColumn<InstallmentCashAdvance>,
   { key: 'archived', title: '' },
 ])

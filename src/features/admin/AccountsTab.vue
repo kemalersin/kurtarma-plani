@@ -10,6 +10,12 @@ import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { Account, Bank } from '@/core/types/entities'
 import { AccountTypes } from '@/core/types/entities'
 import { adminPrimaryNameColumn } from '@/features/admin/admin-list-columns'
+import {
+  compareByDisplayLabel,
+  compareNumeric,
+  compareIsoDate,
+  compareOptionalString,
+} from '@/features/admin/adminListSorters'
 
 const entities = useEntitiesStore()
 const { formatCurrency, formatDate } = useLocaleFormatters()
@@ -98,23 +104,29 @@ function formatBalance(amount: number, currency: string): string {
   return formatCurrency(amount, currency)
 }
 
+function accountTypeLabel(account: Account): string {
+  return ACCOUNT_TYPE_LABELS[account.type]
+}
+
 const columns = computed<TableColumnType<Account>[]>(() => [
   adminPrimaryNameColumn<Account>('Hesap'),
   {
     key: 'bank',
     title: 'Banka',
     customRender: ({ record }) => bankName((record as Account).bankId),
-    sorter: (a, b) => bankName(a.bankId).localeCompare(bankName(b.bankId), 'tr'),
+    sorter: (a, b) => compareByDisplayLabel(a, b, (account) => bankName(account.bankId)),
   },
   {
     key: 'type',
     title: 'Tür',
-    customRender: ({ record }) => ACCOUNT_TYPE_LABELS[(record as Account).type],
+    customRender: ({ record }) => accountTypeLabel(record as Account),
+    sorter: (a, b) => compareByDisplayLabel(a, b, accountTypeLabel),
   },
   {
     key: 'currency',
     title: 'Para',
     dataIndex: 'currency',
+    sorter: (a, b) => compareOptionalString(a.currency, b.currency),
   },
   {
     key: 'openingBalance',
@@ -123,7 +135,7 @@ const columns = computed<TableColumnType<Account>[]>(() => [
     kpDisplay: (account: Account) => formatBalance(account.openingBalance, account.currency),
     customRender: ({ record }) =>
       formatBalance((record as Account).openingBalance, (record as Account).currency),
-    sorter: (a, b) => a.openingBalance - b.openingBalance,
+    sorter: (a, b) => compareNumeric(a, b, (account) => account.openingBalance),
   },
   {
     key: 'currentBalance',
@@ -137,13 +149,13 @@ const columns = computed<TableColumnType<Account>[]>(() => [
       const cls = value < 0 ? 'kp-balance kp-balance--negative' : 'kp-balance'
       return h('span', { class: cls }, text)
     },
-    sorter: (a, b) => currentBalance(a) - currentBalance(b),
+    sorter: (a, b) => compareNumeric(a, b, (account) => currentBalance(account)),
   },
   {
     key: 'openingDate',
     title: 'Açılış tarihi',
     customRender: ({ record }) => formatDate((record as Account).openingDate),
-    sorter: (a, b) => a.openingDate.localeCompare(b.openingDate),
+    sorter: (a, b) => compareIsoDate(a.openingDate, b.openingDate),
   },
   {
     key: 'archived',

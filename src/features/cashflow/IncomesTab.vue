@@ -13,6 +13,12 @@ import {
   CASHFLOW_STATUS_LABELS,
   cashflowStatusLabel,
 } from '@/features/cashflow/cashflowLabels'
+import { REALIZE_ACTION_BUTTON_STYLE } from '@/features/cashflow/realizeButtonStyle'
+import {
+  compareByDisplayLabel,
+  compareCashflowActualDate,
+  compareCashflowStatus,
+} from '@/features/cashflow/cashflowListSorters'
 import type {
   Account,
   CashRegister,
@@ -93,6 +99,10 @@ function targetName(i: Income): string {
 function typeName(i: Income): string {
   if (!i.incomeTypeId) return '—'
   return types.value.find((t) => t.id === i.incomeTypeId)?.name ?? '—'
+}
+
+function descriptionLabel(i: Income): string {
+  return i.description?.trim() || typeName(i)
 }
 
 const STATUS_LABELS = CASHFLOW_STATUS_LABELS
@@ -181,21 +191,20 @@ const columns = computed<TableColumnType<Income>[]>(() => [
     title: 'Açıklama',
     width: ADMIN_PRIMARY_NAME_COLUMN_WIDTH,
     ellipsis: true,
-    defaultSortOrder: 'descend',
-    customRender: ({ record }) =>
-      (record as Income).description?.trim() || typeName(record as Income),
-    sorter: (a, b) =>
-      (a.description ?? '').localeCompare(b.description ?? '', 'tr'),
+    customRender: ({ record }) => descriptionLabel(record as Income),
+    sorter: (a, b) => compareByDisplayLabel(a, b, descriptionLabel),
   },
   {
     key: 'type',
     title: 'Tür',
     customRender: ({ record }) => typeName(record as Income),
+    sorter: (a, b) => compareByDisplayLabel(a, b, typeName),
   },
   {
     key: 'target',
     title: 'Hedef',
     customRender: ({ record }) => targetName(record as Income),
+    sorter: (a, b) => compareByDisplayLabel(a, b, targetName),
   },
   {
     key: 'amount',
@@ -217,17 +226,19 @@ const columns = computed<TableColumnType<Income>[]>(() => [
     title: 'Gerçek',
     customRender: ({ record }) =>
       (record as Income).actualDate ? formatDate((record as Income).actualDate!) : '—',
+    sorter: compareCashflowActualDate,
   },
   {
     key: 'status',
     title: 'Durum',
     customRender: ({ record }) => statusLabel(record as Income),
+    sorter: compareCashflowStatus,
   },
   {
     key: '__realize',
     title: '',
-    align: 'right',
-    width: 110,
+    align: 'center',
+    width: 120,
     customRender: ({ record }) => {
       const row = record as Income
       if (row.recurrence) return null
@@ -244,8 +255,10 @@ const columns = computed<TableColumnType<Income>[]>(() => [
             h(
               Button,
               {
-                type: 'link',
+                type: 'primary',
+                ghost: true,
                 size: 'small',
+                style: REALIZE_ACTION_BUTTON_STYLE,
                 onClick: (e: MouseEvent) => e.stopPropagation(),
               },
               () => 'Gerçekleşti',
@@ -255,9 +268,9 @@ const columns = computed<TableColumnType<Income>[]>(() => [
       return h(
         Button,
         {
-          type: 'link',
           size: 'small',
           danger: true,
+          style: REALIZE_ACTION_BUTTON_STYLE,
           onClick: (e: MouseEvent) => {
             e.stopPropagation()
             void unmarkRealized(row)

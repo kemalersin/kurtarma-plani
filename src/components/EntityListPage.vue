@@ -36,6 +36,7 @@ import dayjs, { type Dayjs } from 'dayjs'
 import LocaleRangePicker from '@/components/LocaleRangePicker.vue'
 import KpTooltip from '@/components/KpTooltip.vue'
 import KpColumnTagCell from '@/components/KpColumnTagCell.vue'
+import KpListCellContent from '@/components/KpListCellContent.vue'
 import ListCard from '@/components/ListCard.vue'
 import ColorSwatch from '@/components/ColorSwatch.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
@@ -422,10 +423,23 @@ const allColumns = computed<TableColumnType<T>[]>(() => {
         ? ({ showTitle: false } as { showTitle: false })
         : col.ellipsis
     const sortOrderForCol = eff && eff.key === key ? eff.order : null
+    /**
+     * Cancel adımı (sıralamayı kaldırma) kapalı — yalnızca ascend ↔ descend toggle.
+     * `defaultSortOrder` 'descend' ise yön listesi 'descend' ile başlar; aksi
+     * halde AntDV mevcut yönün sonraki indeksini ararken liste dışına çıkıp
+     * tıklamayı yutar.
+     */
+    const sortDirections =
+      col.sorter
+        ? col.defaultSortOrder === 'descend'
+          ? (['descend', 'ascend'] as const)
+          : (['ascend', 'descend'] as const)
+        : undefined
     return {
       ...col,
       ellipsis,
       sortOrder: sortOrderForCol,
+      ...(sortDirections ? { sortDirections: [...sortDirections] } : {}),
     } as TableColumnType<T>
   })
   return [
@@ -886,17 +900,13 @@ watch(
               <Tag v-else color="green">Aktif</Tag>
             </Space>
           </template>
-          <template
-            v-else-if="primaryColumn && column.key === primaryColumn.key && isRecordSensitive(record as T)"
-          >
-            <Space :size="6" wrap>
-              <span>{{ cellValue(column, record as T, index) }}</span>
-              <Tag color="orange">Hassas</Tag>
-            </Space>
-          </template>
           <template v-else>
             <KpColumnTagCell :column="column" :record="record as T">
-              {{ cellValue(column, record as T, index) }}
+              <KpListCellContent
+                :column="column"
+                :record="record as T & Record<string, unknown>"
+                :index="index"
+              />
             </KpColumnTagCell>
           </template>
         </template>

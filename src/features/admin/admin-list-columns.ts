@@ -1,4 +1,5 @@
 import type { TableColumnType } from 'ant-design-vue'
+import { compareByDisplayLabel } from '@/core/util/list-sorters'
 
 /** Yönetim listelerinde birincil ad sütunu (Banka Ad, Hesap, Kasa, Gelir/Gider türü Ad). */
 export const ADMIN_PRIMARY_NAME_COLUMN_WIDTH = 280
@@ -13,7 +14,7 @@ export function adminPrimaryNameColumn<T extends { name: string }>(
     width: ADMIN_PRIMARY_NAME_COLUMN_WIDTH,
     /** `showTitle: false` → ellipsis hover tooltip'i devre dışı (ui-patterns: liste sütunlarında tooltip yok). */
     ellipsis: { showTitle: false },
-    sorter: (a, b) => a.name.localeCompare(b.name, 'tr'),
+    sorter: (a, b) => compareByDisplayLabel(a, b, (row) => row.name),
     defaultSortOrder: 'ascend',
   }
 }

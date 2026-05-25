@@ -7,6 +7,7 @@ import TypeFormDrawer from '@/features/admin/TypeFormDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import type { Expense, ExpenseType } from '@/core/types/entities'
 import { parametricTypeNameColumn } from '@/features/admin/admin-list-columns'
+import { compareOptionalString } from '@/features/admin/adminListSorters'
 
 const entities = useEntitiesStore()
 const items = entities.list<ExpenseType>('expenseType')
@@ -70,6 +71,7 @@ const columns = computed<TableColumnType<ExpenseType>[]>(() => [
     key: 'color',
     title: 'Renk',
     align: 'center',
+    sorter: (a, b) => compareOptionalString(a.color, b.color),
   },
   {
     key: 'archived',

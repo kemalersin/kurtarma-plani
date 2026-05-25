@@ -9,6 +9,11 @@ import { useAccountBalances } from '@/features/cashflow/useAccountBalances'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { CashRegister } from '@/core/types/entities'
 import { adminPrimaryNameColumn } from '@/features/admin/admin-list-columns'
+import {
+  compareNumeric,
+  compareIsoDate,
+  compareOptionalString,
+} from '@/features/admin/adminListSorters'
 
 const entities = useEntitiesStore()
 const { formatCurrency, formatDate } = useLocaleFormatters()
@@ -82,6 +87,7 @@ const columns = computed<TableColumnType<CashRegister>[]>(() => [
     key: 'currency',
     title: 'Para',
     dataIndex: 'currency',
+    sorter: (a, b) => compareOptionalString(a.currency, b.currency),
   },
   {
     key: 'openingBalance',
@@ -90,7 +96,7 @@ const columns = computed<TableColumnType<CashRegister>[]>(() => [
     kpDisplay: (register: CashRegister) => formatBalance(register.openingBalance, register.currency),
     customRender: ({ record }) =>
       formatBalance((record as CashRegister).openingBalance, (record as CashRegister).currency),
-    sorter: (a, b) => a.openingBalance - b.openingBalance,
+    sorter: (a, b) => compareNumeric(a, b, (register) => register.openingBalance),
   },
   {
     key: 'currentBalance',
@@ -104,13 +110,13 @@ const columns = computed<TableColumnType<CashRegister>[]>(() => [
       const cls = value < 0 ? 'kp-balance kp-balance--negative' : 'kp-balance'
       return h('span', { class: cls }, text)
     },
-    sorter: (a, b) => currentBalance(a) - currentBalance(b),
+    sorter: (a, b) => compareNumeric(a, b, (register) => currentBalance(register)),
   },
   {
     key: 'openingDate',
     title: 'Açılış tarihi',
     customRender: ({ record }) => formatDate((record as CashRegister).openingDate),
-    sorter: (a, b) => a.openingDate.localeCompare(b.openingDate),
+    sorter: (a, b) => compareIsoDate(a.openingDate, b.openingDate),
   },
   {
     key: 'archived',

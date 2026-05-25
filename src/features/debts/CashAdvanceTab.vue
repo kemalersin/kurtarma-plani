@@ -14,6 +14,7 @@ import type {
   CashAdvanceTransaction,
 } from '@/core/types/entities'
 import { adminPrimaryNameColumn } from '@/features/admin/admin-list-columns'
+import { compareByDisplayLabel, compareNumeric } from '@/features/debts/debtListSorters'
 import { cashAdvanceState } from './cashAdvanceHelpers'
 
 const entities = useEntitiesStore()
@@ -143,7 +144,7 @@ const columns = computed<TableColumnType<CashAdvanceAccount>[]>(() => [
     key: 'bank',
     title: 'Banka',
     customRender: ({ record }) => bankName((record as CashAdvanceAccount).bankId),
-    sorter: (a, b) => bankName(a.bankId).localeCompare(bankName(b.bankId), 'tr'),
+    sorter: (a, b) => compareByDisplayLabel(a, b, (account) => bankName(account.bankId)),
   },
   {
     key: 'limit',
@@ -151,7 +152,7 @@ const columns = computed<TableColumnType<CashAdvanceAccount>[]>(() => [
     align: 'right',
     customRender: ({ record }) =>
       formatCurrency((record as CashAdvanceAccount).limit, (record as CashAdvanceAccount).currency),
-    sorter: (a, b) => a.limit - b.limit,
+    sorter: (a, b) => compareNumeric(a, b, (account) => account.limit),
   },
   {
     key: 'principal',
@@ -162,6 +163,8 @@ const columns = computed<TableColumnType<CashAdvanceAccount>[]>(() => [
         summary(record as CashAdvanceAccount).principal,
         (record as CashAdvanceAccount).currency,
       ),
+    sorter: (a, b) =>
+      compareNumeric(a, b, (account) => Number(summary(account).principal)),
   },
   {
     key: 'accrued',
@@ -172,6 +175,8 @@ const columns = computed<TableColumnType<CashAdvanceAccount>[]>(() => [
         summary(record as CashAdvanceAccount).accrued,
         (record as CashAdvanceAccount).currency,
       ),
+    sorter: (a, b) =>
+      compareNumeric(a, b, (account) => Number(summary(account).accrued)),
   },
   {
     key: 'total',
@@ -182,7 +187,7 @@ const columns = computed<TableColumnType<CashAdvanceAccount>[]>(() => [
         summary(record as CashAdvanceAccount).total,
         (record as CashAdvanceAccount).currency,
       ),
-    sorter: (a, b) => Number(summary(a).total) - Number(summary(b).total),
+    sorter: (a, b) => compareNumeric(a, b, (account) => Number(summary(account).total)),
   },
   {
     key: 'available',
@@ -193,6 +198,7 @@ const columns = computed<TableColumnType<CashAdvanceAccount>[]>(() => [
         summary(record as CashAdvanceAccount).available,
         (record as CashAdvanceAccount).currency,
       ),
+    sorter: (a, b) => compareNumeric(a, b, (account) => summary(account).available),
   },
   { key: 'archived', title: '' },
 ])

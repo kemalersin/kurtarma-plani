@@ -22,6 +22,10 @@ import type {
 } from '@/core/types/entities'
 import type { EntityType } from '@/core/db/profile-db'
 import { adminPrimaryNameColumn } from '@/features/admin/admin-list-columns'
+import {
+  compareNumeric,
+  compareOptionalString,
+} from '@/features/admin/adminListSorters'
 
 const entities = useEntitiesStore()
 const profileStore = useProfileStore()
@@ -147,6 +151,7 @@ const columns = computed<TableColumnType<Bank>[]>(() => [
     key: 'shortName',
     title: 'Kısa ad',
     dataIndex: 'shortName',
+    sorter: (a, b) => compareOptionalString(a.shortName, b.shortName),
   },
   {
     key: 'totalDebt',
@@ -154,12 +159,13 @@ const columns = computed<TableColumnType<Bank>[]>(() => [
     align: 'right',
     customRender: ({ record }) =>
       formatCurrency(bankDebtTotal((record as Bank).id), localCurrency.value),
-    sorter: (a, b) => Number(bankDebtTotal(a.id)) - Number(bankDebtTotal(b.id)),
+    sorter: (a, b) => compareNumeric(a, b, (bank) => Number(bankDebtTotal(bank.id))),
   },
   {
     key: 'bicSwift',
     title: 'BIC',
     dataIndex: 'bicSwift',
+    sorter: (a, b) => compareOptionalString(a.bicSwift, b.bicSwift),
   },
   {
     key: 'archived',

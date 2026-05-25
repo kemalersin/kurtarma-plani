@@ -13,6 +13,12 @@ import {
   CASHFLOW_STATUS_LABELS,
   cashflowStatusLabel,
 } from '@/features/cashflow/cashflowLabels'
+import { REALIZE_ACTION_BUTTON_STYLE } from '@/features/cashflow/realizeButtonStyle'
+import {
+  compareByDisplayLabel,
+  compareCashflowActualDate,
+  compareCashflowStatus,
+} from '@/features/cashflow/cashflowListSorters'
 import type {
   Account,
   CashRegister,
@@ -93,6 +99,10 @@ function sourceName(e: Expense): string {
 function typeName(e: Expense): string {
   if (!e.expenseTypeId) return '—'
   return types.value.find((t) => t.id === e.expenseTypeId)?.name ?? '—'
+}
+
+function descriptionLabel(e: Expense): string {
+  return e.description?.trim() || typeName(e)
 }
 
 const STATUS_LABELS = CASHFLOW_STATUS_LABELS
@@ -181,21 +191,20 @@ const columns = computed<TableColumnType<Expense>[]>(() => [
     title: 'Açıklama',
     width: ADMIN_PRIMARY_NAME_COLUMN_WIDTH,
     ellipsis: true,
-    defaultSortOrder: 'descend',
-    customRender: ({ record }) =>
-      (record as Expense).description?.trim() || typeName(record as Expense),
-    sorter: (a, b) =>
-      (a.description ?? '').localeCompare(b.description ?? '', 'tr'),
+    customRender: ({ record }) => descriptionLabel(record as Expense),
+    sorter: (a, b) => compareByDisplayLabel(a, b, descriptionLabel),
   },
   {
     key: 'type',
     title: 'Tür',
     customRender: ({ record }) => typeName(record as Expense),
+    sorter: (a, b) => compareByDisplayLabel(a, b, typeName),
   },
   {
     key: 'source',
     title: 'Kaynak',
     customRender: ({ record }) => sourceName(record as Expense),
+    sorter: (a, b) => compareByDisplayLabel(a, b, sourceName),
   },
   {
     key: 'amount',
@@ -217,17 +226,19 @@ const columns = computed<TableColumnType<Expense>[]>(() => [
     title: 'Gerçek',
     customRender: ({ record }) =>
       (record as Expense).actualDate ? formatDate((record as Expense).actualDate!) : '—',
+    sorter: compareCashflowActualDate,
   },
   {
     key: 'status',
     title: 'Durum',
     customRender: ({ record }) => statusLabel(record as Expense),
+    sorter: compareCashflowStatus,
   },
   {
     key: '__realize',
     title: '',
-    align: 'right',
-    width: 110,
+    align: 'center',
+    width: 120,
     customRender: ({ record }) => {
       const row = record as Expense
       if (row.recurrence) return null
@@ -244,8 +255,10 @@ const columns = computed<TableColumnType<Expense>[]>(() => [
             h(
               Button,
               {
-                type: 'link',
+                type: 'primary',
+                ghost: true,
                 size: 'small',
+                style: REALIZE_ACTION_BUTTON_STYLE,
                 onClick: (e: MouseEvent) => e.stopPropagation(),
               },
               () => 'Gerçekleşti',
@@ -255,9 +268,9 @@ const columns = computed<TableColumnType<Expense>[]>(() => [
       return h(
         Button,
         {
-          type: 'link',
           size: 'small',
           danger: true,
+          style: REALIZE_ACTION_BUTTON_STYLE,
           onClick: (e: MouseEvent) => {
             e.stopPropagation()
             void unmarkRealized(row)

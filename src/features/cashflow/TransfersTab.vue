@@ -7,6 +7,7 @@ import TransferFormDrawer from './TransferFormDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import { ADMIN_PRIMARY_NAME_COLUMN_WIDTH } from '@/features/admin/admin-list-columns'
+import { compareByDisplayLabel } from '@/features/cashflow/cashflowListSorters'
 import type { Account, CashRegister, Transfer } from '@/core/types/entities'
 
 const entities = useEntitiesStore()
@@ -119,28 +120,30 @@ function toName(t: Transfer): string {
   return '—'
 }
 
+function descriptionLabel(t: Transfer): string {
+  return t.description?.trim() || `${fromName(t)} → ${toName(t)}`
+}
+
 const columns = computed<TableColumnType<Transfer>[]>(() => [
   {
     key: 'name',
     title: 'Açıklama',
     width: ADMIN_PRIMARY_NAME_COLUMN_WIDTH,
     ellipsis: true,
-    defaultSortOrder: 'descend',
-    customRender: ({ record }) =>
-      (record as Transfer).description?.trim() ||
-      `${fromName(record as Transfer)} → ${toName(record as Transfer)}`,
-    sorter: (a, b) =>
-      (a.description ?? '').localeCompare(b.description ?? '', 'tr'),
+    customRender: ({ record }) => descriptionLabel(record as Transfer),
+    sorter: (a, b) => compareByDisplayLabel(a, b, descriptionLabel),
   },
   {
     key: 'from',
     title: 'Kaynak',
     customRender: ({ record }) => fromName(record as Transfer),
+    sorter: (a, b) => compareByDisplayLabel(a, b, fromName),
   },
   {
     key: 'to',
     title: 'Hedef',
     customRender: ({ record }) => toName(record as Transfer),
+    sorter: (a, b) => compareByDisplayLabel(a, b, toName),
   },
   {
     key: 'amount',

@@ -10,6 +10,7 @@ import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { Bank, CreditCard, CreditCardTransaction } from '@/core/types/entities'
 import { adminPrimaryNameColumn } from '@/features/admin/admin-list-columns'
+import { compareByDisplayLabel, compareNumeric } from '@/features/debts/debtListSorters'
 import { latestCardStatement } from './cardHelpers'
 
 const entities = useEntitiesStore()
@@ -123,7 +124,7 @@ const columns = computed<TableColumnType<CreditCard>[]>(() => [
     key: 'bank',
     title: 'Banka',
     customRender: ({ record }) => bankName((record as CreditCard).bankId),
-    sorter: (a, b) => bankName(a.bankId).localeCompare(bankName(b.bankId), 'tr'),
+    sorter: (a, b) => compareByDisplayLabel(a, b, (card) => bankName(card.bankId)),
   },
   {
     key: 'limit',
@@ -131,7 +132,7 @@ const columns = computed<TableColumnType<CreditCard>[]>(() => [
     align: 'right',
     customRender: ({ record }) =>
       formatCurrency((record as CreditCard).limit, (record as CreditCard).currency),
-    sorter: (a, b) => a.limit - b.limit,
+    sorter: (a, b) => compareNumeric(a, b, (card) => card.limit),
   },
   {
     key: 'endingBalance',
@@ -139,6 +140,8 @@ const columns = computed<TableColumnType<CreditCard>[]>(() => [
     align: 'right',
     customRender: ({ record }) =>
       formatCurrency(summary(record as CreditCard).endingBalance, (record as CreditCard).currency),
+    sorter: (a, b) =>
+      compareNumeric(a, b, (card) => Number(summary(card).endingBalance)),
   },
   {
     key: 'available',
@@ -146,6 +149,7 @@ const columns = computed<TableColumnType<CreditCard>[]>(() => [
     align: 'right',
     customRender: ({ record }) =>
       formatCurrency(summary(record as CreditCard).available, (record as CreditCard).currency),
+    sorter: (a, b) => compareNumeric(a, b, (card) => summary(card).available),
   },
   {
     key: 'minPayment',
@@ -153,6 +157,8 @@ const columns = computed<TableColumnType<CreditCard>[]>(() => [
     align: 'right',
     customRender: ({ record }) =>
       formatCurrency(summary(record as CreditCard).minPayment, (record as CreditCard).currency),
+    sorter: (a, b) =>
+      compareNumeric(a, b, (card) => Number(summary(card).minPayment)),
   },
   {
     key: 'archived',
