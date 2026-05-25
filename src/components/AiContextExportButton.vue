@@ -14,9 +14,12 @@ import {
   message,
 } from 'ant-design-vue'
 import { CopyOutlined, LoadingOutlined, RobotOutlined } from '@ant-design/icons-vue'
-import type { MenuInfo } from 'ant-design-vue/es/menu/src/interface'
 import KpTooltip from '@/components/KpTooltip.vue'
-import { KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/composables/useMatchMedia'
+import {
+  KP_MOBILE_VIEWPORT_MQ,
+  useHoverCapable,
+  useMatchMedia,
+} from '@/composables/useMatchMedia'
 import JsonCodeBlock from '@/components/JsonCodeBlock.vue'
 import KpMarkdown from '@/components/KpMarkdown.vue'
 import { useProfileStore } from '@/stores/profile'
@@ -29,6 +32,14 @@ import { downloadTextFile, profileFileSlug } from '@/core/util/download'
 
 const profileStore = useProfileStore()
 const isMobileShell = useMatchMedia(KP_MOBILE_VIEWPORT_MQ)
+const isHoverCapable = useHoverCapable()
+
+/** Dropdown tetikleyicisi doğrudan Button olmalı; Tooltip sarmalayıcı iPad/touch’ta menüyü açmaz. */
+const isCompactTrigger = computed(
+  () => isMobileShell.value || !isHoverCapable.value,
+)
+
+const menuOpen = ref(false)
 
 const FORMAT_LABELS: Record<AiContextExportFormat, string> = {
   json: 'JSON',
@@ -138,47 +149,38 @@ function downloadFromPreview(): void {
   previewOpen.value = false
 }
 
-function onMenuClick(info: MenuInfo): void {
-  const key = String(info.key)
-  if (key !== 'json' && key !== 'markdown') return
-  void openPreview(key as AiContextExportFormat)
+function selectFormat(format: AiContextExportFormat): void {
+  menuOpen.value = false
+  void openPreview(format)
 }
+
 </script>
 
 <template>
   <Dropdown
+    v-model:open="menuOpen"
     :disabled="!canExport || loading"
     :trigger="['click']"
     placement="bottomRight"
+    :destroy-popup-on-hide="true"
   >
-    <!-- Dropdown tetikleyicisi doğrudan Button olmalı; KpTooltip mobilde attrs iletmez. -->
-    <KpTooltip v-if="!isMobileShell" title="AI analizi için veri dışa aktar">
-      <Button
-        type="text"
-        class="kp-ai-export-trigger"
-        :disabled="!canExport"
-        :aria-label="'AI analizi için veri dışa aktar'"
-      >
-        <template #icon>
-          <LoadingOutlined v-if="loading" spin />
-          <RobotOutlined v-else />
-        </template>
-        <span class="kp-ai-export-trigger__label">AI dışa aktar</span>
-      </Button>
-    </KpTooltip>
     <Button
-      v-else
       type="text"
-      class="kp-ai-export-trigger kp-ai-export-trigger--mobile"
+      class="kp-ai-export-trigger"
+      :class="{ 'kp-ai-export-trigger--compact': isCompactTrigger }"
       :disabled="!canExport"
       :aria-label="'AI analizi için veri dışa aktar'"
+      :title="isHoverCapable ? 'AI analizi için veri dışa aktar' : undefined"
     >
-      <LoadingOutlined v-if="loading" spin />
-      <RobotOutlined v-else />
+      <template #icon>
+        <LoadingOutlined v-if="loading" spin />
+        <RobotOutlined v-else />
+      </template>
+      <span v-if="!isCompactTrigger" class="kp-ai-export-trigger__label">AI dışa aktar</span>
     </Button>
     <template #overlay>
-      <Menu @click="onMenuClick">
-        <MenuItem key="json">
+      <Menu>
+        <MenuItem key="json" @click="selectFormat('json')">
           <span class="kp-ai-export-menu-row">
             <span class="kp-ai-export-menu-row__label">
               <Tag color="geekblue" class="kp-ai-export-menu-tag">JSON</Tag>
@@ -186,7 +188,7 @@ function onMenuClick(info: MenuInfo): void {
             <span class="kp-ai-export-menu-row__suffix">Önizle ve indir</span>
           </span>
         </MenuItem>
-        <MenuItem key="markdown">
+        <MenuItem key="markdown" @click="selectFormat('markdown')">
           <span class="kp-ai-export-menu-row">
             <span class="kp-ai-export-menu-row__label">
               <Tag color="purple" class="kp-ai-export-menu-tag">Markdown</Tag>
@@ -286,7 +288,11 @@ function onMenuClick(info: MenuInfo): void {
   font-size: 13px;
 }
 
-.kp-ai-export-trigger--mobile.ant-btn {
+.kp-ai-export-trigger {
+  touch-action: manipulation;
+}
+
+.kp-ai-export-trigger--compact.ant-btn {
   width: auto;
   height: auto;
   min-width: 0;
@@ -294,7 +300,7 @@ function onMenuClick(info: MenuInfo): void {
   line-height: 1;
 }
 
-.kp-ai-export-trigger--mobile :deep(.anticon) {
+.kp-ai-export-trigger--compact :deep(.anticon) {
   font-size: 16px;
 }
 

@@ -4,6 +4,10 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 ## [Unreleased]
 
+### Fixed — AI dışa aktar (iPad / dokunmatik)
+
+- Dropdown tetikleyicisinden `KpTooltip` kaldırıldı (iPad’de menü açılmıyordu); dokunmatikte kompakt ikon, menü seçimi yedek `@click` ile.
+
 ### Added — GitHub Pages özel alan adı
 
 - `public/CNAME`: `kurtar.co` (tek satır; GitHub HTTPS için zorunlu). `www` yalnızca DNS CNAME → `kemalersin.github.io`.

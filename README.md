@@ -33,6 +33,11 @@ Borçları kayıt altına alan, gelir-gider dengesini izleyen ve analiz eden **t
 | Aylık nakit akışı, gelir ve gider dağılımı grafikleri | Finans özetine dayalı sohbet ve kurtarma stratejisi önerisi |
 | ![Analiz & rapor — nakit akışı](docs/screenshots/ss-02.png) | ![AI Asistan — sohbet](docs/screenshots/ss-03.png) |
 
+| Ayarlar — senkron | AI dışa aktar |
+| --- | --- |
+| Otomatik senkron dosyası, şifreleme ve cihazlar arası eşitleme | Finans bağlamı önizleme (Markdown / JSON) ve indirme |
+| ![Ayarlar — senkron](docs/screenshots/ss-04.png) | ![AI dışa aktar — Markdown](docs/screenshots/ss-05.png) |
+
 ---
 
 ## Hızlı başlangıç
