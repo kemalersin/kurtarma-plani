@@ -34,7 +34,7 @@ const highlights = [
   {
     icon: DatabaseOutlined,
     title: 'Veriler cihazınızda',
-    text: 'Backend yok; tüm kayıtlar tarayıcıda IndexedDB üzerinde tutulur. İsteğe bağlı profil parolası ile şifreleme.',
+    text: 'Sunucuya finans verisi gönderilmez; kayıtlar tarayıcınızda tutulur. İsteğe bağlı profil parolası ile şifreleme.',
   },
   {
     icon: ThunderboltOutlined,
@@ -54,12 +54,12 @@ const highlights = [
   {
     icon: SyncOutlined,
     title: 'Otomatik senkron',
-    text: 'Profil başına .sync dosyası ile cihazlar arası eşitleme; isteğe bağlı dosya şifreleme, otomatik yazma ve uzaktan okuma. Bulut klasörüne (iCloud, Dropbox vb.) koyarak kullanılır.',
+    text: 'Profil başına senkron dosyası ile cihazlar arası eşitleme; isteğe bağlı dosya şifreleme, otomatik yazma ve uzaktan okuma. Bulut klasörüne (iCloud, Dropbox vb.) koyarak kullanılır.',
   },
   {
     icon: RobotOutlined,
     title: 'AI asistan',
-    text: 'Çevrimiçiyken akışlı sohbet; finans özetinize dayalı öneriler ve maliyet takibi. API anahtarları modele gönderilmez; hassas kayıtlar AI özetine dahil edilmez.',
+    text: 'Çevrimiçiyken akışlı sohbet; finans özetinize dayalı öneriler ve maliyet takibi. Bağlantı anahtarları modele gönderilmez; hassas kayıtlar yapay zeka özetine dahil edilmez.',
   },
 ] as const
 
