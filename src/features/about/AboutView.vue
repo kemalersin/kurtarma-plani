@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import {
   Alert,
   Button,
+  message,
   Card,
   Col,
   Descriptions,
@@ -12,6 +14,7 @@ import {
   Typography,
 } from 'ant-design-vue'
 import {
+  CloudDownloadOutlined,
   DatabaseOutlined,
   GithubOutlined,
   LockOutlined,
@@ -26,9 +29,29 @@ import KpNotice from '@/components/KpNotice.vue'
 import BrandMark from '@/components/icons/BrandMark.vue'
 import CoffeeIcon from '@/components/icons/CoffeeIcon.vue'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
-import { APP_BUILD_DATE, APP_GITHUB_PAGES_RAW_INDEX_URL, APP_GITHUB_PAGES_URL, APP_GITHUB_URL, APP_NAME, APP_SUPPORT_URL, APP_VERSION } from '@/core/constants'
+import { APP_BUILD_DATE, APP_GITHUB_PAGES_URL, APP_GITHUB_URL, APP_NAME, APP_SUPPORT_URL, APP_VERSION } from '@/core/constants'
+import { downloadAppReleaseIndex } from '@/core/util/download'
+import { useUpdateStore } from '@/stores/update'
 
 const { formatDateLong } = useLocaleFormatters()
+const updateStore = useUpdateStore()
+const downloadingIndex = ref(false)
+
+async function downloadIndexHtml(): Promise<void> {
+  if (downloadingIndex.value) return
+  downloadingIndex.value = true
+  try {
+    const version = updateStore.remoteVersion ?? APP_VERSION
+    const result = await downloadAppReleaseIndex({ version })
+    if (result.status === 'downloaded') {
+      message.success(`${result.fileName} indirildi.`)
+      return
+    }
+    message.warning('Dosya indirilemedi. Bağlantı yeni sekmede açılıyor.')
+  } finally {
+    downloadingIndex.value = false
+  }
+}
 
 const highlights = [
   {
@@ -172,10 +195,10 @@ const techStack = [
           <Button
             class="kp-about__download-btn"
             size="large"
-            :href="APP_GITHUB_PAGES_RAW_INDEX_URL"
-            target="_blank"
-            rel="noopener noreferrer"
+            :loading="downloadingIndex"
+            @click="downloadIndexHtml"
           >
+            <template #icon><CloudDownloadOutlined /></template>
             index.html indir
           </Button>
         </div>

@@ -1,11 +1,34 @@
 <script setup lang="ts">
-import { Button } from 'ant-design-vue'
+import { ref } from 'vue'
+import { Button, message } from 'ant-design-vue'
 import { CloudDownloadOutlined } from '@ant-design/icons-vue'
 import KpNotice from '@/components/KpNotice.vue'
 import { APP_VERSION } from '@/core/constants'
+import { downloadAppReleaseIndex } from '@/core/util/download'
 import { useUpdateStore } from '@/stores/update'
 
 const updateStore = useUpdateStore()
+const downloading = ref(false)
+
+async function downloadRelease(): Promise<void> {
+  const url = updateStore.releaseUrl
+  if (!url || downloading.value) return
+
+  downloading.value = true
+  try {
+    const result = await downloadAppReleaseIndex({
+      url,
+      version: updateStore.remoteVersion ?? 'latest',
+    })
+    if (result.status === 'downloaded') {
+      message.success(`${result.fileName} indirildi.`)
+      return
+    }
+    message.warning('Dosya indirilemedi. Bağlantı yeni sekmede açılıyor.')
+  } finally {
+    downloading.value = false
+  }
+}
 </script>
 
 <template>
@@ -13,7 +36,7 @@ const updateStore = useUpdateStore()
     <KpNotice
       tone="info"
       :title="`Yeni sürüm mevcut: v${updateStore.remoteVersion}`"
-      :detail="`Kullandığınız sürüm v${APP_VERSION}. pages dalındaki index.html dosyasını indirip mevcut kopyanızın üzerine yazabilirsiniz.`"
+      :detail="`Kullandığınız sürüm v${APP_VERSION}. İndir ile güncel index.html dosyasını kaydedip mevcut kopyanızın üzerine yazabilirsiniz.`"
       closable
       @close="updateStore.dismissNotice()"
     >
@@ -23,9 +46,8 @@ const updateStore = useUpdateStore()
           size="small"
           type="link"
           class="kp-update-notice__link"
-          :href="updateStore.releaseUrl"
-          target="_blank"
-          rel="noopener noreferrer"
+          :loading="downloading"
+          @click="downloadRelease"
         >
           <template #icon><CloudDownloadOutlined /></template>
           İndir
