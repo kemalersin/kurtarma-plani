@@ -9,7 +9,13 @@ const ROUTE_LABELS: Record<string, string> = {
   setup: 'Kurulum',
   select: 'Profil Seç',
   home: 'Panel',
+  admin: 'Yönetim',
+  debts: 'Borçlar',
+  cashflow: 'Nakit akışı',
+  analytics: 'Analiz & rapor',
+  ai: 'AI Asistan',
   settings: 'Ayarlar',
+  about: 'Hakkında',
 }
 
 const HOME_ROUTE = 'home'

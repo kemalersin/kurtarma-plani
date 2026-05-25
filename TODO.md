@@ -23,57 +23,93 @@
 
 ## M2 — Veri katmanı
 
-- [ ] `bankingPreset` store + embed fallback + Zod şema
-- [ ] Çevrimiçi preset feed güncelleme (DB ezme) + manuel JSON import
-- [ ] `useConnectivity` (online/offline); AI ve preset feed gated
-- [ ] Dexie şema v1 + migration altyapısı
-- [ ] Çoklu profil store izolasyonu
-- [ ] Web Crypto şifreleme + parola değişiminde re-encrypt
-- [ ] `sensitive` alanı tüm entity tiplerinde
-- [ ] Export/import dialog (şifre, hassas, API keys seçenekleri)
-- [ ] Import Zod doğrulama + schemaVersion
+- [x] `bankingPreset` store + embed fallback + Zod şema
+- [x] Çevrimiçi preset feed güncelleme (DB ezme) + manuel JSON import
+- [x] `useConnectivity` (online/offline); AI ve preset feed gated
+- [x] Dexie meta DB v2 (bankingPreset eklendi) + profil başına ayrı DB
+- [x] Çoklu profil store izolasyonu (`kurtarma-plani.profile.<id>`)
+- [x] AES-GCM data key + PBKDF2 wrap; parola ekle/değiştir/kaldırda re-encrypt
+- [x] `sensitive` alanı `ProfileEntityRow` üzerinde (entity tipleri M3'te)
+- [x] Export/import dialog (şifre, hassas, API keys seçenekleri)
+- [x] Import Zod doğrulama + schemaVersion + şifreli/şifresiz dosya zarfı
 
 ## M3 — Yönetimsel veriler
 
-- [ ] Bankalar, hesaplar, kasalar
-- [ ] Gelir/gider türleri (parametrik)
-- [ ] Liste: sort, page, search, filter
-- [ ] Drawer formlar + combobox “Yeni Kayit” stack
+- [x] Bankalar, hesaplar, kasalar
+- [x] Gelir/gider türleri (parametrik)
+- [x] Liste: sort, page, search, arşiv filtresi
+- [x] Drawer formlar + combobox "Yeni Kayıt" stack (`useDrawerStack`)
 
 ## M4 — Kredi
 
-- [ ] Kredi CRUD + anüite taksit planı
-- [ ] Gecikme faizi
-- [ ] Referans preset ile form doldurma (opsiyonel)
+- [x] Saf TS finans motoru (`src/finance/`): anüite, kalan bakiye, gecikme faizi, erken kapama
+- [x] `decimal.js` (28 hane HALF_EVEN) + `date-fns` tarih
+- [x] Vitest birim testleri (12 test geçti)
+- [x] `Loan` + `LoanPayment` entity (Zod şema, profil DB type listesine eklendi)
+- [x] Kredi CRUD + canlı taksit önizleme (`LoanFormDrawer`)
+- [x] Aylık/yıllık faiz seçimi, gecikme faizi (default = sözleşme × 1.3)
+- [x] Bankacılık preset'inden KKDF + BSMV doldurma
+- [x] Taksit planı drawer + ödeme işaretleme (gerçek tarih/tutar/notlar)
+- [x] Krediler listesi: kalan borç, aylık taksit, ilerleme, durum (Devam / Gecikmiş / Kapandı)
+- [x] `/debts` sekmeli sayfa (Krediler aktif; Kart / Avans / Taksitli avans M5'te)
 
 ## M5 — Kart & avans
 
-- [ ] Kredi kartı (limit, dönem, asgari, ödemeler)
-- [ ] Nakit avans revolving
-- [ ] Taksitli nakit avans
+- [x] **Finans motoru:** `credit-card.ts` (tier asgari %20/%40, dönem özeti, gecikme projeksiyonu), `cash-advance.ts` (revolving ledger — kronolojik tahakkuk, ödeme önce faizi kapatır)
+- [x] **Vitest:** 15 yeni test (toplam 27/27 geçti)
+- [x] **Entity tipleri:** `CreditCard` + `CreditCardTransaction` (purchase/payment/cashAdvance), `CashAdvanceAccount` + `CashAdvanceTransaction` (draw/payment), `InstallmentCashAdvance` + `InstallmentCashAdvancePayment`
+- [x] **Profil DB EntityType** listesi 4 yeni tip ile genişletildi
+- [x] **Kredi kartı UI:** liste + form + hesap özeti drawer (dönem seçimi + hareket tablosu + asgari) + hareket drawer
+- [x] **Nakit avans UI:** liste + form + ledger drawer (kalan anapara, işleyen faiz, toplam, kullanılabilir) + hareket drawer
+- [x] **Taksitli nakit avans UI:** liste + form (bağlı nakit avans hesabı combobox, "Erken kapama faizsiz" bayrağı) + taksit planı drawer + ödeme drawer
+- [x] **DebtsView** 3 sekme aktive edildi
+- [x] Referans preset alanlarından "Referansla doldur": kartta limit tier'ına göre alışveriş/gecikme/nakit avans faizi; nakit avansta tavan oran; taksitli avansta tavan oran
 
 ## M6 — Gelir & gider
 
-- [ ] Anlık / planlı gelir-gider
-- [ ] Transfer (hesap/kasa arası)
-- [ ] Vade uyarıları + gerçekleşti işareti
-- [ ] Borç karşılama analizi
+- [x] **Finans motoru:** `cashflow.ts` — `cashflowStatus` (realized/overdue/due/upcoming), `sumByDateRange` (`plan` / `actual` / `effective`), `computeDebtCoverage` (net karşılama + yüzde)
+- [x] **Vitest:** 11 yeni test (toplam 41/41 geçti)
+- [x] **Entity tipleri:** `Income`, `Expense` (hedef = hesap ⊕ kasa, Zod refine), `Transfer` (from/to her biri hesap ⊕ kasa; aynı varlığa engel)
+- [x] **Profil DB EntityType:** `transfer` eklendi (`income`, `expense` mevcut)
+- [x] **Bakiye yardımcıları:** `accountBalance` + `cashRegisterBalance` + `totalCashOnHand` (gerçekleşmiş hareketler)
+- [x] **CashflowView** `/cashflow` (sekmeli `useRoutedTabs`); vade dikkat sayısı sekme başlığında `Badge` (DebtsView / AdminView ile tutarlı sade üst yerleşim)
+- [x] **IncomesTab + IncomeFormDrawer**: anlık/planlı switch, hesap/kasa radio, tür/hesap stack drawer, satır-içi "Gerçekleşti" Popconfirm
+- [x] **ExpensesTab + ExpenseFormDrawer**: aynı desen, kaynak = hesap/kasa
+- [x] **TransfersTab + TransferFormDrawer**: kaynak/hedef her biri hesap ⊕ kasa (4 kombinasyon)
+- [x] **Borç karşılama (temel):** `computeDebtCoverage` motorda hazır; M7 dashboard'unda derinleştirilecek
+- [x] **EntityListPage extension:** `__` prefix'li sütunlar mobil kartlarda gizlenir (satır-içi tek-tık aksiyonlar için yeniden kullanılabilir desen)
+- [x] **AppShell menü + breadcrumb:** Nakit akışı + `SwapOutlined`
+- [x] **Borç ↔ nakit akışı bağlantısı (Yaklaşım A):** Tüm M4/M5 ödeme/hareket entity'lerine `source*` / `target*` hesap-kasa alanları; ortak `PaymentSourcePicker` bileşeni 4 drawer'a entegre; `movements.ts` kanonik akış toplayıcı; `balanceHelpers` refactor (tek `movements` parametresi); 9 yeni Vitest (50/50)
 
 ## M7 — Analiz & rapor
 
-- [ ] Analiz sorguları (vadeli borç, gecikme, kapama, toplamlar)
-- [ ] ECharts dashboard
-- [ ] Excel/PDF tablo-grafik export (UI only)
+- [x] **M7.1 — Analiz motoru + Dashboard:** `src/features/analytics/` saf TS (`snapshot.ts` asset/debt/netWorth, `series.ts` cashflow/category/upcomingDebt, `useDashboardData.ts` reaktif composable); `KpChart.vue` ECharts wrapper (tree-shaken core + Canvas + Bar/Line/Pie + Grid/Legend/Title/Tooltip/DataZoom, responsive, tema-uyumlu); Panel (HomeView) 5 stat + 4 grafik (aylık nakit akışı / borç dağılımı / gider kategorileri / yaklaşan vadeler); 18 yeni Vitest (93/93)
+- [x] **M7.2 — Analiz / rapor sayfası:** `/analytics` sekmeli (borç analizi, nakit akışı, hesap geçmişi); declarative filtreler (tarih aralığı, banka, hesap, kategori); tablo + grafik aynı sayfada; `reports.ts` + `useAnalyticsFilters` + 5 Vitest (98/98)
+- [ ] **M7.3 — Export (UI only):** görünen tablo → Excel (`write-excel-file` ~40 KB); görünen tablo + grafik → PDF (tarayıcı print API + `@media print` özel CSS, 0 KB ek bağımlılık) — **ertelendi**
 
 ## M8 — AI
 
-- [ ] models.dev build embed script
-- [ ] Provider adapters + stream
-- [ ] Sohbet kalıcılığı + usage ledger
-- [ ] Snapshot’tan hassas + secrets filtreleme
+- [x] **models.dev build embed script** (`scripts/fetch-models-catalog.ts`; `bundled.json` + isteğe bağlı `generated.json`; `FETCH_MODELS=1 npm run build`; **UI'dan güncelleme** → IndexedDB `modelsCatalog`, gömülü listeyi ezer)
+- [x] **Provider adapters + stream** (Anthropic, OpenAI, Gemini, DeepSeek, Ollama, vLLM; SSE stream + anlık token/maliyet)
+- [x] **Sohbet kalıcılığı + usage ledger** (`chatSession`, `aiUsage` entity; sohbet temizlense bile usage kalır)
+- [x] **Snapshot'tan hassas + secrets filtreleme** (`buildAiFinanceSnapshot`; AI ayarları/API anahtarları hariç)
+- [x] **Sohbete görsel yükleme** (vision/multimodal; dosya + yapıştır; OpenAI/Anthropic/Gemini adapter)
+- [x] **Sohbete dosya ekleri** (PDF, TXT, CSV, JSON + görseller; provider bazlı format)
+- [x] **AI kayıt önerisi** (`kp-proposals` JSON → parse/resolve/apply; `AiProposalPanel`)
 
 ## M9 — Sertleştirme
 
-- [ ] Vitest finans motoru testleri
+- [x] Vitest finans motoru testleri (M4 ile geldi; kart/avans testleri M5+)
 - [ ] E2E kritik akışlar
 - [ ] Bundle boyutu optimizasyonu
+
+## M10 — Otomatik senkron dosyası
+
+Tasarım: [docs/SYNC.md](./docs/SYNC.md). Açılıp kapatılabilir; backend yok; mevcut snapshot zarfı + `KP-SYNC1` meta.
+
+- [x] **S1:** Tipler + Zod + `SyncSettingsSection` (toggle + ayarlar, I/O yok)
+- [x] **S2:** `sync-file` / `sync-engine` — manuel «Senkronize et» (File System Access)
+- [x] **S3:** Debounced push + pull (focus / profil kilidi)
+- [x] **S4:** Çakışma modal + durum rozeti
+- [x] **S5:** Manuel fallback (Safari / `file://`)
+- [ ] **S6:** (Opsiyonel) WebDAV transport

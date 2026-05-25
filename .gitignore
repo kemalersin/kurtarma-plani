@@ -1,7 +1,7 @@
 # Bağımlılıklar
 node_modules/
 
-# Build çıktısı
+# Build çıktısı — yalnızca CI/pages dalında; repoda tutulmaz
 dist/
 *.local
 
@@ -48,4 +48,4 @@ Desktop.ini
 .cache/
 
 # models.dev build embed (isteğe bağlı üretilir)
-# src/generated/models-catalog.ts
+src/data/models-catalog/generated.json

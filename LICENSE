@@ -1,0 +1,64 @@
+Kurtarma Planı — Lisans Koşulları
+Copyright (c) 2026 Kemal Ersin
+
+Kaynak kodu MIT benzeri izinlerle kullanılabilir; aşağıdaki dağıtım koşulu zorunludur.
+
+================================================================================
+1. Tanımlar
+================================================================================
+
+- «Kaynak kod»: Bu depodaki kaynak dosyalar (src/, docs/, vb.).
+- «Derlenmiş çıktı»: vite build ile üretilen tek dosyalık index.html; GitHub
+  Pages `pages` dalında yayınlanır.
+- «Hakkında ekranı»: Uygulama içindeki #/about rotasındaki Hakkında sayfası;
+  kaynak karşılığı src/features/about/AboutView.vue.
+
+================================================================================
+2. Kaynak kod
+================================================================================
+
+Kaynak kodu kopyalama, değiştirme, birleştirme, yayımlama, dağıtma, alt lisans
+verme ve satma hakkı dahil olmak üzere, aşağıdaki koşullara uymak kaydıyla,
+herkese ücretsiz olarak verilir:
+
+(a) Bu telif hakkı bildirimi ve lisans metni, kaynak kodun tüm kopyalarında veya
+    önemli bölümlerinde korunmalıdır.
+
+(b) YAZILIM «OLDUĞU GİBİ» SAĞLANIR; GARANTİ VERİLMEZ.
+
+================================================================================
+3. Derlenmiş çıktının dağıtımı (zorunlu)
+================================================================================
+
+pages dalındaki index.html veya bundan elde edilen tek dosyalık dağıtımlar, Hakkında
+ekranındaki bilgiler silinerek veya erişilemez kılınarak YAYINLANAMAZ.
+
+Dağıtılan her derlenmiş çıktıda Hakkında ekranı erişilebilir olmalı ve en az
+şu içerikler korunmalıdır:
+
+  - Uygulama adı (Kurtarma Planı), sürüm ve derleme tarihi
+  - «Kişisel finansal planlama — tek dosyada, çevrimdışı çalışır.» tagline'ı
+  - Özellik kartları (veri gizliliği, çevrimdışı kullanım, çoklu profil,
+    gizlilik, senkron, AI asistan)
+  - Açık kaynak bölümü ve GitHub depo bağlantısı
+  - Teknik özet (dağıtım, veri, depo bilgisi; tech stack etiketleri)
+  - Kahve Ismarla / destek bağlantısı
+  - Yasal uyarı («yalnızca bilgilendirme ve kişisel planlama amaçlıdır»)
+  - Dağıtım notu (file://, CDN/backend gerektirmez)
+
+Bu maddenin ihlali, derlenmiş çıktının dağıtım hakkının sona ermesi anlamına
+gelir.
+
+================================================================================
+4. Marka
+================================================================================
+
+«Kurtarma Planı» adı ve uygulama içi marka öğeleri, Hakkında ekranındaki
+bağlantılar ve atıf metinleri kaldırılarak üçüncü taraflarca kendi ürünü
+gibi sunulamaz.
+
+================================================================================
+5. Üçüncü taraf
+================================================================================
+
+Bağımlılıklar kendi lisanslarına tabidir (Vue, Ant Design Vue, vb.).

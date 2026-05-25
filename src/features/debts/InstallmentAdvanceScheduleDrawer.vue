@@ -17,15 +17,18 @@ import type {
   InstallmentCashAdvancePayment,
 } from '@/core/types/entities'
 import type { ScheduleRow } from '@/finance/loan'
-import { payoffAmount } from '@/finance/loan'
 import { D } from '@/finance/decimal'
 import {
   advancePaidThroughIndex,
   buildScheduleForInstallmentAdvance,
   indexAdvancePayments,
+  payoffForInstallmentAdvance,
+  remainingDebtForInstallmentAdvance,
 } from './installmentAdvanceHelpers'
 import { buildScheduleDrawerColumns } from './schedule-table-columns'
 import InstallmentAdvancePaymentDrawer from './InstallmentAdvancePaymentDrawer.vue'
+import { payoffStatTooltip } from './payoffStatTooltip'
+import { displayInstallmentAmount } from './installmentDisplay'
 
 interface Props {
   open: boolean
@@ -56,25 +59,26 @@ const ownPayments = computed<InstallmentCashAdvancePayment[]>(() => {
 const paymentMap = computed(() => indexAdvancePayments(ownPayments.value))
 const paidIndex = computed(() => advancePaidThroughIndex(ownPayments.value))
 
-const remainingPrincipal = computed<string>(() => {
-  if (!schedule.value) return '0'
-  const idx = paidIndex.value
-  if (idx >= schedule.value.rows.length) return '0'
-  if (idx === 0) return schedule.value.rows[0]!.beginningBalance
-  return schedule.value.rows[idx - 1]!.endingBalance
+const remainingDebt = computed<string>(() => {
+  if (!schedule.value || !props.advance) return '0'
+  return remainingDebtForInstallmentAdvance(
+    props.advance,
+    schedule.value,
+    paidIndex.value,
+    undefined,
+    ownPayments.value,
+  )
 })
 
 const payoff = computed<string>(() => {
-  if (!schedule.value) return '0'
-  if (props.advance?.earlyPayoffWithoutInterest) {
-    // Sözleşme erken kapamada faiz kesmiyorsa, sadece kalan anapara
-    return remainingPrincipal.value
-  }
-  return payoffAmount({
-    schedule: schedule.value,
-    paidThroughIndex: paidIndex.value,
-    asOfDate: new Date().toISOString(),
-  })
+  if (!schedule.value || !props.advance) return '0'
+  return payoffForInstallmentAdvance(
+    props.advance,
+    schedule.value,
+    paidIndex.value,
+    undefined,
+    ownPayments.value,
+  )
 })
 
 const totalPaid = computed<string>(() =>
@@ -88,13 +92,22 @@ function formatMoney(value: string | number): string {
   return formatCurrency(value, props.advance?.currency)
 }
 
+function installmentDisplay(row: ScheduleRow): string {
+  const payment = paymentMap.value.get(row.index)
+  return formatMoney(displayInstallmentAmount(row.installment, payment))
+}
+
 const stats = computed<KpStat[]>(() => [
   {
-    label: 'Kalan anapara',
-    value: formatMoney(remainingPrincipal.value),
+    label: 'Kalan borç',
+    value: formatMoney(remainingDebt.value),
     tone: 'primary',
   },
-  { label: 'Erken kapama (bugün)', value: formatMoney(payoff.value) },
+  {
+    label: 'Erken kapama (bugün)',
+    value: formatMoney(payoff.value),
+    labelTooltip: payoffStatTooltip(props.advance?.earlyPayoffWithoutInterest),
+  },
   { label: 'Toplam ödenen', value: formatMoney(totalPaid.value), tone: 'success' },
   {
     label: 'Ödenen taksit',
@@ -142,7 +155,8 @@ function openMark(row: ScheduleRow): void {
 
 function canDeletePayment(row: ScheduleRow): boolean {
   const payment = paymentMap.value.get(row.index)
-  if (!payment?.paidDate) return false
+  if (!payment) return false
+  if (!payment.paidDate) return true
   return !ownPayments.value.some(
     (p) => p.installmentIndex > row.index && !!p.paidDate,
   )
@@ -150,8 +164,8 @@ function canDeletePayment(row: ScheduleRow): boolean {
 
 async function onDeletePayment(row: ScheduleRow): Promise<void> {
   const payment = paymentMap.value.get(row.index)
-  if (!payment?.paidDate) return
-  if (!canDeletePayment(row)) {
+  if (!payment) return
+  if (payment.paidDate && !canDeletePayment(row)) {
     message.warning(
       'Önce sonraki taksit ödemelerini kaldırın; ardından bu ödeme silinebilir.',
     )
@@ -191,8 +205,8 @@ function scheduleRowProps(row: ScheduleRow): Record<string, unknown> {
         message="Bilgi"
         :description="
           advance.earlyPayoffWithoutInterest
-            ? 'Bu avans erken kapamada faiz uygulamıyor; kalan tutar yalnızca kalan anaparadır.'
-            : 'Erken kapama tutarı, plan üzerindeki kalan anaparaya kısmi ay faizinin eklenmesiyle bulunur (banka sözleşmesi farklı uygulayabilir).'
+            ? 'Bu avans erken kapamada faiz uygulamıyor; tahmini tutar kalan anapara + biriken gecikme faizidir.'
+            : 'Erken kapama tahmini: kalan anapara + kısmi dönem faizi + biriken gecikme faizi (banka sözleşmesi farklı uygulayabilir).'
         "
       />
 
@@ -210,7 +224,10 @@ function scheduleRowProps(row: ScheduleRow): Record<string, unknown> {
         @delete="onDeletePayment"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'status'">
+          <template v-if="column.key === 'installment'">
+            {{ installmentDisplay(record as ScheduleRow) }}
+          </template>
+          <template v-else-if="column.key === 'status'">
             <Tag :color="STATUS_COLORS[statusFor(record as ScheduleRow)]">
               {{ STATUS_LABELS[statusFor(record as ScheduleRow)] }}
             </Tag>

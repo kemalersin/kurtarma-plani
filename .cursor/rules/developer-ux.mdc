@@ -27,6 +27,12 @@ Kaynak: `docs/WIKI.md` §9. Bu kural tüm geliştirme oturumlarında geçerlidir
 - **Açık / karanlık** tema; sistem tercihi + manuel geçiş
 - Ant Design Vue token sistemi; **Tailwind yok**
 - On-demand import; tek HTML bundle boyutunu gözet
+- **Sayfa genişliği:** AppShell `router-view` → `.kp-page`. Varsayılan dar sütun (`--kp-page-max-width: 800px`). **Liste sayfaları** route `meta.pageLayout: 'wide'` ile tam yatay genişlik (`.kp-page--wide`); tablo/liste ekranlarında zorunlu
+- **Kaydırma çubukları:** `body` dışında yalnızca hover'da görünür (`app.css` global kural)
+- **Tooltip (mobil):** `KpTooltip`; `≤768px` tooltip yok (ui-patterns.mdc)
+- **Drawer (mobil):** `FormDrawer` tam ekran; stack sola kaydırma yok (ui-patterns.mdc)
+- **Modal:** kullanılabilir alanın dikey ortasında; JSON blokları `JsonCodeBlock` ile renklendirilmiş + satır kırılımı
+- **Sekmeli sayfalar:** seçili sekme URL'de (`?tab=`); yenilemede aynı sekme — `useRoutedTabs`
 
 ## İkonlar
 
@@ -45,13 +51,18 @@ Kaynak: `docs/WIKI.md` §9. Bu kural tüm geliştirme oturumlarında geçerlidir
 
 ## Drawer + combobox
 
-- Liste/combobox seçiminde **「Yeni Kayıt」** → ilgili form drawer'ı **mevcut drawer üstüne** aç
-- `z-index` artan stack; alt drawer kapanınca üstteki kalır
+- Form drawer: **`FormDrawer`** + `stackId`; `useDrawerStack` — z-index artar; masaüstünde **alttaki drawer sola kayar** (44px/katman); **mobilde tam ekran, kaydırma yok**
+- Açılışta ilk form alanına otomatik focus
+- Liste/combobox **「Yeni Kayıt」** → drawer mevcut drawer **üstüne**; üst kapanınca alttaki kalır
 
 ## Liste öncelikli UI
 
 - Her veri türü için **liste sayfası** önce; detay/düzenleme drawer veya yan panel
-- Tüm listelerde: **sıralama**, **sayfalama**, **arama**, **filtreleme** (client-side Dexie)
+- **`EntityListPage`:** tablo dikeyde kalan alanı doldurur (`scroll.y`); sütunlar `prepareListTableColumns` ile `minWidth` alır — **%100'e sıkışmaz**; gerekince yatay kaydırma (`scroll.x`). Sekme içi başlık yok; masaüstü araç çubuğu tek satır (arama + filtre ikonu · ortada arşiv · yeni kayıt); mobilde arşiv segmenti üstte ortada, liste **kart** görünümü
+- **Filtreler arama kutusunun sağındaki popover'da** (`FilterOutlined` + aktif rozet); banka built-in (`bank-filter` + `:banks`), diğerleri **declarative** `:filters="ListFilter<T>[]"` (`select` / `numberRange` / `dateRange`). Inline filter yerleştirme yapma
+- Tüm listelerde: **sıralama**, **sayfalama**, **arama**, **filtreleme** (client-side Dexie); **liste sütunlarında tooltip yok** (`Table` `:show-sorter-tooltip="false"`; ellipsis `{ showTitle: false }`)
+- **URL durumu kalıcı:** arama, arşiv, banka, sıralama, sayfa, sayfa boyutu + tüm declarative filtreler `useListQuery({ key })` ile URL query'de; `EntityListPage` `state-key` prop ile prefiks (sekmeli ve çoklu listeli sayfalarda zorunlu)
+- **Masaüstü:** tablo satırına tıklayınca düzenleme drawer (`EntityListPage` → `@edit`)
 - Boş durum ve yükleme skeleton'ları
 
 ## Grafik ve rapor
@@ -63,6 +74,8 @@ Kaynak: `docs/WIKI.md` §9. Bu kural tüm geliştirme oturumlarında geçerlidir
 
 - Varsayılan Türkiye; profil `localeSettings` ile override
 - Tutar/tarih: `Intl` + profil ayarı; timezone **Europe/Istanbul** varsayılan
+- **Para birimi** yalnızca Ayarlar → Bölgesel; formlarda seçilemez (`LocaleInputNumber` + kayıtta profil `currency`)
+- Form tutar/yüzde: `LocaleInputNumber`; ondalık hane ve ayırıcılar locale'e göre
 - Asla ham ISO tarihini kullanıcıya gösterme
 
 ## Çalışma disiplini

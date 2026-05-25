@@ -14,8 +14,11 @@ import {
   Empty,
   Typography,
   Tag,
+  Popconfirm,
+  Space,
   message,
 } from 'ant-design-vue'
+import { DeleteOutlined } from '@ant-design/icons-vue'
 import { useProfileStore } from '@/stores/profile'
 import { APP_NAME } from '@/core/constants'
 import type { ProfileMeta } from '@/core/types/profile'
@@ -26,6 +29,7 @@ const router = useRouter()
 const selectedId = ref<string | null>(null)
 const password = ref('')
 const submitting = ref(false)
+const deletingId = ref<string | null>(null)
 
 const selectedProfile = computed<ProfileMeta | null>(() =>
   profileStore.profiles.find((p) => p.id === selectedId.value) ?? null,
@@ -71,13 +75,37 @@ async function open(): Promise<void> {
 function newProfile(): void {
   router.push({ name: 'setup' })
 }
+
+function restoreProfile(): void {
+  router.push({ name: 'setup', query: { tab: 'restore' } })
+}
+
+async function deleteProfile(id: string, name: string): Promise<void> {
+  deletingId.value = id
+  try {
+    await profileStore.removeProfile(id)
+    if (selectedId.value === id) {
+      password.value = ''
+      selectedId.value = profileStore.profiles[0]?.id ?? null
+    }
+    message.success(`Profil silindi: ${name}`)
+  } catch (error) {
+    console.error(error)
+    message.error('Profil silinemedi.')
+  } finally {
+    deletingId.value = null
+  }
+}
 </script>
 
 <template>
   <div class="kp-center-page">
     <Card class="kp-card" :title="`${APP_NAME} · Profil Seç`">
       <Empty v-if="profilesSorted.length === 0" description="Henüz profil yok.">
-        <Button type="primary" @click="newProfile">Yeni profil oluştur</Button>
+        <Space direction="vertical" :size="8">
+          <Button type="primary" @click="newProfile">Yeni profil oluştur</Button>
+          <Button @click="restoreProfile">Yedekten / senkron'dan geri yükle</Button>
+        </Space>
       </Empty>
 
       <template v-else>
@@ -85,11 +113,11 @@ function newProfile(): void {
           Açmak istediğiniz profili seçin.
         </Typography.Paragraph>
 
-        <List item-layout="horizontal" :data-source="profilesSorted">
+        <List item-layout="horizontal" :data-source="profilesSorted" class="kp-profile-list">
           <template #renderItem="{ item }">
             <ListItem
-              :class="{ 'kp-selected': item.id === selectedId }"
-              style="cursor: pointer; padding: 8px 12px; border-radius: 6px"
+              :class="{ 'kp-profile-list__item--selected': item.id === selectedId }"
+              class="kp-profile-list__item"
               @click="selectedId = item.id"
             >
               <ListItemMeta>
@@ -107,6 +135,26 @@ function newProfile(): void {
                   {{ item.localeSettings.timeZone }}
                 </template>
               </ListItemMeta>
+              <template #actions>
+                <Popconfirm
+                  :title="`「${item.name}」 ve tüm verileri silinsin mi?`"
+                  ok-text="Sil"
+                  cancel-text="Vazgeç"
+                  ok-type="danger"
+                  @confirm="deleteProfile(item.id, item.name)"
+                >
+                  <Button
+                    type="text"
+                    danger
+                    size="small"
+                    :loading="deletingId === item.id"
+                    aria-label="Profili sil"
+                    @click.stop
+                  >
+                    <DeleteOutlined />
+                  </Button>
+                </Popconfirm>
+              </template>
             </ListItem>
           </template>
         </List>
@@ -123,11 +171,12 @@ function newProfile(): void {
           </FormItem>
         </Form>
 
-        <div style="display: flex; gap: 8px; margin-top: 16px">
+        <div class="kp-profile-list__footer">
           <Button type="primary" :loading="submitting" :disabled="!selectedProfile" @click="open">
             Aç
           </Button>
           <Button @click="newProfile">Yeni profil</Button>
+          <Button @click="restoreProfile">Yedekten geri yükle</Button>
         </div>
       </template>
     </Card>
@@ -135,7 +184,24 @@ function newProfile(): void {
 </template>
 
 <style scoped>
-.kp-selected {
+.kp-profile-list__item {
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+}
+
+.kp-profile-list__item--selected {
   background: rgba(22, 119, 255, 0.08);
+}
+
+.kp-profile-list__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.kp-profile-list :deep(.ant-list-item-action) {
+  margin-inline-start: 12px;
 }
 </style>

@@ -45,6 +45,7 @@ import {
 } from '@/core/util/table-columns'
 import { textIncludesSearch } from '@/core/util/search'
 import { useListQuery, type SortOrder } from '@/composables/useListQuery'
+import { useEntitiesStore } from '@/stores/entities'
 
 export interface ListBankOption {
   id: string
@@ -157,6 +158,12 @@ const hasRowAction = computed(
 const resolvedRowActionIcon = computed(
   () => props.rowActionIcon ?? EyeOutlined,
 )
+
+const entitiesStore = useEntitiesStore()
+
+function isRecordSensitive(record: T): boolean {
+  return entitiesStore.isSensitiveById(record.id)
+}
 
 const MOBILE_MQ = '(max-width: 640px)'
 
@@ -477,6 +484,8 @@ const tableWrapStyle = computed(() => ({
 }))
 
 function cellValue(column: TableColumnType<T>, record: T, index: number): string {
+  const kpCol = column as TableColumnType<T> & { kpDisplay?: (row: T) => string }
+  if (kpCol.kpDisplay) return kpCol.kpDisplay(record)
   return formatListCellValue(column, record as T & Record<string, unknown>, index)
 }
 
@@ -780,7 +789,7 @@ watch(
         :scroll="tableScroll"
         @change="onTableChange"
       >
-        <template #bodyCell="{ column, record }">
+        <template #bodyCell="{ column, record, index }">
           <template v-if="column.key === '__actions'">
             <Space class="kp-list__row-actions" :size="4">
               <KpTooltip v-if="hasRowAction" :title="rowActionLabel">
@@ -826,8 +835,19 @@ watch(
             <ColorSwatch :color="recordColor(record as T)" />
           </template>
           <template v-else-if="column.key === 'archived'">
-            <Tag v-if="(record as T).archived" color="default">Arşivli</Tag>
-            <Tag v-else color="green">Aktif</Tag>
+            <Space :size="4" wrap>
+              <Tag v-if="isRecordSensitive(record as T)" color="orange">Hassas</Tag>
+              <Tag v-if="(record as T).archived" color="default">Arşivli</Tag>
+              <Tag v-else color="green">Aktif</Tag>
+            </Space>
+          </template>
+          <template
+            v-else-if="primaryColumn && column.key === primaryColumn.key && isRecordSensitive(record as T)"
+          >
+            <Space :size="6" wrap>
+              <span>{{ cellValue(column, record as T, index) }}</span>
+              <Tag color="orange">Hassas</Tag>
+            </Space>
           </template>
         </template>
       </Table>
@@ -853,6 +873,7 @@ watch(
                 {{ cellValue(primaryColumn, item, index) }}
               </h3>
               <Space class="kp-list-card__actions" :size="4">
+                <Tag v-if="isRecordSensitive(item)" color="orange">Hassas</Tag>
                 <Tag v-if="item.archived" color="default">Arşivli</Tag>
                 <Tag v-else color="green">Aktif</Tag>
                 <KpTooltip v-if="hasRowAction" :title="rowActionLabel">

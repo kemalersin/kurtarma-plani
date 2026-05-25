@@ -4,6 +4,196 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 ## [Unreleased]
 
+### Changed — banka hesabı seçimi
+
+- Banka hesabı combobox'ları banka adına göre gruplu; arama hesap ve banka adında çalışır (gelir/gider, transfer, borç ödemesi, analiz filtresi).
+
+### Changed — kalan borç (taksit planı)
+
+- Kalan borç = ödenmemiş taksit tutarları toplamı + vadesi geçmiş taksitler için biriken gecikme faizi (kredi, taksitli avans plan drawer ve listeler).
+- Erken kapama tahmini gecikmiş taksitlerde vadesi geçmiş dönem faizi + biriken gecikme faizini de içerir.
+
+### Added — yinelenen gelir/gider
+
+- Gelir ve gider formlarında **Yinelenen** seçeneği (günlük / haftalık / aylık / yıllık); plan tarihi ilk yinelenme.
+- Yinelenen kayıtlar otomatik **gerçekleşmiş** sayılır; bakiye, panel grafikleri ve borç karşılama projeksiyonunda genişletilir.
+- Borç karşılama vadeleri kredi + taksitli avans + kredi kartı asgari ödemesini kapsar.
+
+### Added — gömülü favicon
+
+- Sekme ikonu SVG data URI olarak koda gömülü; `file://` ve tek dosya build'de harici favicon dosyası gerekmez.
+
+### Fixed — profil parolası
+
+- Parolasız profilde «Parola ekle» kayıtlar zaten AES ile şifreliyken `reencryptAll(null, …)` hatası veriyordu; yalnızca düz kayıtlar varsa yeniden şifreleme yapılır.
+
+### Added — otomatik senkron (M10 S5)
+
+- **Manuel fallback modu** (`syncMode: 'manual'`): Safari ve FS Access olmayan ortamlarda senkron açılabilir.
+- Push → `.sync` dosyası indirilir; kullanıcı iCloud/Dropbox klasöründe üzerine yazar.
+- Pull → «Güncel dosyayı seç» ile uzak dosya okunur; çakışma ve profil uyumsuzluğu handle modu ile aynı.
+- Otomatik push/pull yalnızca handle modunda; manuel modda «Yerel sürümü indir» / «Güncel dosyayı seç» düğmeleri.
+
+### Changed — güncelleme kontrolü
+
+- Sürüm kontrolü yalnızca GitHub **package.json** `version` alanına bakar (release / commit API kaldırıldı).
+
+### Changed — Ayarlar sekmeleri
+
+- **Veri:** yalnızca yedek / içe aktarma.
+- **Senkron** ve **Sürüm kontrolü** ayrı sekmeler (Veri'den sonra); navbar senkron rozeti Senkron sekmesine gider.
+
+- Çevrimdışıyken otomatik veya manuel sürüm kontrolü **yapılmaz**.
+- Güncelleme linkleri GitHub **dist/** klasörüne yönlendirilir; `dist/` repoda commit edilir.
+
+### Fixed — GitHub sürüm kontrolü
+
+- Aynı semver'de yalnızca sürüm numarasına bakılıyordu; artık **main branch son commit tarihi** ile `APP_BUILD_DATE` karşılaştırılır.
+- «Şimdi kontrol et» dismissed / çevrimdışı durumlarında yanlış «güncel» mesajı göstermez.
+- Kapatılan güncelleme bildirimi «Şimdi kontrol et» ile yeniden açılabilir.
+- «Şimdi kontrol et» kapatılmış bildirimi yeniden açar; bildirim üstte sabit konumda.
+- GitHub release API hata/rate limit durumunda **package.json** yedek yoluna düşer (403 artık bloklamaz).
+
+### Added — GitHub sürüm kontrolü
+
+- Sayfa yenilendiğinde (ayar açıksa) GitHub release veya `main` branch `package.json` sürümü kontrol edilir.
+- Yeni sürüm varsa üst bilgi bandı; Ayarlar → **Sürüm kontrolü** ile otomatik kontrol kapatılabilir veya manuel kontrol yapılabilir.
+
+### Added — Hakkında sayfası
+
+- Sol menüde Ayarlar altında **Hakkında**; sürüm, özellik özeti, yasal uyarı ve [GitHub deposu](https://github.com/kemalersin/kurtarma-plani) bağlantısı.
+
+### Fixed — otomatik senkron pull ve boş veri
+
+- **Bootstrap pull:** Sayfa açılışında entity'ler yüklenmeden önce uzak dosya kontrol edilir (boş liste race'i giderildi).
+- **Periyodik pull:** Açık sekmede ~45 sn'de bir uzak dosya okunur (iCloud/Dropbox gecikmesi).
+- **Focus pull:** Pencere odağına dönünce uzak kontrol.
+- **UI yenileme:** Uzak pull sonrası aktif sayfa yeniden yüklenir (`pullRevision`).
+
+### Fixed — otomatik senkron sayfa yenilemede kapanması
+
+- **Race düzeltmesi:** Profil açılırken senkron ayarları henüz yüklenmeden `saveConfig` çağrılıyor ve `enabled: false` yazılıyordu.
+- Router ve App başlangıcında **senkron store profilden önce** yüklenir; `saveConfig` kalıcı meta ile birleştirir.
+- Senkron seçenek checkbox'ları store yüklenene kadar gösterilmez; varsayılan `encryptFile: true` flicker'ı giderildi.
+
+### Added — Kurulumda yedek / senkron geri yükleme
+
+- **Kurulum** sekmesi: «Yedekten / senkron'dan geri yükle» — `.json` yedek veya `.sync` dosyası; profil kimliği (UUID) korunur.
+- **`ProfileRestorePanel`:** Profil seçim ekranından da erişilebilir; senkron dosyası seçiminde handle otomatik kaydedilir (desteklenen tarayıcılar).
+- **`profile-restore` servisi:** Ortak içe aktarma mantığı.
+
+### Fixed — içe aktarma ve cihazlar arası senkron kimliği
+
+- Yedek içe aktarımından sonra **içe aktarılan profil otomatik açılır** (yanlış profille senkron hatası önlenir).
+- Aynı profil kimliği zaten varsa yeni kimlik üretmek yerine **mevcut profil güncellenir**.
+- «Aktif profilin üzerine yaz» için senkron uyarısı eklendi (yerel kimlik korunur, dosya eşleşmeyebilir).
+
+### Fixed — M10 çoklu profil senkron karışması
+
+- Senkron dosya handle'ı artık **profil başına** IndexedDB'de saklanır (önceden tüm profiller tek handle paylaşıyordu).
+- Profil değiştirildiğinde ilgili profilin dosyası yüklenir; diğer profile ait dosya yanlışlıkla eşleştirilmez.
+- `fileNameByProfile` ile dosya adları profil bazında tutulur.
+
+### Fixed — M10 senkron profil uyuşmazlığı
+
+- Senkron dosyasındaki profil kimliği aktif profilden farklıysa artık kalıcı hata yerine **profil uyuşmazlığı** durumu gösterilir.
+- **«Bu profile aktar ve bağla»:** Dosyadaki veriyi mevcut profile içe aktarır ve dosya meta verisini günceller (yeni cihaz / profil yeniden oluşturma senaryosu).
+
+### Added — M10 Otomatik senkron (S4)
+
+- **`SyncConflictModal`:** Uzak / yerel / vazgeç seçenekleri; şifreli dosya parolası; yerel kayıp uyarısı.
+- **`SyncStatusBadge`:** Navbar senkron rozeti (güncel, yazma bekliyor, uzak güncelleme, çakışma, hata); çakışmada modal, diğer durumlarda Ayarlar → Veri.
+- **`useSyncStore`:** `resolveConflictUseRemote`, `resolveConflictKeepLocal`, `conflictContext`; çakışma algılandığında modal otomatik açılır.
+
+### Added — M10 Otomatik senkron (S3)
+
+- **`sync-scheduler.ts`:** Kayıt sonrası 2 sn debounced push; `visibilitychange` ile otomatik pull; profil kilidi öncesi flush.
+- **`sync-conflict.ts`:** Yerel/uzak değişiklik ayrımı; çakışmada otomatik pull atlanır (S4 modal öncesi).
+- **`entities` hook:** `save` / `remove` sonrası `notifySyncLocalChange`.
+- **Oturum parolası:** Manuel senkron sonrası `sessionStorage` ile otomatik push için parola hatırlama.
+- **Durum:** `pending_push`, `remote_pending`, `conflict` runtime durumları.
+
+### Added — M10 Otomatik senkron (S2)
+
+- **`src/core/services/sync/`:** `sync-crypto`, `sync-envelope` (KP-SYNC1 build/parse + SHA-256), `sync-handle-store`, `sync-file` (File System Access okuma/yazma), `sync-engine` (manuel pull → push).
+- **Meta DB v5:** `syncHandles` tablosu — seçilen senkron dosyası handle'ı IndexedDB'de kalıcı.
+- **`useSyncStore`:** `pickFile`, `createFile`, `runManualSync`, `hasHandle`, `syncing`; revizyon takibi (`remoteRevisionByProfile`).
+- **Ayarlar → Veri → Otomatik senkron:** «Dosya seç» / «Yeni dosya», «Şimdi senkronize et»; uzak revizyon farkında onaylı pull; şifreli dosya için parola modalı.
+
+### Added — M10 Otomatik senkron (S1)
+
+- **`SyncConfig` + `KP-SYNC1` zarf tipleri** (`src/core/types/sync.ts`) ve Vitest doğrulama.
+- **Meta DB v4:** `AppMeta.deviceId` + `AppMeta.sync`; cihaz kimliği otomatik üretilir.
+- **`useSyncStore`:** Senkron ayarlarını IndexedDB meta'da kalıcı tutar (I/O henüz yok).
+- **Ayarlar → Veri → Otomatik senkron:** Açılıp kapatılabilir toggle; şifreleme, hassas/AI dahil etme ve otomatik yazma tercihleri.
+
+### Added — M8 AI asistan
+
+- **AI sohbet görsel desteği:** Composer'dan ekran görüntüsü yükleme (dosya seçici, yapıştırma); önizleme ve kaldırma; kullanıcı balonunda görüntüleme. OpenAI uyumlu, Anthropic ve Gemini sağlayıcıları multimodal API formatına uyarlanır. Görseller finans snapshot'ına dahil edilmez.
+- **AI sohbet dosya ekleri:** PDF, TXT, CSV, JSON + görseller; metin dosyaları tüm sağlayıcılarda, PDF Anthropic/Gemini'de native; ataç simgesi ile yükleme.
+- **AI kayıt önerisi (`kp-proposals`):** Asistan yanıtlarında DB uyumlu JSON blokları; tüm finans entity tipleri; ref/bankName ile ilişki çözümleme; sohbet balonunda «Kayıtları ekle» ile IndexedDB'ye yazma.
+- **Görsel sağlayıcı uyumu:** Ollama görsel mesajları yerel `/api/chat` + `images[]` formatına taşındı; DeepSeek/vLLM için görsel ön kontrol ve Türkçe hata mesajı.
+- **AI CORS (geliştirme):** Vite dev proxy (`/kp-ai-proxy/*`) — Anthropic, OpenAI, Gemini, DeepSeek istekleri localhost'tan CORS'suz gider; kayıtlı varsayılan bulut URL'leri dev'de otomatik proxy'ye yönlendirilir.
+- **Anthropic tarayıcı erişimi:** `anthropic-dangerous-direct-browser-access: true` header'ı eklendi (CORS zorunluluğu).
+
+- **`scripts/fetch-models-catalog.ts`:** Build sırasında [models.dev](https://models.dev) kataloğundan Anthropic, OpenAI, Gemini, DeepSeek modellerini çeker; `src/data/models-catalog/bundled.json` (fallback) + isteğe bağlı `generated.json` (`FETCH_MODELS=1`).
+- **Model kataloğu IndexedDB:** Meta DB `modelsCatalog` store; okuma önceliği IndexedDB > gömülü katalog. Ayarlar → AI → «Kataloğu güncelle» (çevrimiçi, models.dev); «Gömülüye sıfırla».
+- **Provider adapter'ları:** SSE stream — Anthropic Messages, OpenAI uyumlu (OpenAI, DeepSeek, Ollama, vLLM), Gemini `streamGenerateContent`; anlık token + USD maliyet (`models.dev` 1M token fiyatları).
+- **Kalıcılık:** `chatSession` (aktif sohbet, sayfa yenilemede devam) + `aiUsage` ledger (sohbet temizlense bile kalır); `aiSettings` profil DB'de.
+- **AI snapshot:** `buildAiFinanceSnapshot` — hassas kayıtlar, `aiSettings`/`aiUsage`/`chatSession` ve gizli alanlar (apiKey vb.) sistem promptuna dahil edilmez.
+- **UI:** `/ai` sohbet sayfası (çevrimdışı devre dışı + açıklama); Ayarlar → AI sekmesi (sağlayıcı CRUD, model seçimi, Ollama/vLLM uzak model listesi, kullanım tablosu); sol menü «AI Asistan».
+- **7 yeni Vitest** (`cost.spec.ts`) — toplam 107/107.
+- **2 yeni Vitest** (`catalog-extract.spec.ts`) — toplam 109/109.
+
+### Deferred — M7.3 Export (UI)
+
+- Excel/PDF export ertelendi; M9 veya ayrı iterasyonda ele alınacak.
+
+
+- **`/analytics` route** (`pageLayout: 'wide'`) — sekmeli sayfa: Borç analizi, Nakit akışı, Hesap geçmişi; URL'de `?tab=` + filtreler (`from`, `to`, `bank`, `endpoint`, `category`).
+- **`reports.ts`:** Saf TS rapor sorguları — `debtInstallmentRows`, `cashflowMonthRows`, `movementRows`, `debtInstallmentMonthlySeries`, `filterCashflowRecords`, `categoryOptions`.
+- **`useAnalyticsFilters` / `useAnalyticsData`:** URL senkron filtreler + entity yükleme composable'ları.
+- **`AnalyticsFilterBar`:** Tarih aralığı, banka, hesap/kasa, kategori (nakit akışı sekmesinde) filtreleri.
+- **Sekme bileşenleri:** Her sekmede grafik + tablo — borç vadeleri (stacked bar + taksit listesi), nakit akışı (bar/line + donut + aylık tablo), hesap geçmişi (bakiye trendi + hareket listesi).
+- **Menü:** Sol menüde «Analiz & rapor» (`LineChartOutlined`); breadcrumb güncellendi.
+- **5 yeni Vitest** (`reports.spec.ts`) — toplam 98/98.
+
+### Changed — Bildirim (notice) yapısı
+
+- **`KpNotice.vue`:** AntDV `Alert` banner yerine kompakt, kart benzeri bildirim — ikon + başlık + isteğe bağlı detay + inline aksiyon + sağ üst kapat. `info` / `warning` / `error` / `legal` tonları; AntDV token renkleri; mobil uyumlu.
+- **`AppDisclaimer`:** `KpNotice` (`legal`) ile yeniden yapılandırıldı — tam genişlik banner kaldırıldı.
+- **Panel uyarıları:** Eksiye düşen bakiye ve gecikmiş nakit akışı `kp-dashboard__notices` bölümünde gruplandı; her biri `KpNotice` + alt satırda aksiyon düğmesi.
+
+### Changed — Dövizli hesap tutarlarında doğru para birimi simgesi
+
+- **Panel → En yüksek bakiyeli hesaplar:** Bakiyeler artık hesap/kasanın kendi `currency` koduna göre formatlanır (USD hesapta ₺ yerine $).
+- **`assetSnapshot` / `useDashboardData`:** `perAccount`, `perRegister` ve `topAccounts` kayıtlarına `currency` alanı eklendi.
+- **Hesaplar / Kasalar listesi (mobil kart):** `EntityListPage` `kpDisplay` desteği — bakiye sütunları mobilde de doğru para birimiyle gösterilir.
+- **AccountsTab / CashRegistersTab:** `useLocaleFormatters` ile tutarlı formatlama.
+
+### Changed — Panel (Dashboard) genişletildi
+
+- **`AppDisclaimer`:** Üst banner artık kapatılabilir (`closable` + `localStorage` `kp.disclaimerBannerDismissed.v1`); kısa mesaj _"Bu uygulama yalnızca bilgilendirme ve kişisel planlama amaçlıdır."_ + açıklama; «Detay» ile tam yasal modal açılır. Panel'de en üstte gösterilir.
+- **`/home` route:** `pageLayout: 'wide'` — panel tam genişlikte.
+- **Panel içeriği zenginleştirildi:** 8 özet metrik (2 satır: finansal özet + borç karşılama / ortalamalar / vade dikkati); varlık trendi (90 gün line+area); 30 gün borç karşılama gauge (`computeDebtCoverage`); gelir kategorileri donut; gecikmiş nakit akışı uyarısı + hızlı link; en yüksek bakiyeli hesap/kasa listesi; borç türleri dökümü; hızlı erişim (Borçlar / Nakit akışı / Yönetim).
+- **`useDashboardData`:** `assetTrend`, `debtCoverage30`, `cashflowAttention`, `currentMonth`, `topAccounts` alanları eklendi.
+
+### Added — M7.1: Analiz motoru + Dashboard (Panel) [ECharts]
+
+- **Yeni modül `src/features/analytics/`** (saf TS, Vue bağımsız) — UI'dan ayrık analitik motor.
+  - `snapshot.ts`: `assetSnapshot` (hesap + kasa toplamı; dövizli olanı toplama almaz, listede gösterir), `debtSnapshot` (kredi anüite kalan + kart `endingBalance` + KMH revolving `total` + taksitli avans kalan + overdue sayısı + donut breakdown), `netWorth` (varlık − borç + ratio).
+  - `series.ts`: `monthlyCashflowSeries` (`plan` / `actual` / `effective` basis), `incomeByType` / `expenseByType` (donut için), `assetTrendSeries` (günlük kümülatif bakiye — 90+ gün için 7'şer adım), `upcomingDebtSeries` (ileriye doğru aylık vade toplamı).
+  - `useDashboardData.ts`: tüm gerekli store'ları (`account`, `cashRegister`, `income`, `expense`, `loan`/`loanPayment`, `creditCard`/`creditCardTransaction`, `cashAdvanceAccount`/`cashAdvanceTransaction`, `installmentCashAdvance`/`installmentCashAdvancePayment`, `transfer`, `incomeType`, `expenseType`) paralel yükler, snapshot + serileri reaktif birleştirir, `localCurrency` farkındalığı.
+- **`src/components/KpChart.vue`** — ECharts ortak sarıcı: **tree-shaken** core (`echarts/core` + `CanvasRenderer` + `BarChart` / `LineChart` / `PieChart` + `Grid` / `Legend` / `Title` / `Tooltip` / `DataZoom`); `ResizeObserver` ile responsive resize; `useUiStore.isDark` izleyip tema değişimde re-init; `isEmpty` durumunda boş-mesaj overlay (dispose + re-init).
+- **`HomeView` (Panel) yenilendi**: `PageHeader` + `KpStatRow` (Toplam varlık / Toplam borç + vade dikkati / Net varlık + borç-varlık oranı / 6 aylık ort. gelir / 6 aylık ort. gider) + 4 grafik:
+  1. **Aylık nakit akışı (13 ay)** — Bar (gelir/gider) + Line (net).
+  2. **Borç dağılımı** — Pie (kredi / kart / KMH / taksitli avans).
+  3. **Gider kategorileri (13 ay)** — Pie (`expenseByType`).
+  4. **Yaklaşan borç vadeleri (6 ay)** — Bar (`upcomingDebtSeries`).
+- Boş durumlar her grafik için açıklayıcı mesajla geçilir; hesap bakiyesi eksiye düşmüşse üstte uyarı `Alert`.
+- **Bağımlılık:** `echarts@5.x`; build artışı ~620 KB (gzip ~190 KB). M9 bundle optimizasyonunda izlenecek.
+- **Vitest:** 18 yeni test (`series.spec.ts` + `snapshot.spec.ts`) — `monthsBetween`, `monthlyCashflowSeries` (3 basis), kategori breakdown, vade serisi, asset/debt snapshot currency filtreleri, netWorth. **Toplam 93/93 geçti.**
+
 ### Changed — Drawer içi tablolar (liste kuralları)
 
 - **`PaymentSourcePicker`:** `account` ve `cashRegister` koleksiyonları drawer açılmadan önce yüklenir — kredi kartı / nakit avans / taksitli avans / kredi ödeme formlarında hesap-kasa listesi boş kalma sorunu giderildi.

@@ -84,10 +84,6 @@ export const useUiStore = defineStore('ui', () => {
   }
 
   function setSidebarPeeking(value: boolean): void {
-    if (sidebarPinned.value) {
-      sidebarPeeking.value = false
-      return
-    }
     sidebarPeeking.value = value
   }
 

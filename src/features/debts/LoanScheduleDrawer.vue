@@ -15,9 +15,10 @@ import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { Loan, LoanPayment } from '@/core/types/entities'
 import type { ScheduleRow } from '@/finance/loan'
 import { D } from '@/finance/decimal'
-import { buildScheduleForLoan, indexPayments, paidThroughIndex } from './loanHelpers'
+import { buildScheduleForLoan, indexPayments, paidThroughIndex, payoffForLoan, remainingDebtForLoan } from './loanHelpers'
 import { buildScheduleDrawerColumns } from './schedule-table-columns'
-import { payoffAmount } from '@/finance/loan'
+import { payoffStatTooltip } from './payoffStatTooltip'
+import { displayInstallmentAmount } from './installmentDisplay'
 import PaymentMarkDrawer from './PaymentMarkDrawer.vue'
 
 interface Props {
@@ -49,21 +50,14 @@ const paymentMap = computed(() => indexPayments(loanPayments.value))
 
 const paidIndex = computed(() => paidThroughIndex(loanPayments.value))
 
-const remainingPrincipal = computed<string>(() => {
-  if (!schedule.value) return '0'
-  const idx = paidIndex.value
-  if (idx >= schedule.value.rows.length) return '0'
-  if (idx === 0) return schedule.value.rows[0]!.beginningBalance
-  return schedule.value.rows[idx - 1]!.endingBalance
+const remainingDebt = computed<string>(() => {
+  if (!schedule.value || !props.loan) return '0'
+  return remainingDebtForLoan(props.loan, schedule.value, paidIndex.value, undefined, loanPayments.value)
 })
 
 const payoff = computed<string>(() => {
-  if (!schedule.value) return '0'
-  return payoffAmount({
-    schedule: schedule.value,
-    paidThroughIndex: paidIndex.value,
-    asOfDate: new Date().toISOString(),
-  })
+  if (!schedule.value || !props.loan) return '0'
+  return payoffForLoan(props.loan, schedule.value, paidIndex.value, undefined, loanPayments.value)
 })
 
 const totalPaid = computed<string>(() =>
@@ -77,13 +71,22 @@ function formatMoney(value: string | number): string {
   return formatCurrency(value, props.loan?.currency)
 }
 
+function installmentDisplay(row: ScheduleRow): string {
+  const payment = paymentMap.value.get(row.index)
+  return formatMoney(displayInstallmentAmount(row.installment, payment))
+}
+
 const stats = computed<KpStat[]>(() => [
   {
-    label: 'Kalan anapara',
-    value: formatMoney(remainingPrincipal.value),
+    label: 'Kalan borç',
+    value: formatMoney(remainingDebt.value),
     tone: 'primary',
   },
-  { label: 'Erken kapama (bugün)', value: formatMoney(payoff.value) },
+  {
+    label: 'Erken kapama (bugün)',
+    value: formatMoney(payoff.value),
+    labelTooltip: payoffStatTooltip(),
+  },
   { label: 'Toplam ödenen', value: formatMoney(totalPaid.value), tone: 'success' },
   {
     label: 'Ödenen taksit',
@@ -131,7 +134,8 @@ function openMark(row: ScheduleRow): void {
 
 function canDeletePayment(row: ScheduleRow): boolean {
   const payment = paymentMap.value.get(row.index)
-  if (!payment?.paidDate) return false
+  if (!payment) return false
+  if (!payment.paidDate) return true
   return !loanPayments.value.some(
     (p) => p.installmentIndex > row.index && !!p.paidDate,
   )
@@ -139,8 +143,8 @@ function canDeletePayment(row: ScheduleRow): boolean {
 
 async function onDeletePayment(row: ScheduleRow): Promise<void> {
   const payment = paymentMap.value.get(row.index)
-  if (!payment?.paidDate) return
-  if (!canDeletePayment(row)) {
+  if (!payment) return
+  if (payment.paidDate && !canDeletePayment(row)) {
     message.warning(
       'Önce sonraki taksit ödemelerini kaldırın; ardından bu ödeme silinebilir.',
     )
@@ -179,7 +183,7 @@ function scheduleRowProps(row: ScheduleRow): Record<string, unknown> {
         type="info"
         show-icon
         message="Bilgi"
-        description="Vade gecikmesinde gecikme faizi günlük olarak hesaplanır. Erken kapama tutarı, plan üzerindeki kalan anaparaya kısmi ay faizinin eklenmesiyle bulunur (banka sözleşmesi farklı uygulayabilir)."
+        description="Vade gecikmesinde gecikme faizi günlük olarak hesaplanır. Erken kapama tahmini: kalan anapara + kısmi dönem faizi + biriken gecikme faizi (banka sözleşmesi ve komisyon farklı uygulayabilir)."
       />
 
       <KpStatRow :items="stats" />
@@ -196,7 +200,10 @@ function scheduleRowProps(row: ScheduleRow): Record<string, unknown> {
         @delete="onDeletePayment"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'status'">
+          <template v-if="column.key === 'installment'">
+            {{ installmentDisplay(record as ScheduleRow) }}
+          </template>
+          <template v-else-if="column.key === 'status'">
             <Tag :color="STATUS_COLORS[statusFor(record as ScheduleRow)]">
               {{ STATUS_LABELS[statusFor(record as ScheduleRow)] }}
             </Tag>

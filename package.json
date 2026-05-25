@@ -1,14 +1,18 @@
 {
   "name": "kurtarma-plani",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc -b && vite build",
-    "build:models": "FETCH_MODELS=1 vue-tsc -b && vite build",
+    "dev:clean": "rm -rf node_modules/.vite && vite",
+    "build": "vite-node scripts/fetch-models-catalog.ts && vue-tsc -b && vite build",
+    "build:models": "FETCH_MODELS=1 vite-node scripts/fetch-models-catalog.ts && vue-tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "vue-tsc -b"
+    "typecheck": "vue-tsc -b",
+    "sync:banking-feed": "vite-node scripts/sync-banking-preset-feed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
@@ -16,18 +20,27 @@
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "dayjs": "^1.11.13",
+    "decimal.js": "^10.6.0",
     "dexie": "^4.4.2",
+    "dompurify": "^3.4.5",
+    "echarts": "^6.1.0",
+    "marked": "^18.0.4",
     "pinia": "^3.0.3",
     "vue": "^3.5.17",
     "vue-router": "^4.5.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
     "@types/node": "^25.9.1",
     "@vitejs/plugin-vue": "^6.0.0",
+    "@vitest/coverage-v8": "^4.1.7",
+    "jsdom": "^29.1.1",
     "typescript": "~5.8.3",
     "vite": "^6.3.5",
+    "vite-node": "^3.2.4",
     "vite-plugin-singlefile": "^2.2.0",
+    "vitest": "^4.1.7",
     "vue-tsc": "^2.2.10"
   }
 }

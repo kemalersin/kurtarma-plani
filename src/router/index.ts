@@ -1,5 +1,7 @@
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
 import { useProfileStore } from '@/stores/profile'
+import { useSyncStore } from '@/stores/sync'
+import { ensureSyncBootstrap } from '@/core/services/sync/sync-scheduler'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -24,11 +26,47 @@ const routes: RouteRecordRaw[] = [
         path: 'home',
         name: 'home',
         component: () => import('@/features/home/HomeView.vue'),
+        meta: { pageLayout: 'wide' },
+      },
+      {
+        path: 'admin',
+        name: 'admin',
+        component: () => import('@/features/admin/AdminView.vue'),
+        meta: { pageLayout: 'wide-fill' },
+      },
+      {
+        path: 'debts',
+        name: 'debts',
+        component: () => import('@/features/debts/DebtsView.vue'),
+        meta: { pageLayout: 'wide-fill' },
+      },
+      {
+        path: 'cashflow',
+        name: 'cashflow',
+        component: () => import('@/features/cashflow/CashflowView.vue'),
+        meta: { pageLayout: 'wide-fill' },
+      },
+      {
+        path: 'analytics',
+        name: 'analytics',
+        component: () => import('@/features/analytics/AnalyticsView.vue'),
+        meta: { pageLayout: 'wide' },
+      },
+      {
+        path: 'ai',
+        name: 'ai',
+        component: () => import('@/features/ai/AiView.vue'),
+        meta: { pageLayout: 'wide-fill' },
       },
       {
         path: 'settings',
         name: 'settings',
         component: () => import('@/features/settings/SettingsView.vue'),
+      },
+      {
+        path: 'about',
+        name: 'about',
+        component: () => import('@/features/about/AboutView.vue'),
       },
     ],
   },
@@ -45,6 +83,9 @@ export const router = createRouter({
 
 router.beforeEach(async (to) => {
   const profileStore = useProfileStore()
+  const syncStore = useSyncStore()
+  // Senkron ayarları profil unlock hook'larından önce yüklenmeli (race → enabled=false yazılmasın).
+  if (!syncStore.loaded) await syncStore.load()
   if (!profileStore.loaded) await profileStore.load()
 
   if (!profileStore.hasAnyProfile) {
@@ -59,6 +100,10 @@ router.beforeEach(async (to) => {
 
   if (to.name === 'select' || to.name === 'setup') {
     return { name: 'home' }
+  }
+
+  if (profileStore.unlocked && to.matched.some((r) => r.meta.requiresProfile)) {
+    await ensureSyncBootstrap()
   }
 
   return true

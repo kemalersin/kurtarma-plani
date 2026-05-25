@@ -12,4 +12,6 @@ export interface AiProviderConfig {
 export interface AiSettings {
   activeProviderId?: string
   providers: AiProviderConfig[]
+  /** Varsayılan sistem promptunun sonuna eklenir. */
+  customSystemPrompt?: string
 }

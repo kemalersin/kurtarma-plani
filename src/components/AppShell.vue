@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Layout,
@@ -10,7 +10,6 @@ import {
   Breadcrumb,
   BreadcrumbItem as AntBreadcrumbItem,
   Button,
-  Tooltip,
   Typography,
 } from 'ant-design-vue'
 import {
@@ -18,27 +17,72 @@ import {
   MenuUnfoldOutlined,
   PushpinOutlined,
   DashboardOutlined,
+  DatabaseOutlined,
+  CreditCardOutlined,
+  SwapOutlined,
+  LineChartOutlined,
+  RobotOutlined,
   SettingOutlined,
+  InfoCircleOutlined,
   LockOutlined,
 } from '@ant-design/icons-vue'
 import type { MenuInfo } from 'ant-design-vue/es/menu/src/interface'
 import { useUiStore } from '@/stores/ui'
 import { useProfileStore } from '@/stores/profile'
+import { useSyncStore } from '@/stores/sync'
+import KpTooltip from '@/components/KpTooltip.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+import SyncStatusBadge from '@/components/SyncStatusBadge.vue'
+import SyncConflictModal from '@/components/SyncConflictModal.vue'
+import { KP_HOVER_CAPABLE_MQ, KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/composables/useMatchMedia'
 import BrandMark from '@/components/icons/BrandMark.vue'
 import { APP_NAME, APP_VERSION } from '@/core/constants'
 import { buildBreadcrumb } from '@/router/breadcrumb'
+import { resolvePageLayout, isWidePageLayout } from '@/router/meta'
 
 const ui = useUiStore()
 const profileStore = useProfileStore()
+const syncStore = useSyncStore()
 const route = useRoute()
 const router = useRouter()
 
+const isMobileShell = useMatchMedia(KP_MOBILE_VIEWPORT_MQ)
+const hoverCapable = useMatchMedia(KP_HOVER_CAPABLE_MQ)
+
+const hoverPeekEnabled = computed(
+  () => !isMobileShell.value && hoverCapable.value && !ui.sidebarPinned,
+)
+
+const menuOpen = computed(() =>
+  isMobileShell.value ? ui.sidebarPeeking : ui.sidebarVisible,
+)
+
+const hamburgerTooltip = computed(() => {
+  if (isMobileShell.value) {
+    return ui.sidebarPeeking ? 'Menüyü kapat' : 'Menüyü aç'
+  }
+  if (!hoverCapable.value && !ui.sidebarPinned) {
+    return ui.sidebarPeeking ? 'Menüyü kapat' : 'Menüyü aç'
+  }
+  return ui.sidebarPinned ? 'Menüyü gizle' : 'Menüyü sabitle (üzerine gel: aç)'
+})
+
 const selectedKeys = computed<string[]>(() => [String(route.name ?? '')])
 const breadcrumbTrail = computed(() => buildBreadcrumb(route))
+const pageLayoutClasses = computed(() => {
+  const layout = resolvePageLayout(route)
+  return {
+    'kp-page--wide': isWidePageLayout(layout),
+    'kp-page--fill': layout === 'wide-fill',
+  }
+})
+
+/** Uzak pull sonrası aktif sayfayı yeniden mount eder (entity cache temizlenir). */
+const pageViewKey = computed(() => `${route.fullPath}::${syncStore.pullRevision}`)
 
 function navigate(info: MenuInfo): void {
   router.push({ name: String(info.key) })
+  if (isMobileShell.value) ui.setSidebarPeeking(false)
 }
 
 function lock(): void {
@@ -46,20 +90,53 @@ function lock(): void {
 }
 
 function onHamburgerClick(): void {
+  if (isMobileShell.value) {
+    ui.setSidebarPeeking(!ui.sidebarPeeking)
+    return
+  }
+  if (!hoverCapable.value && !ui.sidebarPinned) {
+    ui.setSidebarPeeking(!ui.sidebarPeeking)
+    return
+  }
   ui.toggleSidebarPin()
 }
 
 function onHamburgerEnter(): void {
-  if (!ui.sidebarPinned) ui.setSidebarPeeking(true)
+  if (!hoverPeekEnabled.value) return
+  ui.setSidebarPeeking(true)
 }
 
 function onSidebarEnter(): void {
-  if (!ui.sidebarPinned) ui.setSidebarPeeking(true)
+  if (!hoverPeekEnabled.value) return
+  ui.setSidebarPeeking(true)
 }
 
 function onSidebarLeave(): void {
-  if (!ui.sidebarPinned) ui.setSidebarPeeking(false)
+  if (!hoverPeekEnabled.value) return
+  ui.setSidebarPeeking(false)
 }
+
+function closeSidebarOverlay(): void {
+  ui.setSidebarPeeking(false)
+}
+
+watch(isMobileShell, (mobile) => {
+  if (mobile) ui.setSidebarPeeking(false)
+})
+
+watch(
+  () => route.fullPath,
+  () => {
+    if (isMobileShell.value) ui.setSidebarPeeking(false)
+  },
+)
+
+watch(
+  () => syncStore.conflictPending,
+  (pending) => {
+    if (pending) syncStore.openConflictModal()
+  },
+)
 
 function gotoCrumb(name?: string): void {
   if (name) router.push({ name })
@@ -67,15 +144,15 @@ function gotoCrumb(name?: string): void {
 </script>
 
 <template>
-  <div class="kp-shell" :class="{ 'kp-shell--pinned': ui.sidebarPinned }">
+  <div class="kp-shell" :class="{ 'kp-shell--pinned': !isMobileShell && ui.sidebarPinned }">
     <aside
       class="kp-sider"
       :class="{
-        'kp-sider--floating': !ui.sidebarPinned,
-        'kp-sider--visible': ui.sidebarVisible,
+        'kp-sider--floating': isMobileShell || !ui.sidebarPinned,
+        'kp-sider--visible': menuOpen,
       }"
-      @mouseenter="onSidebarEnter"
-      @mouseleave="onSidebarLeave"
+      @mouseenter="hoverPeekEnabled ? onSidebarEnter : undefined"
+      @mouseleave="hoverPeekEnabled ? onSidebarLeave : undefined"
     >
       <div class="kp-sider__brand">
         <div class="kp-sider__brand-text">
@@ -87,7 +164,7 @@ function gotoCrumb(name?: string): void {
             KİŞİSEL FİNANSAL PLAN
           </Typography.Text>
         </div>
-        <Tooltip v-if="!ui.sidebarPinned" title="Menüyü sabitle">
+        <KpTooltip v-if="!isMobileShell && !ui.sidebarPinned" title="Menüyü sabitle">
           <Button
             type="text"
             size="small"
@@ -97,7 +174,7 @@ function gotoCrumb(name?: string): void {
           >
             <PushpinOutlined />
           </Button>
-        </Tooltip>
+        </KpTooltip>
       </div>
 
       <div v-if="profileStore.activeProfile" class="kp-sider__profile">
@@ -124,9 +201,33 @@ function gotoCrumb(name?: string): void {
           <template #icon><DashboardOutlined /></template>
           <span>Panel</span>
         </MenuItem>
+        <MenuItem key="admin">
+          <template #icon><DatabaseOutlined /></template>
+          <span>Yönetim</span>
+        </MenuItem>
+        <MenuItem key="debts">
+          <template #icon><CreditCardOutlined /></template>
+          <span>Borçlar</span>
+        </MenuItem>
+        <MenuItem key="cashflow">
+          <template #icon><SwapOutlined /></template>
+          <span>Nakit akışı</span>
+        </MenuItem>
+        <MenuItem key="analytics">
+          <template #icon><LineChartOutlined /></template>
+          <span>Analiz & rapor</span>
+        </MenuItem>
+        <MenuItem key="ai">
+          <template #icon><RobotOutlined /></template>
+          <span>AI Asistan</span>
+        </MenuItem>
         <MenuItem key="settings">
           <template #icon><SettingOutlined /></template>
           <span>Ayarlar</span>
+        </MenuItem>
+        <MenuItem key="about">
+          <template #icon><InfoCircleOutlined /></template>
+          <span>Hakkında</span>
         </MenuItem>
       </Menu>
 
@@ -134,27 +235,29 @@ function gotoCrumb(name?: string): void {
     </aside>
 
     <div
-      v-if="!ui.sidebarPinned && ui.sidebarPeeking"
+      v-if="menuOpen && (isMobileShell || !ui.sidebarPinned)"
       class="kp-sider__scrim"
       aria-hidden="true"
+      @click="closeSidebarOverlay"
     />
 
     <Layout class="kp-main">
       <LayoutHeader class="kp-header">
-        <Tooltip
-          :title="ui.sidebarPinned ? 'Menüyü gizle' : 'Menüyü sabitle (üzerine gel: aç)'"
-        >
+        <KpTooltip :title="hamburgerTooltip">
           <Button
             type="text"
             class="kp-header__hamburger"
-            :aria-label="'Menü'"
+            :aria-label="isMobileShell && ui.sidebarPeeking ? 'Menüyü kapat' : 'Menüyü aç'"
             @click="onHamburgerClick"
-            @mouseenter="onHamburgerEnter"
+            @mouseenter="hoverPeekEnabled ? onHamburgerEnter : undefined"
           >
-            <MenuFoldOutlined v-if="ui.sidebarPinned" style="font-size: 18px" />
+            <MenuFoldOutlined
+              v-if="!isMobileShell && ui.sidebarPinned"
+              style="font-size: 18px"
+            />
             <MenuUnfoldOutlined v-else style="font-size: 18px" />
           </Button>
-        </Tooltip>
+        </KpTooltip>
 
         <Breadcrumb separator="/">
           <AntBreadcrumbItem
@@ -171,19 +274,25 @@ function gotoCrumb(name?: string): void {
 
         <div class="kp-spacer" />
 
+        <SyncStatusBadge />
+
         <ThemeToggle />
 
-        <Tooltip title="Profili kilitle / değiştir">
+        <KpTooltip title="Profili kilitle / değiştir">
           <Button type="text" :aria-label="'Profili kilitle'" @click="lock">
             <LockOutlined />
           </Button>
-        </Tooltip>
+        </KpTooltip>
       </LayoutHeader>
 
       <LayoutContent class="kp-content">
-        <router-view />
+        <div class="kp-page" :class="pageLayoutClasses">
+          <router-view :key="pageViewKey" />
+        </div>
       </LayoutContent>
     </Layout>
+
+    <SyncConflictModal />
   </div>
 </template>
 
@@ -250,7 +359,7 @@ function gotoCrumb(name?: string): void {
 .kp-sider__brand-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 18px;
   font-weight: 600;
   color: var(--kp-brand, #1677ff);
@@ -258,6 +367,10 @@ function gotoCrumb(name?: string): void {
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.2;
+}
+
+.kp-sider__brand-title :deep(.kp-brand-mark) {
+  font-size: 26px;
 }
 
 .kp-sider__brand-title > span {
@@ -406,8 +519,11 @@ function gotoCrumb(name?: string): void {
 }
 
 .kp-content {
-  padding: 16px;
+  padding: 16px 16px 24px;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 @media (max-width: 768px) {
@@ -417,6 +533,8 @@ function gotoCrumb(name?: string): void {
     bottom: 0;
     left: 0;
     height: 100%;
+    width: 240px;
+    flex: none;
     transform: translateX(-100%);
     box-shadow: 4px 0 16px rgba(0, 0, 0, 0.12);
   }
@@ -425,8 +543,12 @@ function gotoCrumb(name?: string): void {
     transform: translateX(0);
   }
 
-  .kp-shell--pinned .kp-content {
-    padding: 12px;
+  .kp-sider__scrim {
+    cursor: pointer;
+  }
+
+  .kp-content {
+    padding: 12px 12px 20px;
   }
 }
 </style>

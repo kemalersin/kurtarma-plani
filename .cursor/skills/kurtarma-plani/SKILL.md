@@ -30,13 +30,15 @@ Tek HTML statik SPA; borç/gelir/gider takibi; IndexedDB; opsiyonel parola şifr
 
 **Sayfa genişliği:** `resolvePageLayout()` (`src/router/meta.ts`); AppShell `.kp-page` / `.kp-page--wide`.
 
-**Grafik:** ECharts dashboard + ayrı analiz/rapor sayfaları.
+**Grafik:** ECharts dashboard + ayrı analiz/rapor sayfaları. Tüm grafikler **`KpChart.vue`** sarıcısından geçer — tree-shaken `echarts/core` + `CanvasRenderer` + `BarChart`/`LineChart`/`PieChart` + `Grid`/`Legend`/`Title`/`Tooltip`/`DataZoom` (yeni grafik tipi gerekirse `use([...])` listesine eklenir). Responsive `ResizeObserver`; tema değiştiğinde dispose + re-init (`useUiStore.isDark`); `isEmpty` durumu boş-mesaj overlay'iyle.
 
 **Bölgesel:** `<a-config-provider :locale="trTR">`; profil `localeSettings` (Ayarlar → Bölgesel: locale, **para birimi**, timezone, tarih formatı). Para birimi formlarda değiştirilemez; `LocaleInputNumber` + `useLocaleFormatters`. Varsayılan tr-TR, TRY, Europe/Istanbul. AntDV içeride `dayjs`; finans `date-fns-tz`. **Görüntü formatlama:** her zaman `useLocaleFormatters()` (`formatCurrency`, `formatDate`, `formatDateLong`, `formatNumber`); ham `Intl.*Format` çağırma.
 
 **Liste içinde satır-içi aksiyon:** `EntityListPage` `__` prefix'li sütun key'leri (`__actions`, `__realize`, …) mobil kartlarda otomatik gizler; masaüstü tablosunda `customRender: () => h(Popconfirm, …)` ile tek-tık aksiyon. Mobilde aynı aksiyon **form drawer** içinden (örn. `Switch`) sağlanmalı. Status sütunu mobil kart uyumu için **düz string** (Tag yerine — Tag istenirse yalnızca tabloda `h(Tag, …)`).
 
-**Vade durumu (M6+):** Planlı gelir/gider/transfer için `cashflowStatus(item, asOf?)` → `realized` / `overdue` / `due` (7 gün) / `upcoming`. Hesap/kasa **gerçekleşmiş** bakiyesi için `accountBalance` / `cashRegisterBalance` / `totalCashOnHand` (`src/features/cashflow/balanceHelpers.ts`). Borç karşılama analizi: `computeDebtCoverage(...)` (M7'de dashboard'a bağlanacak).
+**Vade durumu (M6+):** Planlı gelir/gider/transfer için `cashflowStatus(item, asOf?)` → `realized` / `overdue` / `due` (7 gün) / `upcoming`. Hesap/kasa **gerçekleşmiş** bakiyesi için `accountBalance` / `cashRegisterBalance` / `totalCashOnHand` (`src/features/cashflow/balanceHelpers.ts`). Borç karşılama analizi: `computeDebtCoverage(...)`.
+
+**Analitik motor (M7+, `src/features/analytics/`):** Saf TS, UI bağımsız. `snapshot.ts` → `assetSnapshot` / `debtSnapshot` / `netWorth` (asOf anlık pozisyon, currency-aware: dövizli hesap toplama dahil değil ama listede gözükür). `series.ts` → `monthlyCashflowSeries` (`plan|actual|effective` basis) / `incomeByType` + `expenseByType` (donut) / `assetTrendSeries` (90+ gün için 7'şer adım) / `upcomingDebtSeries`. `useDashboardData.ts` → reaktif composable, tüm gerekli store'ları paralel yükler. Yeni dashboard / analiz sayfaları **bu modüllerden** veri çeker; entity ham hesabı bileşende yapılmaz.
 
 **Süreç:** Milestone sırası (TODO.md); her teslimatta CHANGELOG; kural dosyaları `.cursor/rules/`.
 
@@ -84,7 +86,15 @@ Yeni özellik eklerken `TODO.md` ve `CHANGELOG.md` güncelle.
 - `credit-card.ts` — `creditCardMinPaymentRate(limit, tiers?)` (TR: <25k %20 / ≥25k %40), `creditCardStatement({ openingBalance, transactions, limit })` (dönem sonu + asgari ödeme), `creditCardLateInterest({ unpaidBalance, daysLate, apr, lateApr? })` (default `apr × 1.087`)
 - `cash-advance.ts` — `runRevolvingLedger({ openingBalance, openingDate, transactions, apr, asOf? })`: kronolojik hareketler arasında günlük basit faiz tahakkuku; ödeme önce tahakkuk eden faizi sonra anaparayı düşer; aşırı ödeme sıfırla sınırlanır
 - KKDF + BSMV: `taxRateMonthly` faize gömülür (`i_eff = i · (1 + tax)`); preset'ten alınır
-- `npm run test` — Vitest birim testleri (M4 kredi + M5 kart/revolving = 27 test)
+- `npm run test` — Vitest birim testleri (toplam 98 test: M4 kredi + M5 kart/revolving + M6 cashflow + bakiye + datepicker + analytics + helper'lar)
+
+## Analiz / rapor sayfası (M7.2)
+
+- `/analytics` route — `pageLayout: 'wide'`; sekmeler URL'de (`?tab=debts|cashflow|accounts`)
+- Filtreler URL'de: `from`, `to`, `bank`, `endpoint` (`acc:<id>` / `reg:<id>`), `category` (nakit akışı sekmesi)
+- **`reports.ts`:** `debtInstallmentRows`, `cashflowMonthRows`, `movementRows`, `filterCashflowRecords`
+- **`useAnalyticsFilters` / `useAnalyticsData`:** filtre senkron + store yükleme
+- Her sekme: `KpChart` + `Table` — borç (stacked bar + taksit listesi), nakit akışı (bar/line + donut + aylık tablo), hesap geçmişi (trend + hareket listesi)
 
 ## Form sayısal alan kuralı
 
