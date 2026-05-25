@@ -70,12 +70,20 @@ const showMobileCards = computed(
   () => isMobile.value && props.dataSource.length > 0,
 )
 
-/** Mobilde kart listesi drawer ile kayar; masaüstünde tablo kalan alanı doldurur. */
-const useFillHeight = computed(
-  () => props.fillHeight && props.scrollY == null && !showMobileCards.value,
+const showMobileEmpty = computed(
+  () => isMobile.value && props.dataSource.length === 0,
 )
 
-const showEmptyOverlay = computed(() => props.dataSource.length === 0)
+const showDesktopEmptyOverlay = computed(
+  () => !isMobile.value && props.dataSource.length === 0,
+)
+
+/** Mobilde kart listesi drawer ile kayar; masaüstünde tablo kalan alanı doldurur. */
+const useFillHeight = computed(() => {
+  if (props.scrollY != null || !props.fillHeight) return false
+  if (isMobile.value) return showMobileEmpty.value
+  return true
+})
 
 const preparedColumns = computed<TableColumnType<T>[]>(() =>
   prepareListTableColumns(props.columns).map((col) => {
@@ -251,11 +259,16 @@ function showDeleteFor(record: T): boolean {
       'kp-drawer-table--h-scroll': needsHorizontalScroll,
       'kp-drawer-table--fill': useFillHeight,
       'kp-drawer-table--mobile-cards': showMobileCards,
-      'kp-drawer-table--empty': showEmptyOverlay,
+      'kp-drawer-table--mobile-empty': showMobileEmpty,
+      'kp-drawer-table--empty': showDesktopEmptyOverlay,
     }"
     :style="wrapStyle"
   >
-    <div v-if="showEmptyOverlay" class="kp-drawer-table__empty" role="status">
+    <div v-if="showDesktopEmptyOverlay" class="kp-drawer-table__empty" role="status">
+      <Empty :description="emptyText" />
+    </div>
+
+    <div v-if="showMobileEmpty" class="kp-drawer-table__mobile-empty" role="status">
       <Empty :description="emptyText" />
     </div>
 
@@ -298,7 +311,7 @@ function showDeleteFor(record: T): boolean {
     </ul>
 
     <Table
-      v-show="!isMobile || dataSource.length === 0"
+      v-if="!isMobile"
       class="kp-drawer-table__table"
       :class="tableClass"
       :data-source="dataSource"
@@ -449,9 +462,20 @@ function showDeleteFor(record: T): boolean {
   width: 100%;
 }
 
+.kp-drawer-table__mobile-empty {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 @media (max-width: 640px) {
-  .kp-drawer-table__table {
-    display: none !important;
+  .kp-drawer-table--mobile-empty {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 }
 </style>

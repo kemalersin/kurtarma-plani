@@ -480,6 +480,16 @@ body {
     flex: 0 1 auto;
     min-height: auto;
   }
+
+  .kp-drawer-table-page:has(.kp-drawer-table--mobile-empty) {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .kp-form-drawer.ant-drawer:has(.kp-drawer-table--mobile-empty) .ant-drawer-body,
+  .kp-form-drawer.ant-drawer:has(.kp-drawer-table--mobile-empty) .kp-form-drawer__body {
+    overflow: hidden;
+  }
 }
 
 .kp-drawer-table .kp-schedule-row--clickable,
@@ -501,16 +511,17 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: nowrap;
 }
 
-/** Taksit planı drawer: uzun başlıkta header #extra (erken kapama) görünür kalsın */
-.kp-form-drawer.ant-drawer:has(.kp-drawer-table-page) .ant-drawer-header {
+/** Drawer header: uzun başlıkta #extra (Vazgeç/Kaydet, erken kapama vb.) görünür kalsın */
+.kp-form-drawer.ant-drawer:has(.kp-form-drawer__header-actions) .ant-drawer-header {
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
 }
 
-.kp-form-drawer.ant-drawer:has(.kp-drawer-table-page) .ant-drawer-title {
+.kp-form-drawer.ant-drawer:has(.kp-form-drawer__header-actions) .ant-drawer-title {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -518,7 +529,7 @@ body {
   white-space: nowrap;
 }
 
-.kp-form-drawer.ant-drawer:has(.kp-drawer-table-page) .ant-drawer-extra {
+.kp-form-drawer.ant-drawer:has(.kp-form-drawer__header-actions) .ant-drawer-extra {
   flex: 0 0 auto;
   padding-inline-start: 12px;
 }

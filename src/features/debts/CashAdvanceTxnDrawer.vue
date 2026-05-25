@@ -17,6 +17,7 @@ import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
 import PaymentSourcePicker from '@/components/PaymentSourcePicker.vue'
 import { useEntitiesStore } from '@/stores/entities'
+import { useProfileStore } from '@/stores/profile'
 import { disableFutureDates } from '@/core/util/datepicker'
 import type {
   CashAdvanceAccount,
@@ -36,6 +37,21 @@ const emit = defineEmits<{
 }>()
 
 const entities = useEntitiesStore()
+const profileStore = useProfileStore()
+
+const profileCurrency = computed(
+  () => profileStore.activeProfile?.localeSettings.currency ?? 'TRY',
+)
+
+const paymentSourceTooltip = computed(
+  () =>
+    `Boş bırakılırsa cashflow bakiyesinden düşülmez. Yalnız profil para biriminde (${profileCurrency.value}) tanımlı hesap ve kasalar listelenir. Dövizli hesap/kasalar borç ödemesi için kullanılamaz.`,
+)
+
+const drawTargetTooltip = computed(
+  () =>
+    `Boş bırakılırsa cashflow bakiyesine eklenmez. Yalnız profil para biriminde (${profileCurrency.value}) tanımlı hesap ve kasalar listelenir. Dövizli hesap/kasalar borç ödemesi için kullanılamaz.`,
+)
 
 const typeOptions = computed<{ value: CashAdvanceTxnType; label: string }[]>(() => [
   { value: 'draw', label: 'Kullanım' },
@@ -178,7 +194,7 @@ function close(): void {
         v-model:accountId="draft.sourceAccountId"
         v-model:cashRegisterId="draft.sourceCashRegisterId"
         label="Ödendiği hesap / kasa"
-        hint="Boş bırakılırsa cashflow bakiyesinden düşmez."
+        :label-tooltip="paymentSourceTooltip"
       />
       <PaymentSourcePicker
         v-if="draft.type === 'draw'"
@@ -186,7 +202,7 @@ function close(): void {
         v-model:cashRegisterId="draft.targetCashRegisterId"
         kind="target"
         label="Çekilen nakit hesabı / kasası"
-        hint="Boş bırakılırsa cashflow bakiyesine eklenmez."
+        :label-tooltip="drawTargetTooltip"
       />
 
       <FormItem label="Açıklama">

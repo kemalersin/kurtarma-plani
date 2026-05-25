@@ -13,12 +13,15 @@ interface Props {
   maskClosable?: boolean
   /** Üst özet + tablo: drawer tam yükseklik, tablo kalan alanı doldurur. */
   layout?: 'default' | 'table'
+  /** Mobilde #actions footer'da; masaüstünde header. Taksit planı erken kapama için. */
+  mobileActionsInFooter?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   width: 'min(560px, 100vw)',
   maskClosable: true,
   layout: 'default',
+  mobileActionsInFooter: false,
 })
 
 const emit = defineEmits<{
@@ -33,22 +36,25 @@ const formRoot = useTemplateRef<HTMLElement>('formRoot')
 
 const drawerWidth = computed(() => (isMobileViewport.value ? '100%' : props.width))
 
+const showActionsInHeader = computed(
+  () => !!slots.actions && !(props.mobileActionsInFooter && isMobileViewport.value),
+)
+
+const showActionsInFooter = computed(
+  () => !!slots.actions && props.mobileActionsInFooter && isMobileViewport.value,
+)
+
 const drawerRootClass = computed(() =>
   [
     'kp-form-drawer',
     props.layout === 'table' ? 'kp-form-drawer--table-layout' : '',
-    isMobileViewport.value && !!slots.actions
-      ? 'kp-form-drawer--mobile-footer'
-      : '',
+    showActionsInFooter.value ? 'kp-form-drawer--mobile-footer' : '',
   ]
     .filter(Boolean)
     .join(' '),
 )
 
-const hasActionsSlot = computed(() => !!slots.actions)
-const showHeaderExtra = computed(
-  () => !!slots.extra || (hasActionsSlot.value && !isMobileViewport.value),
-)
+const showHeaderExtra = computed(() => !!slots.extra || showActionsInHeader.value)
 
 watch(
   () => props.open,
@@ -89,10 +95,10 @@ function close(): void {
     <template v-if="showHeaderExtra" #extra>
       <div class="kp-form-drawer__header-actions">
         <slot name="extra" />
-        <slot v-if="!isMobileViewport" name="actions" />
+        <slot v-if="showActionsInHeader" name="actions" />
       </div>
     </template>
-    <template v-if="isMobileViewport && $slots.actions" #footer>
+    <template v-if="showActionsInFooter" #footer>
       <div class="kp-form-drawer__footer-actions">
         <slot name="actions" />
       </div>
