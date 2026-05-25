@@ -7,6 +7,7 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 ### Changed — tablo sütun genişliği
 
 - Liste, drawer ve analiz tablolarında sütun genişliği otomatik (`table-layout: auto`, `scroll.x: max-content`); elle `width` / `minWidth` ve 112px / 280px varsayılanları kaldırıldı. **İstisna:** `__actions` sütunu 88px (2 düğme) / 132px (3 düğme).
+- `EntityListPage`: veri yüklenip tablo çizilene kadar masaüstü sütun başlıkları gizlenir (layout sıçraması yok).
 
 ### Changed — güncelleme bildirimi
 
