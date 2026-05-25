@@ -1,6 +1,6 @@
 # Kurtarma Planı
 
-[![Sürüm](https://img.shields.io/badge/sürüm-0.1.1-blue)](package.json)
+[![Sürüm](https://img.shields.io/badge/sürüm-0.1.17-blue)](package.json)
 [![Vue 3](https://img.shields.io/badge/Vue-3-42b883)](https://vuejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)](https://www.typescriptlang.org/)
 [![Lisans](https://img.shields.io/badge/Lisans-Ozel-green)](LICENSE)
@@ -208,7 +208,7 @@ docs/               Wiki, mimari, senkron tasarımı
 | M9 | Birim testleri; E2E / bundle optimizasyonu bekliyor |
 | M10 | Otomatik senkron S1–S5 tamam; WebDAV (S6) opsiyonel |
 
-**Güncel sürüm:** `0.1.1` — aktif geliştirme devam ediyor.
+**Sürüm:** [`0.1.17`](package.json) (`package.json`; canlı derlemede **Hakkında** ekranında görünür).
 
 ---
 
