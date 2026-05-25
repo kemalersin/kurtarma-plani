@@ -5,7 +5,6 @@ import {
   FormItem,
   Input,
   Textarea,
-  DatePicker,
   RadioGroup,
   Space,
   Button,
@@ -20,6 +19,7 @@ import {
   sensitiveSaveOptions,
 } from '@/composables/useSensitiveEntityForm'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
+import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
 import RecurrenceFormFields from '@/components/RecurrenceFormFields.vue'
 import BankAccountSelect from '@/components/BankAccountSelect.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
@@ -276,7 +276,7 @@ function close(): void {
       </FormItem>
 
       <FormItem label="Plan tarihi" required>
-        <DatePicker v-model:value="draft.plannedDate" style="width: 100%" />
+        <LocaleDatePicker v-model:value="draft.plannedDate" style="width: 100%" />
       </FormItem>
 
       <RecurrenceFormFields
@@ -286,7 +286,7 @@ function close(): void {
       />
 
       <FormItem v-if="!draft.recurring && draft.realized" label="Ödeme tarihi" required>
-        <DatePicker
+        <LocaleDatePicker
           v-model:value="draft.actualDate"
           :disabled-date="disableFutureDates"
           style="width: 100%"

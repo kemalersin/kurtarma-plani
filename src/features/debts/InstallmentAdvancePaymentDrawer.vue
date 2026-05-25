@@ -3,7 +3,6 @@ import { reactive, ref, watch, computed } from 'vue'
 import {
   Form,
   FormItem,
-  DatePicker,
   Textarea,
   Button,
   Space,
@@ -17,6 +16,7 @@ import KpStatRow from '@/components/KpStatRow.vue'
 import KpTooltip from '@/components/KpTooltip.vue'
 import { disableAfter } from '@/core/util/datepicker'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
+import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
 import PaymentSourcePicker from '@/components/PaymentSourcePicker.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
@@ -335,7 +335,7 @@ function close(): void {
               : undefined
           "
         >
-          <DatePicker
+          <LocaleDatePicker
             v-model:value="draft.paidDate"
             :disabled-date="disabledPaymentDate"
             style="width: 100%"

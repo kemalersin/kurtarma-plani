@@ -4,7 +4,6 @@ import {
   Form,
   FormItem,
   Input,
-  DatePicker,
   Textarea,
   Select,
   Space,
@@ -15,6 +14,7 @@ import {
 import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
+import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
 import PaymentSourcePicker from '@/components/PaymentSourcePicker.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { disableFutureDates } from '@/core/util/datepicker'
@@ -161,7 +161,7 @@ function close(): void {
   >
     <Form layout="vertical" :colon="false" @submit.prevent="submit">
       <FormItem label="Tarih" required>
-        <DatePicker
+        <LocaleDatePicker
           v-model:value="draft.date"
           :disabled-date="disableFutureDates"
           style="width: 100%"

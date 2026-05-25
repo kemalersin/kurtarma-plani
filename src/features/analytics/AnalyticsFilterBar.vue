@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import dayjs, { type Dayjs } from 'dayjs'
-import { Popover, Badge, Button, Select, DatePicker } from 'ant-design-vue'
+import { Popover, Badge, Button, Select } from 'ant-design-vue'
+import LocaleRangePicker from '@/components/LocaleRangePicker.vue'
 import { FilterOutlined } from '@ant-design/icons-vue'
 import type { AnalyticsFilterState } from '@/composables/useAnalyticsFilters'
 import type { AnalyticsData } from '@/features/analytics/useAnalyticsData'
@@ -99,10 +100,9 @@ function clearFilters(): void {
 
         <div class="kp-list-filter__field">
           <label class="kp-list-filter__label">Tarih aralığı</label>
-          <DatePicker.RangePicker
+          <LocaleRangePicker
             :value="rangeValue"
             class="kp-list-filter__control"
-            format="DD.MM.YYYY"
             :allow-clear="false"
             @update:value="(v: unknown) => onRangeChange(v as [Dayjs, Dayjs] | null)"
           />

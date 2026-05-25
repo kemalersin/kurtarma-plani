@@ -42,6 +42,7 @@ const nameDraft = ref('')
 const savingName = ref(false)
 const savingLocale = ref(false)
 const deletingProfile = ref(false)
+const deleteConfirmTitle = ref('')
 const SETTINGS_TABS = ['profile', 'locale', 'security', 'banking', 'ai', 'data', 'sync', 'updates'] as const
 const { activeTab } = useRoutedTabs(SETTINGS_TABS, 'profile')
 
@@ -120,6 +121,10 @@ async function deleteCurrentProfile(): Promise<void> {
     deletingProfile.value = false
   }
 }
+
+function setDeleteConfirmTitle(): void {
+  deleteConfirmTitle.value = `「${profile.value?.name ?? 'Profil'}」 ve tüm verileri silinsin mi?`
+}
 </script>
 
 <template>
@@ -149,10 +154,11 @@ async function deleteCurrentProfile(): Promise<void> {
             cihazınızdan kalıcı olarak silinir. Geri alınamaz; önce yedek almanız önerilir.
           </Typography.Paragraph>
           <Popconfirm
-            :title="`「${profile?.name ?? 'Profil'}」 ve tüm verileri silinsin mi?`"
+            :title="deleteConfirmTitle"
             ok-text="Sil"
             cancel-text="Vazgeç"
             ok-type="danger"
+            @open-change="(open) => { if (open) setDeleteConfirmTitle() }"
             @confirm="deleteCurrentProfile"
           >
             <Button danger :loading="deletingProfile">

@@ -15,6 +15,7 @@ import type {
   InstallmentCashAdvancePayment,
 } from '@/core/types/entities'
 import { adminPrimaryNameColumn } from '@/features/admin/admin-list-columns'
+import type { KpTableColumn } from '@/core/util/table-columns'
 import {
   advancePaidThroughIndex,
   buildScheduleForInstallmentAdvance,
@@ -132,6 +133,19 @@ function statusKey(adv: InstallmentCashAdvance): 'overdue' | 'closed' | 'active'
   return 'active'
 }
 
+function statusLabel(adv: InstallmentCashAdvance): string {
+  const s = summary(adv)
+  if (s.overdue > 0) return `${s.overdue} gecikmiş`
+  if (s.totalCount > 0 && s.paidCount >= s.totalCount) return 'Kapandı'
+  return 'Devam ediyor'
+}
+
+function statusTag(adv: InstallmentCashAdvance) {
+  const s = summary(adv)
+  if (s.overdue > 0) return { color: 'error', label: statusLabel(adv) }
+  return null
+}
+
 const filters = computed<ListFilter<InstallmentCashAdvance>[]>(() => [
   {
     kind: 'select',
@@ -239,13 +253,9 @@ const columns = computed<TableColumnType<InstallmentCashAdvance>[]>(() => [
   {
     key: 'status',
     title: 'Durum',
-    customRender: ({ record }) => {
-      const s = summary(record as InstallmentCashAdvance)
-      if (s.overdue > 0) return `${s.overdue} gecikmiş`
-      if (s.totalCount > 0 && s.paidCount >= s.totalCount) return 'Kapandı'
-      return 'Devam ediyor'
-    },
-  },
+    kpDisplay: (adv) => statusLabel(adv),
+    kpTag: (adv) => statusTag(adv),
+  } satisfies KpTableColumn<InstallmentCashAdvance>,
   { key: 'archived', title: '' },
 ])
 </script>

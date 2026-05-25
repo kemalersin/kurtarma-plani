@@ -3,7 +3,6 @@ import { computed, h, ref } from 'vue'
 import {
   Badge,
   Button,
-  DatePicker,
   Input,
   Popover,
   Select,
@@ -13,6 +12,7 @@ import {
 import { FilterOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import type { ColumnsType, TablePaginationConfig } from 'ant-design-vue/es/table'
 import dayjs, { type Dayjs } from 'dayjs'
+import LocaleRangePicker from '@/components/LocaleRangePicker.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import { textIncludesSearch } from '@/core/util/search'
 import { prepareListTableColumns } from '@/core/util/table-columns'
@@ -357,10 +357,9 @@ function clearFilters(): void {
 
               <div class="kp-list-filter__field">
                 <label class="kp-list-filter__label">Tarih aralığı</label>
-                <DatePicker.RangePicker
+                <LocaleRangePicker
                   :value="analyticsRangeValue"
                   class="kp-list-filter__control"
-                  format="DD.MM.YYYY"
                   :allow-clear="false"
                   @update:value="(v: unknown) => onAnalyticsRangeChange(v as [Dayjs, Dayjs] | null)"
                 />

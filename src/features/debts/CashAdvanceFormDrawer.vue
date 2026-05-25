@@ -4,7 +4,6 @@ import {
   Form,
   FormItem,
   Input,
-  DatePicker,
   Select,
   Space,
   Button,
@@ -22,6 +21,7 @@ import {
 } from '@/composables/useSensitiveEntityForm'
 import KpTooltip from '@/components/KpTooltip.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
+import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
 import BankFormDrawer from '@/features/admin/BankFormDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
@@ -232,7 +232,7 @@ function close(): void {
         <LocaleInputNumber v-model:value="draft.openingBalance" kind="currency" :min="0" />
       </FormItem>
       <FormItem label="Açılış tarihi" required>
-        <DatePicker v-model:value="draft.openingDate" style="width: 100%" />
+        <LocaleDatePicker v-model:value="draft.openingDate" style="width: 100%" />
       </FormItem>
       <FormItem label="Faiz (%)" required>
         <Space.Compact style="width: 100%">

@@ -5,7 +5,6 @@ import {
   FormItem,
   Input,
   Textarea,
-  DatePicker,
   RadioGroup,
   Space,
   Button,
@@ -21,6 +20,7 @@ import {
   sensitiveSaveOptions,
 } from '@/composables/useSensitiveEntityForm'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
+import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
 import BankAccountSelect from '@/components/BankAccountSelect.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
 import { disableFutureDates } from '@/core/util/datepicker'
@@ -392,7 +392,7 @@ function close(): void {
       </FormItem>
 
       <FormItem label="Tarih" required>
-        <DatePicker
+        <LocaleDatePicker
           v-model:value="draft.date"
           :disabled-date="disableFutureDates"
           style="width: 100%"

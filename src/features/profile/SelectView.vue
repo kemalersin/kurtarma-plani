@@ -30,6 +30,11 @@ const selectedId = ref<string | null>(null)
 const password = ref('')
 const submitting = ref(false)
 const deletingId = ref<string | null>(null)
+const deleteConfirmTitle = ref('')
+
+function setDeleteConfirmTitle(name: string): void {
+  deleteConfirmTitle.value = `「${name}」 ve tüm verileri silinsin mi?`
+}
 
 const selectedProfile = computed<ProfileMeta | null>(() =>
   profileStore.profiles.find((p) => p.id === selectedId.value) ?? null,
@@ -137,10 +142,11 @@ async function deleteProfile(id: string, name: string): Promise<void> {
               </ListItemMeta>
               <template #actions>
                 <Popconfirm
-                  :title="`「${item.name}」 ve tüm verileri silinsin mi?`"
+                  :title="deleteConfirmTitle"
                   ok-text="Sil"
                   cancel-text="Vazgeç"
                   ok-type="danger"
+                  @open-change="(open) => { if (open) setDeleteConfirmTitle(item.name) }"
                   @confirm="deleteProfile(item.id, item.name)"
                 >
                   <Button

@@ -11,6 +11,7 @@ import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { Bank, Loan, LoanPayment } from '@/core/types/entities'
 import { adminPrimaryNameColumn } from '@/features/admin/admin-list-columns'
+import type { KpTableColumn } from '@/core/util/table-columns'
 import { buildScheduleForLoan, paidThroughIndex, remainingDebtForLoan } from './loanHelpers'
 
 const entities = useEntitiesStore()
@@ -129,6 +130,12 @@ function statusLabel(loan: Loan): string {
   return 'Devam ediyor'
 }
 
+function statusTag(loan: Loan) {
+  const s = summary(loan)
+  if (s.overdue > 0) return { color: 'error', label: statusLabel(loan) }
+  return null
+}
+
 function statusKey(loan: Loan): 'overdue' | 'closed' | 'active' {
   const s = summary(loan)
   if (s.overdue > 0) return 'overdue'
@@ -234,9 +241,10 @@ const columns = computed<TableColumnType<Loan>[]>(() => [
   {
     key: 'status',
     title: 'Durum',
-    customRender: ({ record }) => statusLabel(record as Loan),
+    kpDisplay: (loan) => statusLabel(loan),
+    kpTag: (loan) => statusTag(loan),
     sorter: (a, b) => statusLabel(a).localeCompare(statusLabel(b), 'tr'),
-  },
+  } satisfies KpTableColumn<Loan>,
   {
     key: 'archived',
     title: '',

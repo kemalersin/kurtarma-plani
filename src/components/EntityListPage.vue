@@ -11,7 +11,6 @@ import {
 import {
   Badge,
   Button,
-  DatePicker,
   Empty,
   Input,
   Pagination,
@@ -34,7 +33,9 @@ import {
 } from '@ant-design/icons-vue'
 import type { TableColumnType, TablePaginationConfig } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
+import LocaleRangePicker from '@/components/LocaleRangePicker.vue'
 import KpTooltip from '@/components/KpTooltip.vue'
+import KpColumnTagCell from '@/components/KpColumnTagCell.vue'
 import ListCard from '@/components/ListCard.vue'
 import ColorSwatch from '@/components/ColorSwatch.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
@@ -459,9 +460,30 @@ const tableScrollX = computed(() => {
   return Math.max(minW, vw > 0 ? vw : minW)
 })
 
-const tableScroll = computed(() => ({
-  x: tableScrollX.value,
-}))
+const tableRowHeight = ref(48)
+
+/**
+ * Az satırda gövde en az kalan yüksekliği doldurur (yatay çubuk alanın dibinde).
+ * Çok satırda `scroll.y` yok — gövde doğal yüksekliğe büyür, dikey kaydırma `.kp-content` ile.
+ */
+const tableScrollY = computed(() => {
+  if (isMobile.value) return undefined
+  const minH = tableBodyMinHeight.value
+  if (minH <= 0) return undefined
+  const rows = sortedItems.value.length
+  if (rows === 0) return minH
+  const contentH = rows * tableRowHeight.value
+  return contentH < minH ? minH : undefined
+})
+
+const tableScroll = computed(() => {
+  const s: { x: number; y?: number } = { x: tableScrollX.value }
+  const y = tableScrollY.value
+  if (y != null) s.y = y
+  return s
+})
+
+const tableBodyFillsViewport = computed(() => tableScrollY.value != null)
 
 const pagination = computed<TablePaginationConfig>(() => ({
   current: page.value,
@@ -578,8 +600,10 @@ async function measureTableScroll(): Promise<void> {
     tableViewportWidth.value = wrap.clientWidth
     tableBodyMinHeight.value = Math.max(
       120,
-      tableMinHeight.value - tableHeadH.value - tablePaginationH.value - 4,
+      tableMinHeight.value - tableHeadH.value - tablePaginationH.value,
     )
+    const firstRow = wrap.querySelector<HTMLElement>('.ant-table-tbody tr.ant-table-row')
+    if (firstRow?.offsetHeight) tableRowHeight.value = firstRow.offsetHeight
     return
   }
 
@@ -732,11 +756,10 @@ watch(
                   />
                 </div>
 
-                <DatePicker.RangePicker
+                <LocaleRangePicker
                   v-else
                   :value="dateRangeValue(f.key) ?? undefined"
                   class="kp-list-filter__control"
-                  format="DD.MM.YYYY"
                   allow-clear
                   @update:value="(v: unknown) => setDateRange(f.key, v as [Dayjs, Dayjs] | null)"
                 />
@@ -784,6 +807,7 @@ watch(
       :class="{
         'kp-list__table--empty': showEmptyOverlay,
         'kp-list__table--loading': loading,
+        'kp-list__table--fill-body': tableBodyFillsViewport,
       }"
       :style="tableWrapStyle"
     >
@@ -870,6 +894,11 @@ watch(
               <Tag color="orange">Hassas</Tag>
             </Space>
           </template>
+          <template v-else>
+            <KpColumnTagCell :column="column" :record="record as T">
+              {{ cellValue(column, record as T, index) }}
+            </KpColumnTagCell>
+          </template>
         </template>
       </Table>
     </div>
@@ -940,7 +969,11 @@ watch(
                 <dd v-if="col.key === 'color'">
                   <ColorSwatch :color="recordColor(item)" />
                 </dd>
-                <dd v-else>{{ cellValue(col, item, index) }}</dd>
+                <dd v-else>
+                  <KpColumnTagCell :column="col" :record="item">
+                    {{ cellValue(col, item, index) }}
+                  </KpColumnTagCell>
+                </dd>
               </div>
             </dl>
           </ListCard>
@@ -1060,12 +1093,21 @@ watch(
   flex-shrink: 0;
 }
 
-.kp-list__table--desktop :deep(.ant-table-body) {
-  flex: 1;
+/** Az satır: scroll.y ile gövde yüksekliği sabit; yatay çubuk alanın dibinde */
+.kp-list__table--fill-body :deep(.ant-table-body) {
+  flex: 1 1 0;
+  height: 0;
+  min-height: var(--kp-table-body-min-h, 120px);
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+}
+
+/** Çok satır: dahili dikey scroll yok; gövde içerikle büyür, sayfa kayar */
+.kp-list__table--desktop:not(.kp-list__table--fill-body) :deep(.ant-table-body) {
+  flex: 1 1 auto;
   min-height: var(--kp-table-body-min-h, 120px);
   overflow-x: auto !important;
   overflow-y: visible !important;
-  padding-bottom: 6px;
 }
 
 /** Başlık ve gövde aynı genişlikte kalsın. */
@@ -1090,9 +1132,7 @@ watch(
 
 .kp-list__table--desktop :deep(.ant-table-pagination) {
   flex-shrink: 0;
-  /** Body'nin (varsa) yatay scrollbar'ı ile pagination arası net boşluk. */
   margin: 16px 0 0;
-  padding-top: 4px;
 }
 
 .kp-list__table--desktop :deep(tr.kp-list__row--clickable) {

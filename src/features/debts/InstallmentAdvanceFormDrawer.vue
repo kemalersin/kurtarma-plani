@@ -6,7 +6,6 @@ import {
   Input,
   Textarea,
   Switch,
-  DatePicker,
   Select,
   Space,
   Button,
@@ -24,6 +23,7 @@ import {
 } from '@/composables/useSensitiveEntityForm'
 import KpTooltip from '@/components/KpTooltip.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
+import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
 import BankFormDrawer from '@/features/admin/BankFormDrawer.vue'
 import CashAdvanceFormDrawer from '@/features/debts/CashAdvanceFormDrawer.vue'
@@ -351,10 +351,10 @@ function close(): void {
         />
       </FormItem>
       <FormItem label="Başlangıç tarihi" required>
-        <DatePicker v-model:value="draft.startDate" style="width: 100%" />
+        <LocaleDatePicker v-model:value="draft.startDate" style="width: 100%" />
       </FormItem>
       <FormItem label="İlk taksit tarihi" required>
-        <DatePicker v-model:value="draft.firstInstallmentDate" style="width: 100%" />
+        <LocaleDatePicker v-model:value="draft.firstInstallmentDate" style="width: 100%" />
       </FormItem>
       <FormItem label="Sözleşme faizi (%)" required>
         <Space.Compact style="width: 100%">

@@ -1,4 +1,6 @@
 import { computed } from 'vue'
+import { formatInTimeZone } from 'date-fns-tz'
+import { DEFAULT_LOCALE_SETTINGS } from '@/core/locale/defaults'
 import { useProfileStore } from '@/stores/profile'
 
 interface LocaleFormatters {
@@ -26,6 +28,9 @@ export function useLocaleFormatters(): LocaleFormatters {
   const settings = computed(() => profileStore.activeProfile?.localeSettings)
   const locale = computed(() => settings.value?.locale ?? 'tr-TR')
   const timeZone = computed(() => settings.value?.timeZone ?? 'Europe/Istanbul')
+  const dateFormat = computed(
+    () => settings.value?.dateFormat ?? DEFAULT_LOCALE_SETTINGS.dateFormat,
+  )
   const defaultCurrency = computed(() => settings.value?.currency ?? 'TRY')
 
   function formatCurrency(amount: number | string, currency?: string): string {
@@ -42,12 +47,7 @@ export function useLocaleFormatters(): LocaleFormatters {
   }
 
   function formatDate(iso: string): string {
-    return new Intl.DateTimeFormat(locale.value, {
-      timeZone: timeZone.value,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date(iso))
+    return formatInTimeZone(iso, timeZone.value, dateFormat.value)
   }
 
   function formatDateLong(iso: string): string {
