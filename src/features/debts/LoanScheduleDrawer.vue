@@ -2,9 +2,9 @@
 import { computed, ref } from 'vue'
 import {
   Empty,
-  Alert,
   message,
 } from 'ant-design-vue'
+import DismissibleDrawerAlert from '@/components/DismissibleDrawerAlert.vue'
 import KpStatRow, { type KpStat } from '@/components/KpStatRow.vue'
 import DrawerDataTable from '@/components/DrawerDataTable.vue'
 import { differenceInCalendarDays, parseISO } from 'date-fns'
@@ -202,9 +202,8 @@ function scheduleRowProps(row: ScheduleRow): Record<string, unknown> {
       <Empty />
     </div>
     <div v-else class="kp-drawer-table-page">
-      <Alert
-        type="info"
-        show-icon
+      <DismissibleDrawerAlert
+        hint-key="loan-schedule.info"
         message="Bilgi"
         description="Vade gecikmesinde gecikme faizi günlük olarak hesaplanır. Erken kapama tahmini: kalan anapara + kısmi dönem faizi + biriken gecikme faizi (banka sözleşmesi ve komisyon farklı uygulayabilir)."
       />

@@ -3,12 +3,12 @@ import { computed, onMounted, ref, watch } from 'vue'
 import {
   Button,
   Space,
-  Alert,
   Empty,
   Select,
   SelectOption,
   message,
 } from 'ant-design-vue'
+import DismissibleDrawerAlert from '@/components/DismissibleDrawerAlert.vue'
 import DrawerDataTable from '@/components/DrawerDataTable.vue'
 import KpStatRow, { type KpStat } from '@/components/KpStatRow.vue'
 import type { KpTableColumn } from '@/core/util/table-columns'
@@ -212,9 +212,8 @@ const periodStats = computed<KpStat[]>(() => {
       <Empty />
     </div>
     <div v-else class="kp-drawer-table-page">
-      <Alert
-        type="info"
-        show-icon
+      <DismissibleDrawerAlert
+        hint-key="credit-card-statement.info"
         message="Dönem özeti"
         description="Bir dönem, kart hesap kesim tarihinden bir sonrakine kadar olan harcama ve ödemeleri kapsar. Asgari ödeme; limit 25.000 TL altıysa %20, üstündeyse %40."
       />

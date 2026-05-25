@@ -409,6 +409,24 @@ body {
   flex-shrink: 0;
 }
 
+/** Drawer mobil kart listesi: liste uzar, kaydırma drawer gövdesinde */
+@media (max-width: 640px) {
+  .kp-form-drawer.ant-drawer:has(.kp-drawer-table-page) .ant-drawer-body,
+  .kp-form-drawer.ant-drawer:has(.kp-drawer-table-page) .kp-form-drawer__body {
+    overflow: auto;
+  }
+
+  .kp-drawer-table-page {
+    flex: 0 1 auto;
+    min-height: auto;
+  }
+
+  .kp-drawer-table-page .kp-drawer-table--mobile-cards {
+    flex: 0 1 auto;
+    min-height: auto;
+  }
+}
+
 .kp-drawer-table .kp-schedule-row--clickable,
 .kp-drawer-table .kp-txn-row-clickable {
   cursor: pointer;

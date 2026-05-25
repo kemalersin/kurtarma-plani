@@ -3,10 +3,10 @@ import { computed, ref } from 'vue'
 import {
   Button,
   Space,
-  Alert,
   Empty,
   message,
 } from 'ant-design-vue'
+import DismissibleDrawerAlert from '@/components/DismissibleDrawerAlert.vue'
 import DrawerDataTable from '@/components/DrawerDataTable.vue'
 import KpStatRow, { type KpStat } from '@/components/KpStatRow.vue'
 import type { KpTableColumn } from '@/core/util/table-columns'
@@ -162,9 +162,8 @@ const stats = computed<KpStat[]>(() => {
       <Empty />
     </div>
     <div v-else class="kp-drawer-table-page">
-      <Alert
-        type="info"
-        show-icon
+      <DismissibleDrawerAlert
+        hint-key="cash-advance-ledger.info"
         message="Revolving hesap"
         description="Kalan anapara üzerinden günlük basit faiz işler. Ödeme önce tahakkuk eden faizi, sonra anaparayı kapatır."
       />

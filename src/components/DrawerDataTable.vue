@@ -66,8 +66,13 @@ const tableHeadH = ref(40)
 const tablePaginationH = ref(0)
 let resizeObserver: ResizeObserver | null = null
 
+const showMobileCards = computed(
+  () => isMobile.value && props.dataSource.length > 0,
+)
+
+/** Mobilde kart listesi drawer ile kayar; masaüstünde tablo kalan alanı doldurur. */
 const useFillHeight = computed(
-  () => props.fillHeight && props.scrollY == null,
+  () => props.fillHeight && props.scrollY == null && !showMobileCards.value,
 )
 
 const showEmptyOverlay = computed(() => props.dataSource.length === 0)
@@ -228,6 +233,7 @@ watch(
       props.scrollY,
       props.fillHeight,
       props.rowActions,
+      isMobile.value,
     ] as const,
   () => scheduleMeasure(),
 )
@@ -244,6 +250,7 @@ function showDeleteFor(record: T): boolean {
     :class="{
       'kp-drawer-table--h-scroll': needsHorizontalScroll,
       'kp-drawer-table--fill': useFillHeight,
+      'kp-drawer-table--mobile-cards': showMobileCards,
       'kp-drawer-table--empty': showEmptyOverlay,
     }"
     :style="wrapStyle"
@@ -440,12 +447,6 @@ function showDeleteFor(record: T): boolean {
 
 .kp-drawer-table__cards {
   width: 100%;
-}
-
-.kp-drawer-table--fill > .kp-drawer-table__cards {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
 }
 
 @media (max-width: 640px) {
