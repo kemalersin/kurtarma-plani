@@ -33,6 +33,7 @@ import { useSyncStore } from '@/stores/sync'
 import KpTooltip from '@/components/KpTooltip.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import SyncStatusBadge from '@/components/SyncStatusBadge.vue'
+import AiContextExportButton from '@/components/AiContextExportButton.vue'
 import SyncConflictModal from '@/components/SyncConflictModal.vue'
 import { KP_HOVER_CAPABLE_MQ, KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/composables/useMatchMedia'
 import BrandMark from '@/components/icons/BrandMark.vue'
@@ -231,7 +232,10 @@ function gotoCrumb(name?: string): void {
         </MenuItem>
       </Menu>
 
-      <div class="kp-sider__footer kp-text-muted">v{{ APP_VERSION }}</div>
+      <div class="kp-sider__footer kp-text-muted">
+        <span class="kp-sider__footer-version">v{{ APP_VERSION }}</span>
+        <SyncStatusBadge v-if="isMobileShell" layout="menu" />
+      </div>
     </aside>
 
     <div
@@ -274,7 +278,9 @@ function gotoCrumb(name?: string): void {
 
         <div class="kp-spacer" />
 
-        <SyncStatusBadge />
+        <SyncStatusBadge v-if="!isMobileShell" />
+
+        <AiContextExportButton />
 
         <ThemeToggle />
 
@@ -437,9 +443,18 @@ function gotoCrumb(name?: string): void {
 
 .kp-sider__footer {
   margin-top: auto;
-  padding: 12px 16px;
+  padding: 10px 12px;
   font-size: 11px;
   border-top: 1px solid rgba(0, 0, 0, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.kp-sider__footer-version {
+  flex-shrink: 0;
 }
 
 [data-theme='dark'] .kp-sider__footer {

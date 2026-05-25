@@ -13,6 +13,8 @@ export const APP_SUPPORT_URL =
   'https://polar.sh/checkout/polar_c_haAJ3cBdBFOHt7slvqdZ7kiN3MVY9g3AKebj91C72HB'
 
 export const EXPORT_FILE_TYPE = 'kurtarma-plani-export' as const
+export const AI_CONTEXT_FILE_TYPE = 'kurtarma-plani-ai-context' as const
+export const AI_CONTEXT_VERSION = 1
 export const SCHEMA_VERSION = 1
 
 export const META_DB_NAME = 'kurtarma-plani.meta'

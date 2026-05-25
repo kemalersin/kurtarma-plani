@@ -4,6 +4,18 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 ## [Unreleased]
 
+### Removed — AI bağlam YAML
+
+- YAML dışa aktarım ve `js-yaml` bağımlılığı kaldırıldı; JSON + Markdown yeterli.
+
+### Added — AI bağlam dışa aktarımı
+
+- Navbar'da **AI dışa aktar** düğmesi: JSON ve Markdown formatında önizleme + indirme.
+- Çıktı restore snapshot değil; semantik özet, çözülmüş etiketler, kredi/taksitli avans taksit planları.
+- Kalan borç: ödenmemiş taksitler + biriken gecikme faizi ayrımı; vadesi geçmiş ve geç ödenmiş taksit sayıları.
+- JSON: yalnızca ödenmemiş taksit satırları; önizlemede JSON renklendirme, Markdown biçimlendirme, **Kopyala**.
+- Varsayılan: arşiv ve hassas kayıtlar hariç; API anahtarı ve sohbet verisi asla dahil edilmez.
+
 ### Changed — banka hesabı seçimi
 
 - Banka hesabı combobox'ları banka adına göre gruplu; arama hesap ve banka adında çalışır (gelir/gider, transfer, borç ödemesi, analiz filtresi).
