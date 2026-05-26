@@ -86,10 +86,17 @@ const EXCLUDED_TYPES: ReadonlySet<EntityType> = new Set([
   'chatSession',
 ])
 
+import type { CardProjectionRateContext } from '@/features/debts/cardHelpers'
+import { creditCardRateContextFromPreset } from '@/core/util/banking-preset-credit-card'
+import type { BankingPreset } from '@/core/types/banking-preset'
+
 export interface BuildAiContextDocumentParams {
   profile: ProfileMeta
   rows: AiSnapshotSourceRow[]
   includeSensitive: boolean
+  /** Kart faiz projeksiyonu için preset kademeleri; verilmezse sabit kart oranları kullanılır. */
+  creditCardRateContext?: CardProjectionRateContext
+  bankingPreset?: BankingPreset
 }
 
 function isArchived(data: unknown): boolean {
@@ -301,6 +308,9 @@ function buildCreditCardInstallmentSchedules(
 
 export function buildAiContextDocument(params: BuildAiContextDocumentParams): AiContextDocument {
   const { profile, rows, includeSensitive } = params
+  const creditCardRateContext =
+    params.creditCardRateContext ??
+    (params.bankingPreset ? creditCardRateContextFromPreset(params.bankingPreset) : undefined)
   const fmt = createAiContextFormatters(profile.localeSettings)
   const currency = profile.localeSettings.currency
   const asOf = new Date().toISOString()
@@ -415,6 +425,7 @@ export function buildAiContextDocument(params: BuildAiContextDocumentParams): Ai
     bankMap,
     fmt,
     asOf,
+    creditCardRateContext,
   })
 
   const creditCardInstallmentSchedules = buildCreditCardInstallmentSchedules(
@@ -523,7 +534,7 @@ export function buildAiContextDocument(params: BuildAiContextDocumentParams): Ai
       creditCards: creditCards.map((card) => {
         const bank = card.bankId ? bankMap.get(card.bankId) : undefined
         const txns = creditCardTxns.filter((t) => t.cardId === card.id)
-        const committed = cardCommittedTotal(card, txns, new Date(asOf))
+        const committed = cardCommittedTotal(card, txns, new Date(asOf), creditCardRateContext ?? {})
         const periodSched = creditCardPeriodSchedules.find((s) => s.cardId === card.id)
         const latestPeriod = periodSched?.periods[periodSched.periods.length - 1]
         const available = D(card.limit).minus(D(committed.committed))

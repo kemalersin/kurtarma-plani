@@ -17,7 +17,7 @@ import type {
   Loan,
   LoanPayment,
 } from '@/core/types/entities'
-import { buildCardPeriods, projectCardPeriodDebts } from '@/features/debts/cardHelpers'
+import { buildCardPeriods, projectCardPeriodDebts, type CardProjectionRateContext } from '@/features/debts/cardHelpers'
 import type { AccountMovement } from '@/features/cashflow/movements'
 import {
   buildScheduleForLoan,
@@ -262,6 +262,7 @@ export function debtInstallmentRows(
     creditCardTransactions: CreditCardTransaction[]
     banks: { id: string; name: string }[]
     localCurrency: string
+    creditCardRateContext?: CardProjectionRateContext
   },
   filters: AnalyticsFilters,
   todayIso = new Date().toISOString(),
@@ -349,6 +350,7 @@ export function debtInstallmentRows(
     const projections = projectCardPeriodDebts(card, txns, {
       periods,
       asOf: new Date(todayIso),
+      ...input.creditCardRateContext,
     })
 
     for (const p of projections) {

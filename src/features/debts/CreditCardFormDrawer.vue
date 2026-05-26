@@ -8,6 +8,7 @@ import {
   Space,
   Button,
   message,
+  Select,
 } from 'ant-design-vue'
 import FormDrawer from '@/components/FormDrawer.vue'
 import SensitiveRecordSwitch from '@/components/SensitiveRecordSwitch.vue'
@@ -20,10 +21,12 @@ import KpFormLabel from '@/components/KpFormLabel.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
 import BankFormDrawer from '@/features/admin/BankFormDrawer.vue'
+import { creditCardTaxRateFromPreset } from '@/core/util/banking-preset-credit-card'
+import { pickCreditCardBalanceTier } from '@/finance/credit-card'
 import { useEntitiesStore } from '@/stores/entities'
 import { useProfileStore } from '@/stores/profile'
 import { useBankingPresetStore } from '@/stores/banking-preset'
-import type { Bank, CreditCard } from '@/core/types/entities'
+import type { Bank, CreditCard, CreditCardRateMode } from '@/core/types/entities'
 
 interface Props {
   open: boolean
@@ -41,6 +44,11 @@ const presetStore = useBankingPresetStore()
 
 const banks = entities.list<Bank>('bank')
 
+const rateModeOptions = [
+  { value: 'fixed', label: 'Sabit sözleşme oranı' },
+  { value: 'balanceTier', label: 'Dönem borcuna göre kademeli (referans)' },
+]
+
 interface Form {
   name: string
   bankId: string | undefined
@@ -48,14 +56,28 @@ interface Form {
   openingBalance: number
   statementCutoffDay: number
   paymentDueDay: number
+  rateMode: CreditCardRateMode
   purchaseAprMonthly: number
   lateAprMonthly: number | undefined
+  cashAdvanceAprMonthly: number | undefined
+  taxRateMonthly: number | undefined
   notes: string
   archived: boolean
   sensitive: boolean
 }
 
+function presetTierDebtHint(): number {
+  const debt = draft.openingBalance > 0 ? draft.openingBalance : draft.limit
+  return debt
+}
+
 function emptyForm(): Form {
+  const preset = presetStore.active.preset
+  const tier = pickCreditCardBalanceTier(
+    preset.creditCard.maxRatesByBalanceTier,
+    30_000,
+  )
+  const tax = creditCardTaxRateFromPreset(preset)
   return {
     name: '',
     bankId: undefined,
@@ -63,8 +85,11 @@ function emptyForm(): Form {
     openingBalance: 0,
     statementCutoffDay: 15,
     paymentDueDay: 25,
-    purchaseAprMonthly: 3.75,
-    lateAprMonthly: undefined,
+    rateMode: 'balanceTier',
+    purchaseAprMonthly: tier.purchaseAprMonthly * 100,
+    lateAprMonthly: tier.lateAprMonthly * 100,
+    cashAdvanceAprMonthly: preset.creditCard.cashAdvanceAprMonthly * 100,
+    taxRateMonthly: tax > 0 ? tax * 100 : undefined,
     notes: '',
     archived: false,
     ...emptySensitiveFields(),
@@ -91,9 +116,16 @@ watch(
         openingBalance: props.card.openingBalance ?? 0,
         statementCutoffDay: props.card.statementCutoffDay,
         paymentDueDay: props.card.paymentDueDay,
+        rateMode: props.card.rateMode ?? 'fixed',
         purchaseAprMonthly: props.card.purchaseAprMonthly * 100,
         lateAprMonthly:
           props.card.lateAprMonthly != null ? props.card.lateAprMonthly * 100 : undefined,
+        cashAdvanceAprMonthly:
+          props.card.cashAdvanceAprMonthly != null
+            ? props.card.cashAdvanceAprMonthly * 100
+            : undefined,
+        taxRateMonthly:
+          props.card.taxRateMonthly != null ? props.card.taxRateMonthly * 100 : undefined,
         notes: props.card.notes ?? '',
         archived: !!props.card.archived,
         sensitive: readSensitiveDraft('creditCard', props.card.id),
@@ -104,44 +136,40 @@ watch(
   },
 )
 
-function pickTier<T extends { maxBalance: number | null }>(
-  tiers: readonly T[],
-  limit: number,
-): T | undefined {
-  for (const t of tiers) {
-    if (t.maxBalance == null || limit <= t.maxBalance) return t
-  }
-  return tiers[tiers.length - 1]
-}
-
 function fillRefPurchase(): void {
-  const tier = pickTier(
-    presetStore.active.preset.creditCard.maxRatesByBalanceTier,
-    draft.limit,
+  const tiers = presetStore.active.preset.creditCard.maxRatesByBalanceTier
+  const tier = pickCreditCardBalanceTier(tiers, presetTierDebtHint())
+  draft.purchaseAprMonthly = tier.purchaseAprMonthly * 100
+  message.success(
+    `Alışveriş faizi referanstan dolduruldu (${(tier.purchaseAprMonthly * 100).toFixed(2)}% — ${presetTierDebtHint().toLocaleString('tr-TR')} TL dilimi).`,
   )
-  if (tier?.purchaseAprMonthly != null) {
-    draft.purchaseAprMonthly = tier.purchaseAprMonthly * 100
-    message.success(
-      `Alışveriş aylık faizi referanstan dolduruldu (limit tier'ı: ${(tier.purchaseAprMonthly * 100).toFixed(2)}%).`,
-    )
-  } else {
-    message.info('Referansta alışveriş faizi tanımlı değil.')
-  }
 }
 
 function fillRefLate(): void {
-  const tier = pickTier(
-    presetStore.active.preset.creditCard.maxRatesByBalanceTier,
-    draft.limit,
+  const tiers = presetStore.active.preset.creditCard.maxRatesByBalanceTier
+  const tier = pickCreditCardBalanceTier(tiers, presetTierDebtHint())
+  draft.lateAprMonthly = tier.lateAprMonthly * 100
+  message.success(
+    `Gecikme faizi referanstan dolduruldu (${(tier.lateAprMonthly * 100).toFixed(2)}%).`,
   )
-  if (tier?.lateAprMonthly != null) {
-    draft.lateAprMonthly = tier.lateAprMonthly * 100
-    message.success(
-      `Gecikme aylık faizi referanstan dolduruldu (${(tier.lateAprMonthly * 100).toFixed(2)}%).`,
-    )
-  } else {
-    message.info('Referansta gecikme faizi tanımlı değil.')
+}
+
+function fillRefCashAdvance(): void {
+  const cc = presetStore.active.preset.creditCard
+  draft.cashAdvanceAprMonthly = cc.cashAdvanceAprMonthly * 100
+  message.success(
+    `Nakit avans faizi referanstan dolduruldu (${(cc.cashAdvanceAprMonthly * 100).toFixed(2)}%).`,
+  )
+}
+
+function fillRefTax(): void {
+  const tax = creditCardTaxRateFromPreset(presetStore.active.preset)
+  if (tax <= 0) {
+    message.info('Referansta KKDF/BSMV tanımlı değil.')
+    return
   }
+  draft.taxRateMonthly = tax * 100
+  message.success(`Faiz vergisi (KKDF+BSMV) referanstan dolduruldu (${(tax * 100).toFixed(2)}%).`)
 }
 
 function openBankDrawer(): void {
@@ -175,10 +203,19 @@ async function submit(): Promise<void> {
       openingBalance: Number(draft.openingBalance) || 0,
       statementCutoffDay: Number(draft.statementCutoffDay),
       paymentDueDay: Number(draft.paymentDueDay),
+      rateMode: draft.rateMode,
       purchaseAprMonthly: Number(draft.purchaseAprMonthly) / 100,
       lateAprMonthly:
         draft.lateAprMonthly !== undefined
           ? Number(draft.lateAprMonthly) / 100
+          : undefined,
+      cashAdvanceAprMonthly:
+        draft.cashAdvanceAprMonthly !== undefined
+          ? Number(draft.cashAdvanceAprMonthly) / 100
+          : undefined,
+      taxRateMonthly:
+        draft.taxRateMonthly !== undefined
+          ? Number(draft.taxRateMonthly) / 100
           : undefined,
       notes: draft.notes.trim() || undefined,
       archived: draft.archived || undefined,
@@ -245,6 +282,16 @@ function close(): void {
           />
         </FormItem>
       </div>
+      <FormItem>
+        <template #label>
+          <KpFormLabel
+            hint="Kademeli modda dönem borcuna göre TCMB referans tavanları uygulanır; sabit modda aşağıdaki oranlar kullanılır."
+          >
+            Faiz modu
+          </KpFormLabel>
+        </template>
+        <Select v-model:value="draft.rateMode" :options="rateModeOptions" />
+      </FormItem>
       <FormItem label="Alışveriş aylık faizi (%)" required>
         <Space.Compact style="width: 100%">
           <LocaleInputNumber
@@ -258,7 +305,7 @@ function close(): void {
       </FormItem>
       <FormItem>
         <template #label>
-          <KpFormLabel hint="Boş bırakılırsa alışveriş × 1.087 (≈ +0.30 puan) varsayılır.">
+          <KpFormLabel hint="Boş bırakılırsa alışveriş × 1.087 (≈ +0,30 puan) varsayılır.">
             Gecikme aylık faizi (%)
           </KpFormLabel>
         </template>
@@ -271,6 +318,40 @@ function close(): void {
             style="flex: 1; min-width: 0"
           />
           <Button @click="fillRefLate">Referansla doldur</Button>
+        </Space.Compact>
+      </FormItem>
+      <FormItem>
+        <template #label>
+          <KpFormLabel hint="Boş bırakılırsa alışveriş faizi kullanılır.">
+            Nakit avans aylık faizi (%)
+          </KpFormLabel>
+        </template>
+        <Space.Compact style="width: 100%">
+          <LocaleInputNumber
+            v-model:value="draft.cashAdvanceAprMonthly"
+            kind="percent"
+            :min="0"
+            placeholder="Boş bırakılabilir"
+            style="flex: 1; min-width: 0"
+          />
+          <Button @click="fillRefCashAdvance">Referansla doldur</Button>
+        </Space.Compact>
+      </FormItem>
+      <FormItem>
+        <template #label>
+          <KpFormLabel hint="KKDF + BSMV toplamı; faiz hesabına eklenir (örn. %25).">
+            Faiz vergisi (%)
+          </KpFormLabel>
+        </template>
+        <Space.Compact style="width: 100%">
+          <LocaleInputNumber
+            v-model:value="draft.taxRateMonthly"
+            kind="percent"
+            :min="0"
+            placeholder="Boş bırakılabilir"
+            style="flex: 1; min-width: 0"
+          />
+          <Button @click="fillRefTax">Referansla doldur</Button>
         </Space.Compact>
       </FormItem>
       <FormItem label="Notlar">

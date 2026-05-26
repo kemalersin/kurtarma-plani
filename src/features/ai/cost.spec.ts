@@ -134,7 +134,7 @@ describe('ai snapshot filter', () => {
       ],
       DEFAULT_LOCALE_SETTINGS,
     )
-    expect(snap.derived?.contextVersion).toBe(3)
+    expect(snap.derived?.contextVersion).toBe(4)
     expect(snap.derived?.creditCardPeriods).toHaveLength(1)
     expect(snap.derived?.creditCardPeriods[0]?.periods.length).toBeGreaterThan(0)
     expect(buildSnapshotContextContent(snap, 'initial')).toContain('creditCardPeriods')

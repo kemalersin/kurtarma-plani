@@ -69,6 +69,8 @@ export interface CreditCardPeriodRowExport {
   dueDate: DateField
   carriedIn: MoneyField
   lateInterest: MoneyField
+  purchaseInterest: MoneyField
+  cashAdvanceInterest: MoneyField
   periodAccruals: MoneyField
   endingBalance: MoneyField
   minPayment: MoneyField

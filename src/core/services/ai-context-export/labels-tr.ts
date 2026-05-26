@@ -21,7 +21,9 @@ export const AI_CONTEXT_GLOSSARY: Record<string, string> = {
   overdueInstallmentCount: 'Vadesi geçmiş ödenmemiş taksit sayısı',
   historicalLatePaymentCount: 'Geç ödenmiş taksit sayısı (tarihsel)',
   carriedIn: 'Önceki dönemden taşınan ödenmemiş bakiye',
-  lateInterest: 'Vade sonrası gecikme faizi (kart dönem projeksiyonu)',
+  lateInterest: 'Vade sonrası gecikme faizi (asgari altı ödeme)',
+  purchaseInterest: 'Vade sonrası alışveriş (akdi) faizi',
+  cashAdvanceInterest: 'Vade sonrası nakit avans faizi',
   periodAccruals: 'Dönem içi yeni tahakkuk (alışveriş/avans/taksit)',
   endingBalance: 'Dönem sonu bakiyesi (taşınan + faiz + tahakkuk − ödeme)',
   paidInPeriod: 'Dönem ödeme penceresinde yapılan ödemeler toplamı',
@@ -62,7 +64,7 @@ export const AI_CONTEXT_PURPOSE =
 export const AI_CONTEXT_INSTRUCTIONS_JSON = `Bu dosya JSON biçimindedir; finans analizi, borç ödeme planı, nakit akışı ve bütçe önerileri için kullan.
 - summary bölümünden genel pozisyonu oku.
 - schedules altında kredi / taksitli avans amortisman tabloları, kart taksit tahakkuk planları (schedules.creditCards) ve kart dönem vadeleri (schedules.creditCardPeriods) vardır.
-- schedules.creditCardPeriods: hesap kesim dönemleri; taşınan borç (carriedIn), gecikme faizi (lateInterest), dönem sonu (endingBalance), asgari (minPayment), dönem içi ödeme (paidInPeriod). Ödenmemiş bakiye sonraki döneme faizle taşınır.
+- schedules.creditCardPeriods: hesap kesim dönemleri; taşınan borç (carriedIn), gecikme faizi (lateInterest), akdi faiz (purchaseInterest), nakit avans faizi (cashAdvanceInterest), dönem sonu (endingBalance), asgari (minPayment), dönem içi ödeme (paidInPeriod). Asgari ödendiyse gecikme yok; kalan bakiyeye akdi faiz yansır.
 - Kredi kartı borcu için sections.creditCards.totalCommitted kullan (gelecek taksitler dahil); güncel dönem için currentPeriodEndingBalance ve minPayment projeksiyonludur.
 - sections.creditCardTransactions: ham kart hareketleri (installmentCount, repaymentTotal); taksit dağılımı schedules.creditCards altındadır.
 - Tutarlarda formatted alanları kullanıcıya gösterirken tercih et; value ham sayıdır.

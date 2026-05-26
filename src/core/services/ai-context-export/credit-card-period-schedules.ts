@@ -10,6 +10,7 @@ import {
   moneyField,
   type AiContextFormatters,
 } from '@/core/services/ai-context-export/format-helpers'
+import type { CardProjectionRateContext } from '@/features/debts/cardHelpers'
 import type {
   CreditCardPeriodRowExport,
   CreditCardPeriodScheduleExport,
@@ -29,6 +30,8 @@ function periodHasActivity(p: CardPeriodDebtProjection): boolean {
   return (
     p.carriedIn > 0 ||
     p.lateInterest > 0 ||
+    p.purchaseInterest > 0 ||
+    p.cashAdvanceInterest > 0 ||
     p.periodAccruals > 0 ||
     p.endingBalance > 0 ||
     Number(p.paymentsInWindow ?? 0) > 0
@@ -42,6 +45,7 @@ export function buildCreditCardPeriodSchedules(params: {
   fmt: AiContextFormatters
   asOf: string
   periodsCount?: number
+  creditCardRateContext?: CardProjectionRateContext
 }): CreditCardPeriodScheduleExport[] {
   const { creditCards, creditCardTxns, bankMap, fmt, asOf } = params
   const periodsCount = params.periodsCount ?? 12
@@ -53,7 +57,10 @@ export function buildCreditCardPeriodSchedules(params: {
     const bank = card.bankId ? bankMap.get(card.bankId) : undefined
     const own = creditCardTxns.filter((t) => t.cardId === card.id)
     const periods = buildCardPeriods(card, own, { periods: periodsCount, asOf: asOfDate })
-    const projections = projectCardPeriodDebts(card, own, { periods })
+    const projections = projectCardPeriodDebts(card, own, {
+      periods,
+      ...params.creditCardRateContext,
+    })
 
     const periodRows: CreditCardPeriodRowExport[] = []
     for (let i = 0; i < projections.length; i++) {
@@ -67,6 +74,8 @@ export function buildCreditCardPeriodSchedules(params: {
         dueDate: dateField(p.dueDate, fmt),
         carriedIn: moneyField(p.carriedIn, card.currency, fmt),
         lateInterest: moneyField(p.lateInterest, card.currency, fmt),
+        purchaseInterest: moneyField(p.purchaseInterest, card.currency, fmt),
+        cashAdvanceInterest: moneyField(p.cashAdvanceInterest, card.currency, fmt),
         periodAccruals: moneyField(p.periodAccruals, card.currency, fmt),
         endingBalance: moneyField(p.endingBalance, card.currency, fmt),
         minPayment: moneyField(p.minPayment, card.currency, fmt),

@@ -12,9 +12,11 @@ import type { Bank, CreditCard, CreditCardTransaction } from '@/core/types/entit
 import { adminPrimaryNameColumn } from '@/features/admin/admin-list-columns'
 import { compareByDisplayLabel, compareNumeric } from '@/features/debts/debtListSorters'
 import { cardCommittedTotal, cardCurrentPeriodProjection, cardOutstandingBalance } from './cardHelpers'
+import { useCreditCardRateContext } from '@/composables/useCreditCardRateContext'
 
 const entities = useEntitiesStore()
 const { formatCurrency } = useLocaleFormatters()
+const { rateContext } = useCreditCardRateContext()
 
 const cards = entities.list<CreditCard>('creditCard')
 const txns = entities.list<CreditCardTransaction>('creditCardTransaction')
@@ -82,10 +84,11 @@ interface CardSummary {
 const summaryCache = computed<Map<string, CardSummary>>(() => {
   const map = new Map<string, CardSummary>()
   for (const card of cards.value) {
-    const current = cardCurrentPeriodProjection(card, txns.value)
-    const endingBalance = cardOutstandingBalance(card, txns.value)
+    const ctx = rateContext.value
+    const current = cardCurrentPeriodProjection(card, txns.value, new Date(), ctx)
+    const endingBalance = cardOutstandingBalance(card, txns.value, new Date(), ctx)
     const minPayment = String(current?.minPayment ?? 0)
-    const totals = cardCommittedTotal(card, txns.value)
+    const totals = cardCommittedTotal(card, txns.value, new Date(), ctx)
     const available = card.limit - Number(totals.committed)
     map.set(card.id, {
       endingBalance,

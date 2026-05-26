@@ -43,12 +43,12 @@ function creditCardPeriodTable(sched: CreditCardPeriodScheduleExport): string {
   const lines: string[] = [
     `### Kart dönem vadeleri: ${sched.label}`,
     '',
-    '| Dönem | Vade | Taşınan | Gecikme faizi | Tahakkuk | Dönem sonu | Asgari | Ödenen | Durum |',
-    '|---|---|---:|---:|---:|---:|---:|---:|---|',
+    '| Dönem | Vade | Taşınan | Gecikme | Akdi | Nakit avans faizi | Tahakkuk | Dönem sonu | Asgari | Ödenen | Durum |',
+    '|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|',
   ]
   for (const row of pending) {
     lines.push(
-      `| ${row.periodLabel} | ${row.dueDate.formatted} | ${row.carriedIn.formatted} | ${row.lateInterest.formatted} | ${row.periodAccruals.formatted} | ${row.endingBalance.formatted} | ${row.minPayment.formatted} | ${row.paidInPeriod.formatted} | ${row.status} |`,
+      `| ${row.periodLabel} | ${row.dueDate.formatted} | ${row.carriedIn.formatted} | ${row.lateInterest.formatted} | ${row.purchaseInterest.formatted} | ${row.cashAdvanceInterest.formatted} | ${row.periodAccruals.formatted} | ${row.endingBalance.formatted} | ${row.minPayment.formatted} | ${row.paidInPeriod.formatted} | ${row.status} |`,
     )
   }
   lines.push('')

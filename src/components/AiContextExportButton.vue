@@ -23,6 +23,7 @@ import {
 import JsonCodeBlock from '@/components/JsonCodeBlock.vue'
 import KpMarkdown from '@/components/KpMarkdown.vue'
 import { useProfileStore } from '@/stores/profile'
+import { useBankingPresetStore } from '@/stores/banking-preset'
 import { EncryptedRepo } from '@/core/db/encrypted-repo'
 import {
   buildAndFormatAiContext,
@@ -31,6 +32,7 @@ import {
 import { downloadTextFile, profileFileSlug } from '@/core/util/download'
 
 const profileStore = useProfileStore()
+const presetStore = useBankingPresetStore()
 const isMobileShell = useMatchMedia(KP_MOBILE_VIEWPORT_MQ)
 const isHoverCapable = useHoverCapable()
 
@@ -83,7 +85,12 @@ async function buildExportText(format: AiContextExportFormat): Promise<string | 
     const repo = new EncryptedRepo(profileId, profileStore.encryptionKey)
     const rows = await repo.exportAllDecoded()
     const { document, text } = buildAndFormatAiContext(
-      { profile, rows, includeSensitive: options.includeSensitive },
+      {
+        profile,
+        rows,
+        includeSensitive: options.includeSensitive,
+        bankingPreset: presetStore.active.preset,
+      },
       format,
     )
     previewOmitted.value = {

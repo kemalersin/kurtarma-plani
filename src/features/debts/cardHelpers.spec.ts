@@ -349,11 +349,12 @@ describe('projectCardPeriodDebts', () => {
     const projections = projectCardPeriodDebts(card, txns, { periods, asOf })
     const second = projections.find((p, i) => i > 0 && p.carriedIn > 0)
     expect(second).toBeDefined()
-    expect(second!.lateInterest).toBeGreaterThan(0)
-    expect(second!.endingBalance).toBeGreaterThan(second!.carriedIn + second!.periodAccruals)
+    const interestTotal = second!.lateInterest + second!.purchaseInterest + second!.cashAdvanceInterest
+    expect(interestTotal).toBeGreaterThan(0)
+    expect(second!.carriedIn).toBeGreaterThan(5000)
   })
 
-  it('geç ödeme önceki dönem borcunu kapatır; kalan gecikme faizi sonraki vadeye taşınır', () => {
+  it('asgari ödenince gecikme yok; kalan bakiyeye akdi faiz yansır', () => {
     const card: CreditCard = {
       ...baseCard,
       limit: 200_000,
@@ -363,15 +364,15 @@ describe('projectCardPeriodDebts', () => {
     const txns = [
       txn({
         id: 'buy',
-        date: '2026-01-14T12:00:00.000Z',
+        date: '2026-02-05T12:00:00.000Z',
         amount: 10_000,
         type: 'purchase',
         repaymentTotal: 12_000,
       }),
       txn({
         id: 'pay',
-        date: '2026-02-27T12:00:00.000Z',
-        amount: 12_382.2,
+        date: '2026-02-20T12:00:00.000Z',
+        amount: 5_000,
         type: 'payment',
       }),
     ]
@@ -381,19 +382,12 @@ describe('projectCardPeriodDebts', () => {
 
     const feb = projections.find((p) => p.cutoffDate.startsWith('2026-02'))
     const mar = projections.find((p) => p.cutoffDate.startsWith('2026-03'))
-    const apr = projections.find((p) => p.cutoffDate.startsWith('2026-04'))
 
-    expect(feb!.endingBalance).toBeCloseTo(12_382.2, 0)
-    expect(feb!.paidInFull).toBe(false)
-    expect(mar!.carriedIn).toBeCloseTo(12_382.2, 0)
-    expect(mar!.lateInterest).toBeCloseTo(338.03, 0)
-    expect(mar!.endingBalance).toBeCloseTo(338.03, 0)
-    expect(mar!.paidInFull).toBe(false)
-    expect(mar!.paid).toBe(true)
-    expect(mar!.paymentsInWindow).toBeCloseTo(12_382.2, 0)
-    expect(apr!.carriedIn).toBeCloseTo(338.03, 0)
-    expect(apr!.lateInterest).toBeGreaterThan(0)
-    expect(apr!.endingBalance).toBeGreaterThan(338.03)
+    expect(feb!.endingBalance).toBeCloseTo(12_000, 0)
+    expect(feb!.paid).toBe(true)
+    expect(mar!.lateInterest).toBe(0)
+    expect(mar!.purchaseInterest).toBeGreaterThan(0)
+    expect(mar!.carriedIn).toBeGreaterThan(7000)
   })
 
   it('kesim sonrası ödeme vade borcunu düşürür', () => {

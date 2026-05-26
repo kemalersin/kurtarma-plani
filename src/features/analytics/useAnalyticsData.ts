@@ -4,6 +4,7 @@
 import { computed, onMounted, type ComputedRef } from 'vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useProfileStore } from '@/stores/profile'
+import { useCreditCardRateContext } from '@/composables/useCreditCardRateContext'
 import { useAccountBalances } from '@/features/cashflow/useAccountBalances'
 import {
   assetTrendSeries,
@@ -78,6 +79,7 @@ export function useAnalyticsData(
 ): { data: ComputedRef<AnalyticsData>; loading: ComputedRef<boolean> } {
   const entities = useEntitiesStore()
   const profileStore = useProfileStore()
+  const { rateContext } = useCreditCardRateContext()
   const { movements } = useAccountBalances()
 
   const banks = entities.list<Bank>('bank')
@@ -127,6 +129,7 @@ export function useAnalyticsData(
         creditCardTransactions: creditCardTransactions.value,
         banks: banks.value,
         localCurrency: lc,
+        creditCardRateContext: rateContext.value,
       },
       f,
     )

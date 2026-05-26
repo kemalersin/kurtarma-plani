@@ -26,7 +26,7 @@ import {
   type CardPeriod,
   type PeriodTxn,
 } from './cardHelpers'
-import CreditCardTxnDrawer from './CreditCardTxnDrawer.vue'
+import { useCreditCardRateContext } from '@/composables/useCreditCardRateContext'
 
 interface Props {
   open: boolean
@@ -39,6 +39,7 @@ const emit = defineEmits<{
 
 const entities = useEntitiesStore()
 const { formatCurrency, formatDate } = useLocaleFormatters()
+const { rateContext } = useCreditCardRateContext()
 
 const transactions = entities.list<CreditCardTransaction>('creditCardTransaction')
 
@@ -64,7 +65,10 @@ const periods = computed<CardPeriod[]>(() => {
 
 const periodProjections = computed(() => {
   if (!props.card || !periods.value.length) return []
-  return projectCardPeriodDebts(props.card, transactions.value, { periods: periods.value })
+  return projectCardPeriodDebts(props.card, transactions.value, {
+    periods: periods.value,
+    ...rateContext.value,
+  })
 })
 
 const selectedCutoff = ref<string | undefined>(undefined)
@@ -237,7 +241,17 @@ const periodStats = computed<KpStat[]>(() => {
       label: 'Gecikme faizi',
       value: formatCurrency(proj.lateInterest, ccy),
       tone: 'danger',
-      labelTooltip: 'Önceki vade sonrası ödenmemiş bakiye üzerinden hesaplanan gecikme faizi.',
+      labelTooltip: 'Asgari altı ödemede ödenmeyen asgari kısma uygulanan gecikme faizi.',
+    })
+  }
+  const akdiTotal = proj.purchaseInterest + proj.cashAdvanceInterest
+  if (akdiTotal > 0) {
+    stats.push({
+      label: 'Akdi faiz',
+      value: formatCurrency(akdiTotal, ccy),
+      tone: 'warning',
+      labelTooltip:
+        'Asgari ödendikten sonra kalan bakiyeye (alışveriş ve nakit avans ayrı oranlarla) uygulanan faiz.',
     })
   }
   stats.push(
@@ -284,7 +298,7 @@ const periodStats = computed<KpStat[]>(() => {
       <DismissibleDrawerAlert
         hint-key="credit-card-statement.info"
         message="Dönem özeti"
-        description="Bir dönem, kart hesap kesim tarihinden bir sonrakine kadar olan harcama ve ödemeleri kapsar. Ödenmemiş bakiye sonraki döneme taşınır; vade sonrası gecikme faizi dönem sonu ve asgari tutara yansır. Asgari oran: limit 25.000 TL altı %20, üstü %40."
+        description="Bir dönem, kart hesap kesim tarihinden bir sonrakine kadar olan harcama ve ödemeleri kapsar. Vade sonrası asgari ödendiyse kalan bakiyeye akdi faiz; asgari altı ödemede ödenmeyen asgari kısma gecikme faizi yansır. Kademeli modda oranlar dönem borcuna göre belirlenir. Asgari oran: limit 25.000 TL altı %20, üstü %40."
       />
 
       <Space :size="12" wrap>

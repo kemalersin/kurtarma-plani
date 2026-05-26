@@ -122,6 +122,9 @@ export type LoanPayment = z.infer<typeof LoanPaymentSchema>
 // Kredi kartı
 // =============================================================================
 
+export const CreditCardRateModes = ['fixed', 'balanceTier'] as const
+export type CreditCardRateMode = (typeof CreditCardRateModes)[number]
+
 export const CreditCardSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
@@ -134,10 +137,21 @@ export const CreditCardSchema = z.object({
   statementCutoffDay: z.number().int().min(1).max(28),
   /** Son ödeme günü 1–28 */
   paymentDueDay: z.number().int().min(1).max(28),
-  /** Alışveriş aylık akdi faizi (örn. 0.0375) */
+  /** Alışveriş aylık akdi faizi (örn. 0.0375) — `fixed` modda doğrudan kullanılır */
   purchaseAprMonthly: z.number().min(0),
   /** Gecikme aylık faizi (varsayılan: alışveriş × 1.087) */
   lateAprMonthly: z.number().min(0).optional(),
+  /** Nakit avans aylık akdi faizi; boşsa alışveriş oranı */
+  cashAdvanceAprMonthly: z.number().min(0).optional(),
+  /** Nakit avans gecikme faizi; boşsa nakit avans × 1.087 veya preset */
+  cashAdvanceLateAprMonthly: z.number().min(0).optional(),
+  /** KKDF + BSMV toplamı (faize eklenir; örn. 0.25) */
+  taxRateMonthly: z.number().min(0).optional(),
+  /**
+   * `fixed`: karttaki sabit oranlar kullanılır.
+   * `balanceTier`: dönem borcuna göre preset kademesi (referans) uygulanır.
+   */
+  rateMode: z.enum(CreditCardRateModes).optional(),
   notes: z.string().optional(),
   archived: z.boolean().optional(),
   createdAt: Iso,

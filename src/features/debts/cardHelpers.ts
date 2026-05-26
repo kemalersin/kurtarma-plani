@@ -5,11 +5,14 @@ import type {
   CreditCardTxnType,
 } from '@/core/types/entities'
 import {
-  creditCardLateInterest,
+  allocateCreditCardPayment,
+  creditCardInterPeriodCharges,
   creditCardStatement,
+  resolveCreditCardRates,
   resolveCreditCardRepaymentTotal,
   splitInstallmentAmount,
   type CardStatement,
+  type CreditCardBalanceTier,
 } from '@/finance/credit-card'
 import { D, roundMoney } from '@/finance/decimal'
 
@@ -188,10 +191,14 @@ export interface CardPeriodDebtProjection {
   cutoffDate: string
   dueDate: string
   periodStartIso: string
-  /** Dönem başı taşınan bakiye (gecikme faizi hariç). */
+  /** Dönem başı taşınan bakiye (vade sonrası faiz hariç). */
   carriedIn: number
   /** Önceki vadeden bu dönem başına gecikme faizi. */
   lateInterest: number
+  /** Önceki vadeden bu dönem başına alışveriş (akdi) faizi. */
+  purchaseInterest: number
+  /** Önceki vadeden bu dönem başına nakit avans faizi. */
+  cashAdvanceInterest: number
   /** Bu dönemde tahakkuk eden alışveriş/avans/taksit (ödeme hariç). */
   periodAccruals: number
   endingBalance: number
@@ -202,12 +209,67 @@ export interface CardPeriodDebtProjection {
   paidInFull: boolean
   /** Son ödeme günü itibarıyla kalan borç (kesim sonrası ödemeler düşülmüş). */
   owedAtDue: number
+  /** Vade anında kalan alışveriş bakiyesi (faiz tahakkuku için). */
+  owedPurchaseAtDue: number
+  /** Vade anında kalan nakit avans bakiyesi (faiz tahakkuku için). */
+  owedCashAdvanceAtDue: number
   paidDate?: string
   /** Ödeme penceresindeki toplam (dönem başı → son ödeme günü); rapor/grafik için. */
   paymentsInWindow?: string
   /** Kesim sonrası — son ödeme gününe kadar yapılan ödemeler. */
   paidAfterCutoff?: string
   accrualLines: PeriodTxn[]
+}
+
+export interface CardProjectionRateContext {
+  balanceTiers?: readonly CreditCardBalanceTier[]
+  presetCashAdvanceApr?: number
+  presetCashAdvanceLateApr?: number
+}
+
+interface BalanceSplit {
+  purchase: ReturnType<typeof D>
+  cashAdvance: ReturnType<typeof D>
+}
+
+function totalSplit(split: BalanceSplit): ReturnType<typeof D> {
+  const t = split.purchase.plus(split.cashAdvance)
+  return t.lt(0) ? D(0) : t
+}
+
+/** Ödeme sonrası borç dağılımını orantılı küçültür (alışveriş öncelikli tahsis sonrası). */
+function applyPaymentToSplit(split: BalanceSplit, payment: number): BalanceSplit {
+  const allocated = allocateCreditCardPayment(
+    payment,
+    split.purchase,
+    split.cashAdvance,
+  )
+  return {
+    purchase: D(allocated.purchase),
+    cashAdvance: D(allocated.cashAdvance),
+  }
+}
+
+function processPeriodTransactions(
+  split: BalanceSplit,
+  transactions: PeriodTxn[],
+): BalanceSplit {
+  let purchase = split.purchase
+  let cash = split.cashAdvance
+  for (const t of transactions) {
+    if (t.type === 'payment') {
+      const next = applyPaymentToSplit({ purchase, cashAdvance: cash }, t.amount)
+      purchase = next.purchase
+      cash = next.cashAdvance
+    } else if (t.type === 'cashAdvance') {
+      cash = cash.plus(t.amount)
+    } else {
+      purchase = purchase.plus(t.amount)
+    }
+  }
+  if (purchase.lt(0)) purchase = D(0)
+  if (cash.lt(0)) cash = D(0)
+  return { purchase, cashAdvance: cash }
 }
 
 function daysBetweenIso(startIso: string, endIso: string): number {
@@ -247,7 +309,11 @@ function sumCardPaymentsInWindow(
 export function projectCardPeriodDebts(
   card: CreditCard,
   transactions: CreditCardTransaction[],
-  options: { periods?: CardPeriod[]; periodsCount?: number; asOf?: Date } = {},
+  options: {
+    periods?: CardPeriod[]
+    periodsCount?: number
+    asOf?: Date
+  } & CardProjectionRateContext = {},
 ): CardPeriodDebtProjection[] {
   const asOfDate = options.asOf ?? new Date()
   const asOfKey = asOfDate.toISOString().slice(0, 10)
@@ -258,15 +324,12 @@ export function projectCardPeriodDebts(
       asOf: asOfDate,
     })
 
-  const apr = { value: card.purchaseAprMonthly, period: 'monthly' as const }
-  const lateApr =
-    card.lateAprMonthly != null
-      ? { value: card.lateAprMonthly, period: 'monthly' as const }
-      : undefined
-
   const out: CardPeriodDebtProjection[] = []
-  let carried = D(0)
-  let lastDueIso: string | undefined
+  let carry: BalanceSplit = {
+    purchase: D(card.openingBalance ?? 0),
+    cashAdvance: D(0),
+  }
+  let pendingInterPeriod: ReturnType<typeof creditCardInterPeriodCharges> | null = null
 
   for (let i = 0; i < periods.length; i++) {
     const period = periods[i]!
@@ -275,30 +338,28 @@ export function projectCardPeriodDebts(
         ? periods[i - 1]!.cutoffDate
         : addMonths(new Date(period.cutoffDate), -1).toISOString()
 
-    let opening = i === 0 ? D(period.openingBalance) : carried
-    const carriedIn = Number(roundMoney(opening))
-
     let lateInterest = D(0)
-    if (lastDueIso && opening.gt(0)) {
-      const days = daysBetweenIso(lastDueIso, period.cutoffDate)
-      if (days > 0) {
-        lateInterest = D(
-          creditCardLateInterest({
-            unpaidBalance: opening,
-            daysLate: days,
-            apr,
-            lateApr,
-          }),
-        )
-        opening = opening.plus(lateInterest)
+    let purchaseInterest = D(0)
+    let cashAdvanceInterest = D(0)
+
+    if (pendingInterPeriod) {
+      lateInterest = D(pendingInterPeriod.lateInterest)
+      purchaseInterest = D(pendingInterPeriod.purchaseInterest)
+      cashAdvanceInterest = D(pendingInterPeriod.cashAdvanceInterest)
+      carry = {
+        purchase: carry.purchase.plus(lateInterest).plus(purchaseInterest),
+        cashAdvance: carry.cashAdvance.plus(cashAdvanceInterest),
       }
+      pendingInterPeriod = null
     }
 
-    const accrualLines = period.transactions.filter((t) => t.type !== 'payment')
-    const periodAccruals = accrualLines.reduce((s, t) => s + t.amount, 0)
+    const carriedIn = Number(roundMoney(totalSplit(carry)))
+
+    const afterTx = processPeriodTransactions(carry, period.transactions)
+    const endingBalance = Number(roundMoney(totalSplit(afterTx)))
 
     const stmt = creditCardStatement({
-      openingBalance: opening,
+      openingBalance: carriedIn,
       transactions: period.transactions.map((t) => ({
         date: t.date,
         amount: t.amount,
@@ -306,7 +367,6 @@ export function projectCardPeriodDebts(
       })),
       limit: card.limit,
     })
-    const endingBalance = Number(stmt.endingBalance)
     const minPayment = Number(stmt.minPayment)
 
     const payment = sumCardPaymentsInWindow(
@@ -315,7 +375,6 @@ export function projectCardPeriodDebts(
       periodStartIso,
       period.dueDate,
     )
-    /** Kesim sonrası — son ödeme gününe kadar yapılan ödemeler (ekstrede henüz yok). */
     const postCutoffPayment = sumCardPaymentsInWindow(
       card.id,
       transactions,
@@ -332,18 +391,46 @@ export function projectCardPeriodDebts(
     const paidInFull = endingBalance <= 0 || owedAtDue <= 0
     const dueIsPast = period.dueDate.slice(0, 10) < asOfKey
 
-    if (dueIsPast) {
-      carried = D(owedAtDue)
-      lastDueIso = period.dueDate
+    const accrualLines = period.transactions.filter((t) => t.type !== 'payment')
+    const periodAccruals = accrualLines.reduce((s, t) => s + t.amount, 0)
+
+    const dueSplit = applyPaymentToSplit(afterTx, postCutoffPayment.sum)
+
+    if (dueIsPast && owedAtDue > 0) {
+      const rates = resolveCreditCardRates({
+        card,
+        periodDebt: endingBalance,
+        tiers: options.balanceTiers,
+        presetCashAdvanceApr: options.presetCashAdvanceApr,
+        presetCashAdvanceLateApr: options.presetCashAdvanceLateApr,
+      })
+      const interestEndIso =
+        i + 1 < periods.length
+          ? periods[i + 1]!.cutoffDate
+          : addMonths(new Date(period.cutoffDate), 1).toISOString()
+      const days = daysBetweenIso(period.dueDate, interestEndIso)
+      pendingInterPeriod = creditCardInterPeriodCharges({
+        owedAtDue,
+        minPayment,
+        paidTowardDue,
+        daysFromDue: days,
+        purchaseBalance: dueSplit.purchase,
+        cashAdvanceBalance: dueSplit.cashAdvance,
+        purchaseAprMonthly: rates.purchaseAprMonthly,
+        lateAprMonthly: rates.lateAprMonthly,
+        cashAdvanceAprMonthly: rates.cashAdvanceAprMonthly,
+      })
+      carry = dueSplit
+    } else if (dueIsPast && owedAtDue <= 0) {
+      carry = { purchase: D(0), cashAdvance: D(0) }
+      pendingInterPeriod = null
     } else {
-      carried = D(0)
-      lastDueIso = undefined
+      carry = { purchase: D(0), cashAdvance: D(0) }
+      pendingInterPeriod = null
     }
 
     const paidAmountStr =
-      paidTowardDue > 0
-        ? String(roundMoney(paidTowardDue))
-        : undefined
+      paidTowardDue > 0 ? String(roundMoney(paidTowardDue)) : undefined
     const paymentsInWindowStr =
       payment.sum > 0 ? String(roundMoney(payment.sum)) : undefined
 
@@ -353,12 +440,16 @@ export function projectCardPeriodDebts(
       periodStartIso,
       carriedIn,
       lateInterest: Number(roundMoney(lateInterest)),
+      purchaseInterest: Number(roundMoney(purchaseInterest)),
+      cashAdvanceInterest: Number(roundMoney(cashAdvanceInterest)),
       periodAccruals,
       endingBalance,
       minPayment,
       paid,
       paidInFull,
       owedAtDue,
+      owedPurchaseAtDue: owedAtDue > 0 ? Number(roundMoney(dueSplit.purchase)) : 0,
+      owedCashAdvanceAtDue: owedAtDue > 0 ? Number(roundMoney(dueSplit.cashAdvance)) : 0,
       paidDate: payment.sum > 0 ? payment.lastPaidDate : undefined,
       paymentsInWindow: paymentsInWindowStr,
       paidAfterCutoff: paidAmountStr,
@@ -427,17 +518,13 @@ function projectedOutstandingBalance(
   card: CreditCard,
   transactions: CreditCardTransaction[],
   asOf: Date,
+  rateContext: CardProjectionRateContext = {},
 ): ReturnType<typeof D> {
   const asOfKey = asOf.toISOString().slice(0, 10)
   const periods = buildCardPeriods(card, transactions, { periods: 18, asOf })
   if (!periods.length) return D(0)
 
-  const projections = projectCardPeriodDebts(card, transactions, { periods, asOf })
-  const apr = { value: card.purchaseAprMonthly, period: 'monthly' as const }
-  const lateApr =
-    card.lateAprMonthly != null
-      ? { value: card.lateAprMonthly, period: 'monthly' as const }
-      : undefined
+  const projections = projectCardPeriodDebts(card, transactions, { periods, asOf, ...rateContext })
 
   let balance = D(0)
 
@@ -456,19 +543,6 @@ function projectedOutstandingBalance(
 
     if (asOfKey >= periodStartKey && asOfKey < cutoffKey) {
       balance = D(proj.carriedIn)
-      if (balance.gt(0) && i > 0) {
-        const days = daysBetweenIso(periods[i - 1]!.dueDate, asOf.toISOString())
-        if (days > 0) {
-          balance = balance.plus(
-            creditCardLateInterest({
-              unpaidBalance: balance,
-              daysLate: days,
-              apr,
-              lateApr,
-            }),
-          )
-        }
-      }
       for (const t of period.transactions) {
         const d = t.date.slice(0, 10)
         if (d > asOfKey) continue
@@ -490,22 +564,33 @@ function projectedOutstandingBalance(
     }
 
     if (asOfKey >= dueKey) {
-      balance = D(proj.owedAtDue)
-      const hasNext = i + 1 < periods.length
-      if (hasNext && asOfKey >= cutoffKey) {
+      const nextPeriod = periods[i + 1]
+      if (nextPeriod && asOfKey >= nextPeriod.cutoffDate.slice(0, 10)) {
         continue
       }
+      balance = D(proj.owedAtDue)
       if (balance.gt(0)) {
         const days = daysBetweenIso(period.dueDate, asOf.toISOString())
         if (days > 0) {
-          balance = balance.plus(
-            creditCardLateInterest({
-              unpaidBalance: balance,
-              daysLate: days,
-              apr,
-              lateApr,
-            }),
-          )
+          const rates = resolveCreditCardRates({
+            card,
+            periodDebt: proj.endingBalance,
+            tiers: rateContext.balanceTiers,
+            presetCashAdvanceApr: rateContext.presetCashAdvanceApr,
+            presetCashAdvanceLateApr: rateContext.presetCashAdvanceLateApr,
+          })
+          const charges = creditCardInterPeriodCharges({
+            owedAtDue: proj.owedAtDue,
+            minPayment: proj.minPayment,
+            paidTowardDue: Math.max(0, proj.endingBalance - proj.owedAtDue),
+            daysFromDue: days,
+            purchaseBalance: proj.owedPurchaseAtDue,
+            cashAdvanceBalance: proj.owedCashAdvanceAtDue,
+            purchaseAprMonthly: rates.purchaseAprMonthly,
+            lateAprMonthly: rates.lateAprMonthly,
+            cashAdvanceAprMonthly: rates.cashAdvanceAprMonthly,
+          })
+          balance = balance.plus(charges.total)
         }
       }
       break
@@ -525,9 +610,10 @@ export function cardOutstandingBalance(
   card: CreditCard,
   transactions: CreditCardTransaction[],
   asOf: Date = new Date(),
+  rateContext: CardProjectionRateContext = {},
 ): string {
   const flat = flatBalanceAsOf(card, transactions, asOf)
-  const projected = projectedOutstandingBalance(card, transactions, asOf)
+  const projected = projectedOutstandingBalance(card, transactions, asOf, rateContext)
   const balance = flat.gt(projected) ? flat : projected
   return roundMoney(balance).toString()
 }
@@ -537,10 +623,11 @@ export function cardCurrentPeriodProjection(
   card: CreditCard,
   transactions: CreditCardTransaction[],
   asOf: Date = new Date(),
+  rateContext: CardProjectionRateContext = {},
 ): CardPeriodDebtProjection | null {
   const periods = buildCardPeriods(card, transactions, { periods: 6, asOf })
   if (!periods.length) return null
-  const projections = projectCardPeriodDebts(card, transactions, { periods, asOf })
+  const projections = projectCardPeriodDebts(card, transactions, { periods, asOf, ...rateContext })
   return projections[projections.length - 1] ?? null
 }
 
@@ -563,6 +650,7 @@ export function cardCommittedTotal(
   card: CreditCard,
   transactions: CreditCardTransaction[],
   asOf: Date = new Date(),
+  rateContext: CardProjectionRateContext = {},
 ): CardCommittedTotals {
   const expanded = expandInstallments(card, transactions)
   const cutoffIso = asOf.toISOString()
@@ -574,7 +662,7 @@ export function cardCommittedTotal(
     }
   }
 
-  const ending = cardOutstandingBalance(card, transactions, asOf)
+  const ending = cardOutstandingBalance(card, transactions, asOf, rateContext)
   const future = futureSum.lt(0) ? D(0) : futureSum
   const committed = D(ending).plus(future)
   return {

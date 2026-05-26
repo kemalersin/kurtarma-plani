@@ -6,6 +6,16 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.28]
+
+### Added — kredi kartı faiz modeli (TCMB referans uyumu)
+
+- **Finans motoru (`credit-card.ts`):** dönem borcuna göre kademeli oran seçimi (`pickCreditCardBalanceTier`, `resolveCreditCardRates`); KKDF+BSMV vergi katmanı (`creditCardEffectiveMonthlyRate`); vade–kesim arası **akdi** ve **gecikme** faizi ayrımı (`creditCardInterPeriodCharges` — asgari ödendiyse gecikme yok, kalan bakiyeye akdi faiz); alışveriş/nakit avans bakiye ayrımı ve ödeme tahsisi (`allocateCreditCardPayment`).
+- **Kart entity:** `cashAdvanceAprMonthly`, `taxRateMonthly`, `rateMode` (`fixed` | `balanceTier`); preset'e `creditCard.taxRateKkdf` / `taxRateBsmv` (%15 + %10).
+- **`projectCardPeriodDebts`:** faiz tahakkuku vade → sonraki kesim gün aralığında; projeksiyonda `purchaseInterest` / `cashAdvanceInterest` alanları; preset kademeleri `useCreditCardRateContext` ile liste, ekstre, analiz ve AI dışa aktarımda kullanılır.
+- **Form / ekstre UI:** nakit avans faizi, faiz vergisi, faiz modu seçimi; referans doldurma dönem borcu dilimine göre; ekstrede akdi faiz satırı.
+- **AI bağlam:** `AI_CONTEXT_VERSION` → 4; dönem export'una akdi ve nakit avans faizi sütunları.
+
 ## [0.1.27]
 
 ### Fixed — kart borcu toplamları (taşınan bakiye + faiz)

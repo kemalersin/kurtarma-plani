@@ -272,7 +272,7 @@ describe('buildAiContextDocument', () => {
     expect(doc.schedules.creditCards[0]?.installmentCount).toBe(12)
     expect(doc.schedules.creditCardPeriods.length).toBeGreaterThan(0)
     expect(doc.schedules.creditCardPeriods[0]?.periods.length).toBeGreaterThan(0)
-    expect(doc.meta.contextVersion).toBe(3)
+    expect(doc.meta.contextVersion).toBe(4)
     expect(doc.schedules.creditCardPeriods).toBeDefined()
 
     const json = formatAiContextJson(doc)

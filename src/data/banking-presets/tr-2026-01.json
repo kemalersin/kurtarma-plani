@@ -12,6 +12,8 @@
     ],
     "cashAdvanceAprMonthly": 0.0425,
     "cashAdvanceLateAprMonthly": 0.0455,
+    "taxRateKkdf": 0.15,
+    "taxRateBsmv": 0.1,
     "minPaymentRateUnder25k": 0.2,
     "minPaymentRateOver25k": 0.4,
     "minPaymentLimitThreshold": 25000

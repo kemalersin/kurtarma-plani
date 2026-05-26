@@ -21,6 +21,8 @@ export const BankingPresetSchema = z.object({
       .min(1),
     cashAdvanceAprMonthly: z.number().min(0),
     cashAdvanceLateAprMonthly: z.number().min(0).optional(),
+    taxRateKkdf: z.number().min(0).max(1).optional(),
+    taxRateBsmv: z.number().min(0).max(1).optional(),
     minPaymentRateUnder25k: z.number().min(0).max(1),
     minPaymentRateOver25k: z.number().min(0).max(1),
     minPaymentLimitThreshold: z.number().min(0).optional(),

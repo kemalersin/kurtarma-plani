@@ -18,7 +18,7 @@ import type {
   LoanPayment,
 } from '@/core/types/entities'
 import { runRevolvingLedger } from '@/finance/cash-advance'
-import { cardCommittedTotal } from '@/features/debts/cardHelpers'
+import { cardCommittedTotal, type CardProjectionRateContext } from '@/features/debts/cardHelpers'
 import {
   accountBalance,
   cashRegisterBalance,
@@ -103,6 +103,7 @@ interface DebtSnapshotInput {
   /** Profil currency — ileride çapraz currency desteğinde filter için. */
   localCurrency: string
   asOf?: string
+  creditCardRateContext?: CardProjectionRateContext
 }
 
 export type { DebtSnapshotInput }
@@ -140,11 +141,13 @@ function creditCardDebtBalance(
   card: CreditCard,
   creditCardTransactions: CreditCardTransaction[],
   asOf?: string,
+  rateContext: CardProjectionRateContext = {},
 ): string {
   return cardCommittedTotal(
     card,
     creditCardTransactions,
     asOf ? new Date(asOf) : new Date(),
+    rateContext,
   ).committed
 }
 
@@ -215,7 +218,7 @@ export function debtTotalsByBankId(input: DebtSnapshotInput): Map<string, string
   for (const card of input.creditCards) {
     if (card.archived) continue
     if (card.currency !== input.localCurrency) continue
-    add(card.bankId, creditCardDebtBalance(card, input.creditCardTransactions, asOf))
+    add(card.bankId, creditCardDebtBalance(card, input.creditCardTransactions, asOf, input.creditCardRateContext))
   }
 
   for (const acc of input.cashAdvanceAccounts) {
@@ -261,7 +264,7 @@ export function debtSnapshot(input: DebtSnapshotInput): DebtSnapshot {
     if (card.archived) continue
     if (card.currency !== input.localCurrency) continue
     cardsTotal = cardsTotal.plus(
-      creditCardDebtBalance(card, input.creditCardTransactions, asOf),
+      creditCardDebtBalance(card, input.creditCardTransactions, asOf, input.creditCardRateContext),
     )
   }
 
