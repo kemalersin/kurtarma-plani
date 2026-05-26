@@ -703,6 +703,13 @@ watch(
   { immediate: true },
 )
 
+/** Boş durumdan çıkınca tablo henüz mount edilmediği için layout ölçümü tetiklenmeli. */
+watch(showEmptyOverlay, (isEmpty, wasEmpty) => {
+  if (wasEmpty && !isEmpty && !props.loading && !isMobile.value) {
+    void scheduleTableReveal()
+  }
+})
+
 watch(isMobile, (mobile) => {
   if (mobile) {
     tableMeasurePending.value = false
