@@ -84,4 +84,5 @@ Kaynak: `docs/WIKI.md` §9. Bu kural tüm geliştirme oturumlarında geçerlidir
 
 - Milestone sırasına uy (TODO.md)
 - Tamamlanan iş → `CHANGELOG.md`; planlanan → `TODO.md`
+- **`CHANGELOG.md` sürümü:** Tek kaynak [`package.json`](package.json) `version`. Yeni maddeler `## [Unreleased]` altında. Yayın: `npm version patch|minor|major|X.Y.Z` — `version` script'i (`scripts/promote-changelog-unreleased.ts`) `[Unreleased]` → `## [X.Y.Z]` taşır; en üst yayın bölümü `package.json` ile eşleşmeli. Ayrıntı: README § Sürüm ve CHANGELOG.
 - Belirsiz iş kuralı → Wiki / ARCHITECTURE'a sor veya not düş

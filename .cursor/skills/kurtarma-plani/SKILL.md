@@ -40,7 +40,7 @@ Tek HTML statik SPA; borç/gelir/gider takibi; IndexedDB; opsiyonel parola şifr
 
 **Analitik motor (M7+, `src/features/analytics/`):** Saf TS, UI bağımsız. `snapshot.ts` → `assetSnapshot` / `debtSnapshot` / `netWorth` (asOf anlık pozisyon, currency-aware: dövizli hesap toplama dahil değil ama listede gözükür). `series.ts` → `monthlyCashflowSeries` (`plan|actual|effective` basis) / `incomeByType` + `expenseByType` (donut) / `assetTrendSeries` (90+ gün için 7'şer adım) / `upcomingDebtSeries`. `useDashboardData.ts` → reaktif composable, tüm gerekli store'ları paralel yükler. Yeni dashboard / analiz sayfaları **bu modüllerden** veri çeker; entity ham hesabı bileşende yapılmaz.
 
-**Süreç:** Milestone sırası (TODO.md); her teslimatta CHANGELOG; kural dosyaları `.cursor/rules/`.
+**Süreç:** Milestone sırası (TODO.md); her teslimatta CHANGELOG (`[Unreleased]`; `npm version` ile otomatik `[X.Y.Z]` taşınması); kural dosyaları `.cursor/rules/`.
 
 Detay: `.cursor/rules/developer-ux.mdc` (alwaysApply).
 
@@ -77,7 +77,7 @@ FETCH_MODELS=1 npm run build
 
 M1 iskelet → M2 veri → M3 yönetimsel → M4–M5 borç → M6 akış → M7 analiz → M8 AI → M9 test
 
-Yeni özellik eklerken `TODO.md` ve `CHANGELOG.md` güncelle.
+Yeni özellik eklerken `TODO.md` ve `CHANGELOG.md` güncelle (`[Unreleased]`). Yayın: `npm version patch` (veya `minor` / `major` / `X.Y.Z`) — CHANGELOG taşıması otomatik; ardından `main` push. Bkz. README § Sürüm ve CHANGELOG.
 
 ## Finans motoru (`src/finance/`)
 

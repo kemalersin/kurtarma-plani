@@ -9,6 +9,16 @@ const MOBILE_TRIGGER_ATTR_KEYS = new Set([
   'class',
 ])
 
+/** Dış kabuk (DatePicker / mobil tetikleyici) — `style`, `class` vb. */
+export function localePickerShellAttrs(
+  attrs: Record<string, unknown>,
+): Record<string, unknown> {
+  const shell: Record<string, unknown> = {}
+  if (attrs.style != null) shell.style = attrs.style
+  if (attrs.class != null) shell.class = attrs.class
+  return shell
+}
+
 /** Masaüstü DatePicker ile aynı bind — mobil panelde birebir aktarım. */
 export function localePickerBindFromAttrs(
   attrs: Record<string, unknown>,

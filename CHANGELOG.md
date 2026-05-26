@@ -2,7 +2,19 @@
 
 Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
-Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version` alanındadır (`0.1.x`). Aşağıdaki **Milestone M1–M5** bölümleri erken geliştirme döneminin arşividir; semver sürümü değildir ve `0.1.x` ile karıştırılmamalıdır.
+Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version` alanındadır (`0.1.x`). **En son yayın bölümü her zaman `package.json` `version` ile aynı olmalıdır** (ör. `0.1.25` → `## [0.1.25]`). Yeni maddeler önce `## [Unreleased]` altına yazılır; `npm version` çalıştığında `version` script'i `[Unreleased]` içeriğini otomatik olarak `## [X.Y.Z]` altına taşır (`scripts/promote-changelog-unreleased.ts`). Kullanım: [README — Sürüm ve CHANGELOG](README.md#sürüm-ve-changelog). Aşağıdaki **Milestone M1–M5** bölümleri erken geliştirme döneminin arşividir; semver sürümü değildir ve `0.1.x` ile karıştırılmamalıdır.
+
+## [Unreleased]
+
+### Changed — sürüm / CHANGELOG
+
+- `npm version`: `version` script'i `[Unreleased]` içeriğini otomatik `## [X.Y.Z]` altına taşır (`scripts/promote-changelog-unreleased.ts`).
+- Kullanım: README § Sürüm ve CHANGELOG; `developer-ux.mdc` ve SKILL güncellendi.
+
+### Fixed — mobil tarih seçici sheet
+
+- Masaüstü: `style` / `class` (örn. `width: 100%`) yine DatePicker'a aktarılır (`localePickerShellAttrs`).
+- Mobil aralık seçici: çift takvim dar ekranda dikey yığılır, ortalanır; sheet kaydırılabilir (`variant="range"`).
 
 ## [0.1.25]
 

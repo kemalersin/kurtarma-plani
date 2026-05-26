@@ -2,6 +2,7 @@ import dayjs, { type Dayjs } from 'dayjs'
 import { describe, expect, it } from 'vitest'
 import {
   localePickerBindFromAttrs,
+  localePickerShellAttrs,
   readDisabledDateFromBind,
 } from '@/core/util/locale-picker-bind'
 
@@ -27,6 +28,12 @@ describe('locale-picker-bind', () => {
       disabledDate,
       showTime: true,
     })
+  })
+
+  it('localePickerShellAttrs style ve class döndürür', () => {
+    expect(
+      localePickerShellAttrs({ style: 'width:100%', class: 'x', disabledDate: () => false }),
+    ).toEqual({ style: 'width:100%', class: 'x' })
   })
 
   it('readDisabledDateFromBind yalnızca fonksiyon döndürür', () => {

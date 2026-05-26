@@ -66,7 +66,7 @@ function onChange(raw: [Dayjs, Dayjs] | [string, string] | null): void {
 </script>
 
 <template>
-  <div ref="hostRef" class="kp-mobile-picker-panel">
+  <div ref="hostRef" class="kp-mobile-picker-panel kp-mobile-picker-panel--range">
     <DatePicker.RangePicker
       v-if="hostReady"
       v-bind="rangePickerBind"
@@ -85,6 +85,40 @@ function onChange(raw: [Dayjs, Dayjs] | [string, string] | null): void {
   justify-content: center;
   align-items: flex-start;
   width: 100%;
+}
+
+.kp-mobile-picker-panel--range {
+  justify-content: center;
+  align-items: center;
+}
+
+.kp-mobile-picker-panel--range :deep(.ant-picker-dropdown) {
+  width: auto;
+  max-width: 100%;
+}
+
+.kp-mobile-picker-panel--range :deep(.ant-picker-panel-container) {
+  width: auto !important;
+  max-width: 100%;
+  margin-inline: auto;
+}
+
+.kp-mobile-picker-panel--range :deep(.ant-picker-panels) {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  width: auto !important;
+  max-width: 100%;
+}
+
+.kp-mobile-picker-panel--range :deep(.ant-picker-panel) {
+  width: auto !important;
+  max-width: min(100%, 320px);
+}
+
+.kp-mobile-picker-panel--range :deep(.ant-picker-date-panel) {
+  width: auto !important;
+  max-width: min(100%, 320px);
 }
 
 .kp-mobile-picker-panel :deep(.ant-picker) {

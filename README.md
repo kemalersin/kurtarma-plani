@@ -155,6 +155,41 @@ npm run typecheck
 
 `main` dalına her push'ta GitHub Actions derler ve `pages` dalına yazar; GitHub Pages bu dalı yayınlar. Yerel build: `npm run build` → `dist/index.html` (gitignore).
 
+### Sürüm ve CHANGELOG
+
+Tek semver kaynağı [`package.json`](package.json) `version` alanıdır. Değişiklik notları [Keep a Changelog](https://keepachangelog.com/) biçiminde [`CHANGELOG.md`](CHANGELOG.md) dosyasındadır.
+
+**Geliştirme sırasında**
+
+1. Tamamlanan işleri `CHANGELOG.md` içinde `## [Unreleased]` altına yazın (`Added` / `Changed` / `Fixed` / `Removed`).
+2. Commit edin; maddeler release öncesine kadar `[Unreleased]` bölümünde kalır.
+
+**Yayın (sürüm bump)**
+
+```bash
+npm version patch          # 0.1.25 → 0.1.26
+npm version minor          # 0.1.25 → 0.2.0
+npm version 0.1.26         # açık semver
+```
+
+`npm version` sırasında otomatik olarak:
+
+| Adım | Ne olur |
+|------|---------|
+| 1 | `package.json` ve `package-lock.json` sürümü güncellenir |
+| 2 | `version` script çalışır → `[Unreleased]` içeriği `## [X.Y.Z]` altına taşınır, `[Unreleased]` boşalır |
+| 3 | Git commit + `vX.Y.Z` tag oluşur (varsayılan) |
+
+Script: [`scripts/promote-changelog-unreleased.ts`](scripts/promote-changelog-unreleased.ts) (`package.json` → `"version"` hook).
+
+**Seçenekler ve kenar durumlar**
+
+- Commit/tag istemiyorsanız: `npm version patch --no-git-tag-version` (CHANGELOG taşıması yine çalışır).
+- `[Unreleased]` boşsa sürüm bump devam eder; CHANGELOG'a dokunulmaz (konsolda uyarı).
+- Hedef sürüm başlığı CHANGELOG'da zaten varsa `npm version` hata verir ve iptal olur.
+
+**Canlıya alma:** Tag/commit'i `main`'e push edin; CI `pages` dalına derler ([`.github/workflows/pages.yml`](.github/workflows/pages.yml)).
+
 ### Özel alan adı (`kurtar.co`)
 
 | Tür | Host | Değer |

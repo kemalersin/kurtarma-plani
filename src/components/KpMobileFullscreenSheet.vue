@@ -2,13 +2,20 @@
 import { CloseOutlined } from '@ant-design/icons-vue'
 import { Button } from 'ant-design-vue'
 
-defineProps<{
-  open: boolean
-  title: string
-  showConfirm?: boolean
-  confirmDisabled?: boolean
-  confirmText?: string
-}>()
+withDefaults(
+  defineProps<{
+    open: boolean
+    title: string
+    showConfirm?: boolean
+    confirmDisabled?: boolean
+    confirmText?: string
+    /** Aralık seçici: daha yüksek sheet + dikey kaydırma. */
+    variant?: 'default' | 'range'
+  }>(),
+  {
+    variant: 'default',
+  },
+)
 
 const emit = defineEmits<{
   close: []
@@ -20,7 +27,7 @@ const emit = defineEmits<{
 <template>
   <Teleport to="body">
     <Transition name="kp-mobile-picker-sheet" @after-leave="emit('after-leave')">
-      <div v-if="open" class="kp-mobile-picker-sheet-root">
+      <div v-if="open" class="kp-mobile-picker-sheet-root" :class="{ 'kp-mobile-picker-sheet-root--range': variant === 'range' }">
         <button
           type="button"
           class="kp-mobile-picker-sheet-mask"
@@ -176,5 +183,18 @@ const emit = defineEmits<{
 [data-theme='dark'] .kp-mobile-picker-sheet-panel {
   background: var(--ant-color-bg-elevated, #1f1f1f);
   box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.45);
+}
+
+/* Tarih aralığı: çift takvim dikey, sheet kaydırılabilir */
+.kp-mobile-picker-sheet-root--range .kp-mobile-picker-sheet-panel {
+  max-height: min(92dvh, 720px);
+}
+
+.kp-mobile-picker-sheet-root--range .kp-mobile-picker-sheet__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  align-items: center;
 }
 </style>

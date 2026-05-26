@@ -10,6 +10,7 @@ import { useMobilePickerSheet } from '@/composables/useMobilePickerSheet'
 import { useMobileViewport } from '@/composables/useMatchMedia'
 import {
   localePickerBindFromAttrs,
+  localePickerShellAttrs,
   readDisabledDateFromBind,
 } from '@/core/util/locale-picker-bind'
 import {
@@ -55,8 +56,13 @@ const pickerBind = computed(() =>
   localePickerBindFromAttrs(attrs as Record<string, unknown>, format.value),
 )
 
+const shellBind = computed(() =>
+  localePickerShellAttrs(attrs as Record<string, unknown>),
+)
+
 const desktopBind = computed(() => ({
   ...pickerBind.value,
+  ...shellBind.value,
   value: props.value ?? undefined,
 }))
 
@@ -98,11 +104,15 @@ function clearValue(event: Event): void {
     <button
       type="button"
       class="kp-picker-trigger"
-      :class="{
-        'kp-picker-trigger--disabled': disabled,
-        'kp-picker-trigger--sm': triggerAttrs.size === 'small',
-        'kp-picker-trigger--placeholder': !displayText,
-      }"
+      :style="shellBind.style"
+      :class="[
+        shellBind.class,
+        {
+          'kp-picker-trigger--disabled': disabled,
+          'kp-picker-trigger--sm': triggerAttrs.size === 'small',
+          'kp-picker-trigger--placeholder': !displayText,
+        },
+      ]"
       :disabled="disabled"
       :aria-label="displayText || placeholder"
       @click="onTriggerClick"
