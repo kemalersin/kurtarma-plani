@@ -18,7 +18,7 @@ import type {
   LoanPayment,
 } from '@/core/types/entities'
 import { runRevolvingLedger } from '@/finance/cash-advance'
-import { creditCardStatement } from '@/finance/credit-card'
+import { cardCommittedTotal } from '@/features/debts/cardHelpers'
 import {
   accountBalance,
   cashRegisterBalance,
@@ -131,21 +131,21 @@ function loanOverdueCount(loan: Loan, loanPayments: LoanPayment[], asOf: string)
   return count
 }
 
+/**
+ * Toplam kart yükümlülüğü (ekstre borcu + henüz tahakkuk etmemiş gelecek
+ * taksitler). Türkiye'de bankalar limiti bu değer üzerinden bloke ettiği
+ * için borç toplamı hesabında ve `available` sütununda **bu** değer kullanılır.
+ */
 function creditCardDebtBalance(
   card: CreditCard,
   creditCardTransactions: CreditCardTransaction[],
+  asOf?: string,
 ): string {
-  const txns = creditCardTransactions.filter((t) => t.cardId === card.id)
-  const statement = creditCardStatement({
-    openingBalance: 0,
-    transactions: txns.map((t) => ({
-      date: t.date,
-      amount: t.amount,
-      type: t.type,
-    })),
-    limit: card.limit,
-  })
-  return statement.endingBalance
+  return cardCommittedTotal(
+    card,
+    creditCardTransactions,
+    asOf ? new Date(asOf) : new Date(),
+  ).committed
 }
 
 function cashAdvanceDebtTotal(
@@ -215,7 +215,7 @@ export function debtTotalsByBankId(input: DebtSnapshotInput): Map<string, string
   for (const card of input.creditCards) {
     if (card.archived) continue
     if (card.currency !== input.localCurrency) continue
-    add(card.bankId, creditCardDebtBalance(card, input.creditCardTransactions))
+    add(card.bankId, creditCardDebtBalance(card, input.creditCardTransactions, asOf))
   }
 
   for (const acc of input.cashAdvanceAccounts) {
@@ -260,7 +260,9 @@ export function debtSnapshot(input: DebtSnapshotInput): DebtSnapshot {
   for (const card of input.creditCards) {
     if (card.archived) continue
     if (card.currency !== input.localCurrency) continue
-    cardsTotal = cardsTotal.plus(creditCardDebtBalance(card, input.creditCardTransactions))
+    cardsTotal = cardsTotal.plus(
+      creditCardDebtBalance(card, input.creditCardTransactions, asOf),
+    )
   }
 
   for (const acc of input.cashAdvanceAccounts) {

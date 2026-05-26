@@ -26,7 +26,7 @@ const { data, loading } = useAnalyticsData(filterState.filters)
         class="kp-analytics__header"
         tabbed
         title="Analiz & rapor"
-        subtitle="Borç vadeleri, nakit akışı ve hesap hareketleri — filtreler liste başlığındaki düğmeden."
+        subtitle="Borç vadeleri, nakit akışı ve hesap hareketleri — filtreler liste araç çubuğundaki düğmeden."
       />
 
       <Tabs v-model:activeKey="activeTab" type="line" class="kp-analytics-tabs">

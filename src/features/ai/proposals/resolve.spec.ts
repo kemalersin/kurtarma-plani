@@ -100,6 +100,38 @@ describe('resolveProposalData', () => {
     expect(resolved.date).toContain('2025-03-15')
   })
 
+  it('passes installmentCount and repaymentTotal for creditCardTransaction', () => {
+    const lookup = {
+      banksByName: new Map(),
+      accountsByName: new Map(),
+      cashRegistersByName: new Map(),
+      incomeTypesByName: new Map(),
+      expenseTypesByName: new Map(),
+      loansByName: new Map(),
+      cardsByName: new Map([['bonus kart', 'card-bonus']]),
+      cashAdvanceAccountsByName: new Map(),
+      installmentAdvancesByName: new Map(),
+      refToId: new Map(),
+    }
+
+    const resolved = resolveProposalData(
+      'creditCardTransaction',
+      {
+        cardName: 'Bonus Kart',
+        date: '2025-06-20',
+        type: 'purchase',
+        amount: 12000,
+        installmentCount: 12,
+        repaymentTotal: 13500,
+        description: 'Telefon',
+      },
+      lookup,
+    )
+
+    expect(resolved.installmentCount).toBe(12)
+    expect(resolved.repaymentTotal).toBe(13500)
+  })
+
   it('resolves cashAdvanceAccountName for cashAdvanceTransaction', () => {
     const lookup = {
       banksByName: new Map(),

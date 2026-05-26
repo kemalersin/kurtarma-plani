@@ -389,7 +389,7 @@ export const useAiStore = defineStore('ai', () => {
       return { session, system }
     }
 
-    const snapshot = buildAiFinanceSnapshot(profileMeta, decoded)
+    const snapshot = buildAiFinanceSnapshot(profileMeta, decoded, profile.localeSettings)
     const kind = session.snapshotFingerprint ? 'update' : 'initial'
     const contextMessages: ChatMessage[] = [
       {

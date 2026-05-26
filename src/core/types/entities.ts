@@ -138,8 +138,6 @@ export const CreditCardSchema = z.object({
   purchaseAprMonthly: z.number().min(0),
   /** Gecikme aylık faizi (varsayılan: alışveriş × 1.087) */
   lateAprMonthly: z.number().min(0).optional(),
-  /** Nakit avans aylık faizi */
-  cashAdvanceAprMonthly: z.number().min(0).optional(),
   notes: z.string().optional(),
   archived: z.boolean().optional(),
   createdAt: Iso,
@@ -159,6 +157,11 @@ export const CreditCardTransactionSchema = z.object({
   description: z.string().optional(),
   /** Taksitli alışveriş için toplam taksit sayısı (opsiyonel) */
   installmentCount: z.number().int().positive().optional(),
+  /**
+   * Taksitli `purchase` / `cashAdvance` için kart borcuna yansıyan toplam
+   * (faiz dahil). Boşsa kartın ilgili aylık faiz oranından hesaplanır.
+   */
+  repaymentTotal: z.number().positive().optional(),
   /**
    * `payment` türünde — ödemenin yapıldığı banka hesabı / kasa
    * (cashflow bakiyesinden düşülür).

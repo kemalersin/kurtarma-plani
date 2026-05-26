@@ -12,17 +12,27 @@ import {
 } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
+import KpFormLabel from '@/components/KpFormLabel.vue'
 import KpSelect from '@/components/KpSelect.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
 import PaymentSourcePicker from '@/components/PaymentSourcePicker.vue'
+import DismissibleDrawerAlert from '@/components/DismissibleDrawerAlert.vue'
 import { useEntitiesStore } from '@/stores/entities'
+import { useProfileStore } from '@/stores/profile'
+import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import { disableFutureDates } from '@/core/util/datepicker'
 import type {
   CreditCard,
   CreditCardTransaction,
   CreditCardTxnType,
 } from '@/core/types/entities'
+import { accruedInstallmentCount } from './cardHelpers'
+import { installmentPaymentSourceTooltip } from './installmentPaymentFormHints'
+import {
+  resolveCreditCardRepaymentTotal,
+  splitInstallmentAmount,
+} from '@/finance/credit-card'
 
 interface Props {
   open: boolean
@@ -36,6 +46,21 @@ const emit = defineEmits<{
 }>()
 
 const entities = useEntitiesStore()
+const profileStore = useProfileStore()
+const { formatCurrency } = useLocaleFormatters()
+
+const profileCurrency = computed(
+  () => profileStore.activeProfile?.localeSettings.currency ?? 'TRY',
+)
+
+const paymentSourceTooltip = computed(() =>
+  installmentPaymentSourceTooltip(profileCurrency.value),
+)
+
+const cashAdvanceTargetTooltip = computed(
+  () =>
+    `Boş bırakılırsa cashflow bakiyesine eklenmez. Yalnız profil para biriminde (${profileCurrency.value}) tanımlı hesap ve kasalar listelenir. Dövizli hesap/kasalar borç ödemesi için kullanılamaz.`,
+)
 
 const typeOptions = computed<{ value: CreditCardTxnType; label: string }[]>(() => [
   { value: 'purchase', label: 'Alışveriş' },
@@ -43,10 +68,13 @@ const typeOptions = computed<{ value: CreditCardTxnType; label: string }[]>(() =
   { value: 'cashAdvance', label: 'Nakit avans' },
 ])
 
-interface Form {
+interface DraftForm {
   date: Dayjs
   type: CreditCardTxnType
   amount: number
+  installmentCount: number
+  /** Manuel geri ödeme toplamı; undefined = işlem tutarına eşit. */
+  repaymentTotal: number | undefined
   sourceAccountId: string | undefined
   sourceCashRegisterId: string | undefined
   targetAccountId: string | undefined
@@ -55,10 +83,12 @@ interface Form {
   notes: string
 }
 
-const draft = reactive<Form>({
+const draft = reactive<DraftForm>({
   date: dayjs(),
   type: 'purchase',
   amount: 0,
+  installmentCount: 1,
+  repaymentTotal: undefined,
   sourceAccountId: undefined,
   sourceCashRegisterId: undefined,
   targetAccountId: undefined,
@@ -76,6 +106,8 @@ watch(
       draft.date = dayjs(props.txn.date)
       draft.type = props.txn.type
       draft.amount = props.txn.amount
+      draft.installmentCount = props.txn.installmentCount ?? 1
+      draft.repaymentTotal = props.txn.repaymentTotal
       draft.sourceAccountId = props.txn.sourceAccountId
       draft.sourceCashRegisterId = props.txn.sourceCashRegisterId
       draft.targetAccountId = props.txn.targetAccountId
@@ -86,6 +118,8 @@ watch(
       draft.date = dayjs()
       draft.type = 'purchase'
       draft.amount = 0
+      draft.installmentCount = 1
+      draft.repaymentTotal = undefined
       draft.sourceAccountId = undefined
       draft.sourceCashRegisterId = undefined
       draft.targetAccountId = undefined
@@ -96,20 +130,138 @@ watch(
   },
 )
 
+const supportsInstallments = computed(
+  () => draft.type === 'purchase' || draft.type === 'cashAdvance',
+)
+
+watch(
+  () => draft.type,
+  (t) => {
+    if (t === 'payment') {
+      draft.installmentCount = 1
+      draft.repaymentTotal = undefined
+    }
+  },
+)
+
+/** Düzenlemede tahakkuk etmiş taksit sayısı; yeni kayıtta 0. */
+const accrued = computed(() => {
+  if (!props.txn) return 0
+  if (!props.txn.installmentCount || props.txn.installmentCount <= 1) return 0
+  return accruedInstallmentCount(props.txn.date, props.txn.installmentCount)
+})
+
+const editingLockedTaksit = computed(
+  () => Boolean(props.txn) && accrued.value >= 1 && (props.txn?.installmentCount ?? 1) > 1,
+)
+
+/**
+ * Düzenlemede yalnızca **kalan** taksitleri/tutarı serbest bırak;
+ * tahakkuk etmiş kısma ait alanlar kilitli.
+ *  - Tarih: hep kilitli (ilk taksit dönemini sabit tutar)
+ *  - Taksit sayısı min: tahakkuk eden sayı kadar
+ *  - Tutar: per-installment koruma yok; fakat min = sum(tahakkuk eden) gerekir
+ */
+const minInstallmentCount = computed(() => Math.max(1, accrued.value))
+const dateLocked = computed(() => editingLockedTaksit.value)
+
+const accruedTotalAmount = computed(() => {
+  if (!editingLockedTaksit.value || !props.txn || !props.card) return 0
+  const total = resolveCreditCardRepaymentTotal(props.txn, props.card)
+  const parts = splitInstallmentAmount(total, props.txn.installmentCount ?? 1)
+  let sum = 0
+  for (let i = 0; i < accrued.value && i < parts.length; i++) {
+    sum += Number(parts[i])
+  }
+  return sum
+})
+
+const isInstallmentTxn = computed(
+  () => supportsInstallments.value && draft.installmentCount > 1,
+)
+
+const showRepaymentTotal = computed(() => supportsInstallments.value)
+
+const effectiveRepaymentTotal = computed(() => {
+  if (draft.repaymentTotal != null && draft.repaymentTotal > 0) {
+    return draft.repaymentTotal
+  }
+  return draft.amount
+})
+
+const amountFieldHint = computed(() => {
+  if (draft.type === 'cashAdvance') {
+    return 'Hesaba geçen nakit tutarı.'
+  }
+  if (draft.type === 'purchase') return 'Alışveriş tutarı.'
+  return undefined
+})
+
+const repaymentTotalHint =
+  'Kart borcuna yansıyan toplam. Boş bırakılırsa tutarın aynısı kullanılır; faiz/ek ücret eklenmek istenirse buraya yazın.'
+
+const perInstallment = computed(() => {
+  if (!isInstallmentTxn.value) return null
+  const parts = splitInstallmentAmount(effectiveRepaymentTotal.value, draft.installmentCount)
+  return {
+    first: Number(parts[0] ?? 0),
+    last: Number(parts[parts.length - 1] ?? 0),
+    count: draft.installmentCount,
+  }
+})
+
 async function submit(): Promise<void> {
   if (!props.card) return
   if (draft.amount <= 0) {
     message.error('Tutar sıfırdan büyük olmalı.')
     return
   }
+  if (supportsInstallments.value && draft.installmentCount > 1) {
+    if (draft.installmentCount < minInstallmentCount.value) {
+      message.error(
+        `Taksit sayısı en az ${minInstallmentCount.value} olmalı (zaten tahakkuk etmiş).`,
+      )
+      return
+    }
+    if (
+      editingLockedTaksit.value &&
+      effectiveRepaymentTotal.value < accruedTotalAmount.value
+    ) {
+      message.error(
+        'Geri ödenecek tutar tahakkuk etmiş taksitlerin altına düşemez.',
+      )
+      return
+    }
+  }
+  if (
+    draft.type !== 'payment' &&
+    draft.repaymentTotal != null &&
+    draft.repaymentTotal > 0 &&
+    draft.repaymentTotal < draft.amount
+  ) {
+    message.error('Geri ödenecek tutar işlem tutarının altında olamaz.')
+    return
+  }
   saving.value = true
   try {
+    const installmentCount =
+      supportsInstallments.value && draft.installmentCount > 1
+        ? Math.floor(draft.installmentCount)
+        : undefined
+    const repaymentTotal =
+      draft.type !== 'payment' &&
+      draft.repaymentTotal != null &&
+      draft.repaymentTotal > 0
+        ? Number(draft.repaymentTotal)
+        : undefined
     await entities.save<CreditCardTransaction>('creditCardTransaction', {
       id: props.txn?.id,
       cardId: props.card.id,
       date: draft.date.toISOString(),
       type: draft.type,
       amount: Number(draft.amount),
+      installmentCount,
+      repaymentTotal,
       sourceAccountId: draft.type === 'payment' ? draft.sourceAccountId : undefined,
       sourceCashRegisterId:
         draft.type === 'payment' ? draft.sourceCashRegisterId : undefined,
@@ -159,19 +311,68 @@ function close(): void {
     :mask-closable="!saving"
     @update:open="emit('update:open', $event)"
   >
+    <DismissibleDrawerAlert
+      v-if="editingLockedTaksit"
+      hint-key="credit-card-txn.installment-lock"
+      type="warning"
+      message="Taksitli işlem düzenleniyor"
+      :description="`${accrued} taksit zaten tahakkuk etmiş; tarih sabit, taksit sayısı en az ${minInstallmentCount} olmalı. Geri ödenecek tutar tahakkuk etmiş kısmın altına düşemez.`"
+    />
+
     <Form layout="vertical" :colon="false" @submit.prevent="submit">
       <FormItem label="Tarih" required>
         <LocaleDatePicker
           v-model:value="draft.date"
           :disabled-date="disableFutureDates"
+          :disabled="dateLocked"
           style="width: 100%"
         />
       </FormItem>
       <FormItem label="Tür" required>
         <KpSelect v-model:value="draft.type" :options="typeOptions" />
       </FormItem>
-      <FormItem label="Tutar" required>
+
+      <FormItem required>
+        <template #label>
+          <KpFormLabel :hint="amountFieldHint">Tutar</KpFormLabel>
+        </template>
         <LocaleInputNumber v-model:value="draft.amount" kind="currency" :min="0" />
+      </FormItem>
+
+      <FormItem v-if="supportsInstallments">
+        <template #label>
+          <KpFormLabel hint="1 = peşin; 2 ve üzeri taksitli işlem.">
+            Taksit sayısı
+          </KpFormLabel>
+        </template>
+        <LocaleInputNumber
+          v-model:value="draft.installmentCount"
+          kind="integer"
+          :min="minInstallmentCount"
+          :max="36"
+        />
+      </FormItem>
+
+      <FormItem v-if="showRepaymentTotal">
+        <template #label>
+          <KpFormLabel :hint="repaymentTotalHint">Geri ödenecek tutar</KpFormLabel>
+        </template>
+        <LocaleInputNumber
+          v-model:value="draft.repaymentTotal"
+          kind="currency"
+          :min="editingLockedTaksit ? accruedTotalAmount : draft.amount || 0"
+          :placeholder="
+            draft.amount > 0 && card
+              ? formatCurrency(draft.amount, card.currency)
+              : undefined
+          "
+        />
+        <div v-if="perInstallment && card" class="kp-txn-installment-hint">
+          {{ perInstallment.count }} taksit × {{ formatCurrency(perInstallment.first, card.currency) }}
+          <span v-if="perInstallment.first !== perInstallment.last">
+            (son taksit {{ formatCurrency(perInstallment.last, card.currency) }})
+          </span>
+        </div>
       </FormItem>
 
       <PaymentSourcePicker
@@ -179,7 +380,7 @@ function close(): void {
         v-model:accountId="draft.sourceAccountId"
         v-model:cashRegisterId="draft.sourceCashRegisterId"
         label="Ödendiği hesap / kasa"
-        hint="Boş bırakılırsa cashflow bakiyesinden düşmez."
+        :label-tooltip="paymentSourceTooltip"
       />
       <PaymentSourcePicker
         v-if="draft.type === 'cashAdvance'"
@@ -187,7 +388,7 @@ function close(): void {
         v-model:cashRegisterId="draft.targetCashRegisterId"
         kind="target"
         label="Çekilen nakit hesabı / kasası"
-        hint="Boş bırakılırsa cashflow bakiyesine eklenmez."
+        :label-tooltip="cashAdvanceTargetTooltip"
       />
 
       <FormItem label="Açıklama">
@@ -201,7 +402,11 @@ function close(): void {
         <Popconfirm
           placement="topRight"
           overlay-class-name="kp-popoverlay-edge"
-          title="Bu hareket silinsin mi?"
+          :title="
+            txn.installmentCount && txn.installmentCount > 1
+              ? `Bu taksitli işlem (${txn.installmentCount} taksit) silinsin mi?`
+              : 'Bu hareket silinsin mi?'
+          "
           ok-text="Sil"
           cancel-text="Vazgeç"
           :ok-button-props="{ danger: true }"
@@ -220,3 +425,11 @@ function close(): void {
     </template>
   </FormDrawer>
 </template>
+
+<style scoped>
+.kp-txn-installment-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--ant-color-text-secondary);
+}
+</style>

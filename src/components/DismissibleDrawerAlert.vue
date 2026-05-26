@@ -23,6 +23,7 @@ const { visible, dismiss } = useDismissibleHint(props.hintKey)
 <template>
   <Alert
     v-if="visible"
+    class="kp-dismissible-drawer-alert"
     :type="type"
     :message="message"
     :description="description"
@@ -31,3 +32,15 @@ const { visible, dismiss } = useDismissibleHint(props.hintKey)
     @close="dismiss"
   />
 </template>
+
+<style>
+/* Form drawer: alert ile alttaki içerik arası boşluk yalnız alert görünürken */
+.kp-dismissible-drawer-alert {
+  margin-bottom: 16px;
+}
+
+/* kp-drawer-table-page zaten gap kullanır; kapatılınca DOM yok → boşluk kalmaz */
+.kp-drawer-table-page > .kp-dismissible-drawer-alert {
+  margin-bottom: 0;
+}
+</style>

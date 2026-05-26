@@ -3,6 +3,9 @@ import {
   creditCardMinPaymentRate,
   creditCardStatement,
   creditCardLateInterest,
+  creditCardInstallmentRepaymentTotal,
+  resolveCreditCardRepaymentTotal,
+  splitInstallmentAmount,
   DEFAULT_MIN_PAYMENT_TIERS,
 } from '@/finance/credit-card'
 import { D } from '@/finance/decimal'
@@ -94,6 +97,88 @@ describe('creditCardLateInterest', () => {
     // monthlyLate = 0.0375 * 1.087 ≈ 0.04076
     // 10000 * 0.04076 ≈ 407.6
     expect(D(fee).toNumber()).toBeCloseTo(407.6, 0)
+  })
+})
+
+describe('creditCardInstallmentRepaymentTotal', () => {
+  it('faiz 0 → anapara', () => {
+    expect(creditCardInstallmentRepaymentTotal({
+      principal: 12_000,
+      installmentCount: 12,
+      aprMonthly: 0,
+    })).toBe('12000')
+  })
+  it('faizli taksit → anaparadan büyük toplam', () => {
+    const total = creditCardInstallmentRepaymentTotal({
+      principal: 10_000,
+      installmentCount: 12,
+      aprMonthly: 0.03,
+    })
+    expect(Number(total)).toBeGreaterThan(10_000)
+  })
+})
+
+describe('resolveCreditCardRepaymentTotal', () => {
+  const card = { purchaseAprMonthly: 0.03 }
+
+  it('repaymentTotal yoksa amount döner (taksit sayısından bağımsız)', () => {
+    expect(resolveCreditCardRepaymentTotal({ amount: 500, type: 'purchase' }, card)).toBe(500)
+    expect(
+      resolveCreditCardRepaymentTotal(
+        { amount: 10_000, type: 'purchase', installmentCount: 6 },
+        card,
+      ),
+    ).toBe(10_000)
+    expect(
+      resolveCreditCardRepaymentTotal(
+        { amount: 10_000, type: 'cashAdvance', installmentCount: 6 },
+        card,
+      ),
+    ).toBe(10_000)
+  })
+
+  it('repaymentTotal manuel girildiyse o kullanılır (peşin işlemde de)', () => {
+    expect(
+      resolveCreditCardRepaymentTotal(
+        { amount: 10_000, type: 'purchase', installmentCount: 6, repaymentTotal: 10_500 },
+        card,
+      ),
+    ).toBe(10_500)
+    expect(
+      resolveCreditCardRepaymentTotal(
+        { amount: 1000, type: 'purchase', repaymentTotal: 1080 },
+        card,
+      ),
+    ).toBe(1080)
+  })
+
+  it('payment türü için repaymentTotal yok sayılır; amount döner', () => {
+    expect(
+      resolveCreditCardRepaymentTotal(
+        { amount: 1000, type: 'payment', repaymentTotal: 1500 },
+        card,
+      ),
+    ).toBe(1000)
+  })
+})
+
+describe('splitInstallmentAmount', () => {
+  it('count = 1 → tek elemanlı dizi (yuvarlanmış)', () => {
+    expect(splitInstallmentAmount(1234.567, 1)).toEqual(['1234.57'])
+  })
+  it('eşit bölünebilen tutar → eşit taksitler', () => {
+    expect(splitInstallmentAmount(12_000, 12)).toEqual(
+      Array(12).fill('1000'),
+    )
+  })
+  it('yuvarlama farkı son taksite kalır; toplam korunur', () => {
+    const parts = splitInstallmentAmount(1000, 3)
+    expect(parts).toEqual(['333.33', '333.33', '333.34'])
+    const sum = parts.reduce((acc, p) => acc + Number(p), 0)
+    expect(sum).toBeCloseTo(1000, 2)
+  })
+  it('count < 1 → hata', () => {
+    expect(() => splitInstallmentAmount(100, 0)).toThrow()
   })
 })
 

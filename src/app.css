@@ -179,13 +179,28 @@ body {
   width: 100%;
 }
 
-/** Analiz rapor — kart içi tablolar dar ekranda yatay kaydırma */
+/** Analiz rapor — sekme düzeni ve kart içi tablolar */
 .kp-analytics-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.kp-analytics-tab__chart-card {
   min-width: 0;
 }
 
 .kp-analytics-tab__table-card {
   min-width: 0;
+}
+
+.kp-analytics-debt-list__search,
+.kp-analytics-movement-list__search {
+  flex: 0 1 400px;
+  width: 100%;
+  max-width: 400px;
+  min-width: 240px;
 }
 
 .kp-analytics-tab__table-card .ant-card-body {

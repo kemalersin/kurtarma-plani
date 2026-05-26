@@ -1,3 +1,10 @@
+import type { StyleValue } from 'vue'
+
+export type LocalePickerShellAttrs = {
+  style?: StyleValue
+  class?: string | Record<string, boolean> | Array<string | Record<string, boolean>>
+}
+
 /** Mobil tetikleyicide kullanılmayan; yalnızca AntDV picker'a giden attrs. */
 const MOBILE_TRIGGER_ATTR_KEYS = new Set([
   'disabled',
@@ -10,12 +17,12 @@ const MOBILE_TRIGGER_ATTR_KEYS = new Set([
 ])
 
 /** Dış kabuk (DatePicker / mobil tetikleyici) — `style`, `class` vb. */
-export function localePickerShellAttrs(
-  attrs: Record<string, unknown>,
-): Record<string, unknown> {
-  const shell: Record<string, unknown> = {}
-  if (attrs.style != null) shell.style = attrs.style
-  if (attrs.class != null) shell.class = attrs.class
+export function localePickerShellAttrs(attrs: Record<string, unknown>): LocalePickerShellAttrs {
+  const shell: LocalePickerShellAttrs = {}
+  if (attrs.style != null) shell.style = attrs.style as StyleValue
+  if (attrs.class != null) {
+    shell.class = attrs.class as NonNullable<LocalePickerShellAttrs['class']>
+  }
   return shell
 }
 

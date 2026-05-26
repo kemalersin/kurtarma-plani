@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { computeCostUsd, formatCostUsd } from '@/features/ai/cost'
 import type { CatalogModel } from '@/core/types/ai-catalog'
+import { DEFAULT_LOCALE_SETTINGS } from '@/core/locale/defaults'
 import {
   buildAiFinanceSnapshot,
   buildSystemPrompt,
@@ -86,6 +87,57 @@ describe('ai snapshot filter', () => {
     ])
     expect(filtered[0]?.data).toEqual({ name: 'Maaş', amount: 50000 })
     expect(JSON.stringify(filtered)).not.toContain('"iv"')
+  })
+
+  it('buildAiFinanceSnapshot localeSettings ile türetilmiş kart dönemlerini ekler', () => {
+    const snap = buildAiFinanceSnapshot(
+      { name: 'Test', currency: 'TRY', locale: 'tr-TR', timeZone: 'Europe/Istanbul' },
+      [
+        {
+          id: 'b1',
+          type: 'bank',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          data: { id: 'b1', name: 'Banka', createdAt: '2026-01-01', updatedAt: '2026-01-01' },
+        },
+        {
+          id: 'c1',
+          type: 'creditCard',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          data: {
+            id: 'c1',
+            name: 'Bonus',
+            bankId: 'b1',
+            currency: 'TRY',
+            limit: 50_000,
+            openingBalance: 0,
+            statementCutoffDay: 15,
+            paymentDueDay: 25,
+            purchaseAprMonthly: 0,
+            createdAt: '2026-01-01',
+            updatedAt: '2026-01-01',
+          },
+        },
+        {
+          id: 't1',
+          type: 'creditCardTransaction',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          data: {
+            id: 't1',
+            cardId: 'c1',
+            date: '2026-05-20T10:00:00.000Z',
+            amount: 2000,
+            type: 'purchase',
+            createdAt: '2026-01-01',
+            updatedAt: '2026-01-01',
+          },
+        },
+      ],
+      DEFAULT_LOCALE_SETTINGS,
+    )
+    expect(snap.derived?.contextVersion).toBe(3)
+    expect(snap.derived?.creditCardPeriods).toHaveLength(1)
+    expect(snap.derived?.creditCardPeriods[0]?.periods.length).toBeGreaterThan(0)
+    expect(buildSnapshotContextContent(snap, 'initial')).toContain('creditCardPeriods')
   })
 
   it('buildAiFinanceSnapshot profil meta taşır', () => {

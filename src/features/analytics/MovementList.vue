@@ -5,7 +5,6 @@ import {
   Button,
   Input,
   Table,
-  Tag,
 } from 'ant-design-vue'
 import { FilterOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import type { ColumnsType, TablePaginationConfig } from 'ant-design-vue/es/table'
@@ -22,17 +21,22 @@ import { useListQuery, type SortOrder } from '@/composables/useListQuery'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { ListFilter } from '@/components/EntityListPage.vue'
 import type { AnalyticsFilterState } from '@/composables/useAnalyticsFilters'
-import { debtInstallmentTypeLabel, debtInstallmentPaidDisplay, debtInstallmentStatusDisplay, type DebtInstallmentRow } from '@/features/analytics/reports'
+import type { AnalyticsData } from '@/features/analytics/useAnalyticsData'
+import type { MovementRow } from '@/features/analytics/reports'
+import {
+  buildBankGroupedAccountOptions,
+  filterBankGroupedAccountOption,
+} from '@/features/admin/accountSelectOptions'
 
 const props = defineProps<{
-  rows: DebtInstallmentRow[]
+  rows: MovementRow[]
   currency: string
   filters: AnalyticsFilterState
-  banks: { id: string; name: string }[]
+  data: Pick<AnalyticsData, 'banks' | 'accounts' | 'registers'>
 }>()
 
 const { formatCurrency, formatDate } = useLocaleFormatters()
-const query = useListQuery({ key: 'debtInstallments', defaultPageSize: 15 })
+const query = useListQuery({ key: 'movements', defaultPageSize: 20 })
 
 const search = query.search
 const page = query.page
@@ -60,46 +64,52 @@ function onAnalyticsRangeChange(dates: [Dayjs, Dayjs] | null): void {
 }
 
 const bankOptions = computed(() =>
-  props.banks.map((b) => ({ value: b.id, label: b.name })),
+  props.data.banks.map((b) => ({ value: b.id, label: b.name })),
 )
 
-const listFilters: ListFilter<DebtInstallmentRow>[] = [
+const endpointOptions = computed(() => {
+  const accountGroups = buildBankGroupedAccountOptions(
+    props.data.accounts,
+    props.data.banks,
+  ).map((group) => ({
+    label: group.label,
+    options: group.options.map((opt) => ({
+      value: `acc:${opt.value}`,
+      label: opt.label,
+      bankName: opt.bankName,
+    })),
+  }))
+  const registerGroup = {
+    label: 'Kasalar',
+    options: props.data.registers.map((r) => ({
+      value: `reg:${r.id}`,
+      label: r.name,
+    })),
+  }
+  return registerGroup.options.length > 0
+    ? [...accountGroups, registerGroup]
+    : accountGroups
+})
+
+const listFilters: ListFilter<MovementRow>[] = [
   {
     kind: 'select',
-    key: 'status',
-    label: 'Durum',
+    key: 'source',
+    label: 'Kaynak',
     placeholder: 'Tümü',
     options: [
-      { value: 'paid', label: 'Ödendi' },
-      { value: 'partial', label: 'Kısmi ödendi' },
-      { value: 'overdue', label: 'Gecikmiş' },
-      { value: 'upcoming', label: 'Bekliyor' },
+      { value: 'Gelir', label: 'Gelir' },
+      { value: 'Gider', label: 'Gider' },
+      { value: 'Transfer', label: 'Transfer' },
     ],
-    getValue: (row) => {
-      if (row.status === 'paid') return 'paid'
-      if (debtInstallmentPaidDisplay(row) > 0) return 'partial'
-      return row.status
-    },
-  },
-  {
-    kind: 'select',
-    key: 'kind',
-    label: 'Tür',
-    placeholder: 'Tümü',
-    options: [
-      { value: 'loan', label: 'Kredi' },
-      { value: 'installmentAdvance', label: 'Taksitli avans' },
-      { value: 'creditCardMinPayment', label: 'Kart asgari ödeme' },
-      { value: 'creditCardStatement', label: 'Kart toplam ödeme' },
-    ],
-    getValue: (row) => row.debtKind,
+    getValue: (row) => row.sourceLabel,
   },
   {
     kind: 'numberRange',
     key: 'amount',
     label: 'Tutar',
     numberKind: 'currency',
-    getValue: (row) => Number(row.amount),
+    getValue: (row) => row.amount,
   },
 ]
 
@@ -139,7 +149,7 @@ function setSelectValue(key: string, value: string | undefined): void {
   query.patch({ page: 1 })
 }
 
-function filterActiveFor(f: ListFilter<DebtInstallmentRow>): boolean {
+function filterActiveFor(f: ListFilter<MovementRow>): boolean {
   if (f.kind === 'select') return Boolean(query.rawValue(f.key))
   return Boolean(query.rawValue(`${f.key}From`) || query.rawValue(`${f.key}To`))
 }
@@ -147,11 +157,11 @@ function filterActiveFor(f: ListFilter<DebtInstallmentRow>): boolean {
 const activeFilterCount = computed(() => {
   let n = listFilters.filter(filterActiveFor).length
   if (props.filters.bankId.value) n++
-  if (props.filters.cardDueMode.value !== 'min') n++
+  if (props.filters.endpointId.value) n++
   return n
 })
 
-function passesItem(row: DebtInstallmentRow): boolean {
+function passesItem(row: MovementRow): boolean {
   for (const f of listFilters) {
     if (f.kind === 'select') {
       const v = query.rawValue(f.key)
@@ -163,16 +173,16 @@ function passesItem(row: DebtInstallmentRow): boolean {
       if (min === undefined && max === undefined) continue
       const itemValue = f.getValue(row)
       if (itemValue == null) return false
-      if (min !== undefined && itemValue < min) return false
-      if (max !== undefined && itemValue > max) return false
+      const abs = Math.abs(Number(itemValue))
+      if (min !== undefined && abs < min) return false
+      if (max !== undefined && abs > max) return false
     }
   }
   return true
 }
 
-function matchesSearch(row: DebtInstallmentRow, q: string): boolean {
-  const kindLabel = debtInstallmentTypeLabel(row)
-  return [row.debtName, row.bankName, kindLabel].some((value) =>
+function matchesSearch(row: MovementRow, q: string): boolean {
+  return [row.endpointName, row.sourceLabel, formatDate(row.date)].some((value) =>
     textIncludesSearch(value, q),
   )
 }
@@ -184,62 +194,37 @@ const filtered = computed(() => {
   return list
 })
 
-const statusTag = (record: DebtInstallmentRow) => debtInstallmentStatusDisplay(record)
-
-const baseColumns: ColumnsType<DebtInstallmentRow> = [
+const baseColumns: ColumnsType<MovementRow> = [
   {
-    title: 'Borç',
-    dataIndex: 'debtName',
-    key: 'debtName',
-    sorter: (a, b) => a.debtName.localeCompare(b.debtName, 'tr'),
-  },
-  {
-    title: 'Banka',
-    dataIndex: 'bankName',
-    key: 'bankName',
-    ellipsis: { showTitle: false },
-    sorter: (a, b) => a.bankName.localeCompare(b.bankName, 'tr'),
-  },
-  {
-    title: 'Tür',
-    key: 'debtKind',
-    sorter: (a, b) =>
-      debtInstallmentTypeLabel(a).localeCompare(debtInstallmentTypeLabel(b), 'tr'),
-    customRender: ({ record }) => debtInstallmentTypeLabel(record),
-  },
-  {
-    title: 'Vade',
-    dataIndex: 'dueDate',
-    key: 'dueDate',
-    sorter: (a, b) => a.dueDate.localeCompare(b.dueDate),
-    defaultSortOrder: 'ascend',
+    title: 'Tarih',
+    dataIndex: 'date',
+    key: 'date',
+    sorter: (a, b) => a.date.localeCompare(b.date),
+    defaultSortOrder: 'descend',
     customRender: ({ text }) => formatDate(String(text)),
+  },
+  {
+    title: 'Hesap / kasa',
+    dataIndex: 'endpointName',
+    key: 'endpointName',
+    sorter: (a, b) => a.endpointName.localeCompare(b.endpointName, 'tr'),
+  },
+  {
+    title: 'Kaynak',
+    dataIndex: 'sourceLabel',
+    key: 'sourceLabel',
+    sorter: (a, b) => a.sourceLabel.localeCompare(b.sourceLabel, 'tr'),
   },
   {
     title: 'Tutar',
     dataIndex: 'amount',
     key: 'amount',
     align: 'right',
-    sorter: (a, b) => Number(a.amount) - Number(b.amount),
-    customRender: ({ text }) => formatCurrency(String(text), props.currency),
-  },
-  {
-    title: 'Ödenen',
-    key: 'paidAmount',
-    align: 'right',
-    sorter: (a, b) => debtInstallmentPaidDisplay(a) - debtInstallmentPaidDisplay(b),
-    customRender: ({ record }) => {
-      const paid = debtInstallmentPaidDisplay(record)
-      if (paid <= 0) return '—'
-      return formatCurrency(String(paid), props.currency)
-    },
-  },
-  {
-    title: 'Durum',
-    key: 'status',
-    customRender: ({ record }) => {
-      const t = statusTag(record)
-      return h(Tag, { color: t.color }, () => t.label)
+    sorter: (a, b) => a.amount - b.amount,
+    customRender: ({ text }) => {
+      const val = Number(text)
+      const cls = val < 0 ? 'kp-balance kp-balance--negative' : 'kp-balance kp-balance--positive'
+      return h('span', { class: cls }, formatCurrency(val, props.currency))
     },
   },
 ]
@@ -296,7 +281,7 @@ const pagination = computed<TablePaginationConfig>(() => ({
   pageSize: pageSize.value,
   total: filtered.value.length,
   showSizeChanger: true,
-  pageSizeOptions: ['10', '15', '25', '50'],
+  pageSizeOptions: ['10', '20', '50', '100'],
   showTotal: (total) => `${total} kayıt`,
   onChange: (nextPage, nextSize) => {
     query.patch({ page: nextPage, size: nextSize ?? pageSize.value })
@@ -333,19 +318,24 @@ function clearFilters(): void {
     }
   }
   query.rawPatch(raw)
-  props.filters.patch({ bank: undefined, from: undefined, to: undefined, cardDue: undefined })
+  props.filters.patch({
+    bank: undefined,
+    endpoint: undefined,
+    from: undefined,
+    to: undefined,
+  })
 }
 </script>
 
 <template>
-  <div class="kp-analytics-debt-list">
-    <div ref="filterTriggerRef" class="kp-analytics-debt-list__toolbar">
-      <div class="kp-analytics-debt-list__search-group">
+  <div class="kp-analytics-movement-list">
+    <div ref="filterTriggerRef" class="kp-analytics-movement-list__toolbar">
+      <div class="kp-analytics-movement-list__search-group">
         <Input
           v-model:value="search"
-          placeholder="Borç veya banka ara…"
+          placeholder="Hesap, kasa veya kaynak ara…"
           allow-clear
-          class="kp-analytics-debt-list__search"
+          class="kp-analytics-movement-list__search"
           @change="query.patch({ page: 1 })"
         >
           <template #prefix><SearchOutlined /></template>
@@ -353,86 +343,87 @@ function clearFilters(): void {
 
         <KpListFilterOverlay
           v-model:open="filtersOpen"
-          stack-id="analytics-debt-installments-filter"
+          stack-id="analytics-movements-filter"
           :popover-props="filterPopoverProps"
         >
           <header class="kp-list-filter__head">Filtreler</header>
 
           <div class="kp-list-filter__field">
-                <label class="kp-list-filter__label">Tarih aralığı</label>
-                <LocaleRangePicker
-                  :value="analyticsRangeValue"
-                  class="kp-list-filter__control"
-                  :allow-clear="false"
-                  @update:value="(v: unknown) => onAnalyticsRangeChange(v as [Dayjs, Dayjs] | null)"
-                />
-              </div>
+            <label class="kp-list-filter__label">Tarih aralığı</label>
+            <LocaleRangePicker
+              :value="analyticsRangeValue"
+              class="kp-list-filter__control"
+              :allow-clear="false"
+              @update:value="(v: unknown) => onAnalyticsRangeChange(v as [Dayjs, Dayjs] | null)"
+            />
+          </div>
 
-              <div class="kp-list-filter__field">
-                <label class="kp-list-filter__label">Kart borcu</label>
-                <KpSelect
-                  :value="filters.cardDueMode.value"
-                  class="kp-list-filter__control"
-                  :options="[
-                    { value: 'min', label: 'Asgari ödeme' },
-                    { value: 'statement', label: 'Toplam ödeme' },
-                  ]"
-                  @update:value="(v: unknown) => filters.patch({ cardDue: String(v ?? 'min') })"
-                />
-              </div>
+          <div class="kp-list-filter__field">
+            <label class="kp-list-filter__label">Banka</label>
+            <KpSelect
+              :value="filters.bankId.value || undefined"
+              class="kp-list-filter__control"
+              placeholder="Tüm bankalar"
+              allow-clear
+              show-search
+              option-filter-prop="label"
+              :options="bankOptions"
+              :filter-option="filterSelectOption"
+              @update:value="(v) => (filters.bankId.value = String(v ?? ''))"
+            />
+          </div>
 
-              <div class="kp-list-filter__field">
-                <label class="kp-list-filter__label">Banka</label>
-                <KpSelect
-                  :value="filters.bankId.value || undefined"
-                  class="kp-list-filter__control"
-                  placeholder="Tüm bankalar"
-                  allow-clear
-                  show-search
-                  option-filter-prop="label"
-                  :options="bankOptions"
-                  :filter-option="filterSelectOption"
-                  @update:value="(v) => (filters.bankId.value = String(v ?? ''))"
-                />
-              </div>
+          <div class="kp-list-filter__field">
+            <label class="kp-list-filter__label">Hesap / kasa</label>
+            <KpSelect
+              :value="filters.endpointId.value || undefined"
+              class="kp-list-filter__control"
+              placeholder="Tümü"
+              allow-clear
+              show-search
+              :filter-option="filterBankGroupedAccountOption"
+              :options="endpointOptions"
+              @update:value="(v) => (filters.endpointId.value = String(v ?? ''))"
+            />
+          </div>
 
-              <div
-                v-for="f in listFilters"
-                :key="f.key"
-                class="kp-list-filter__field"
-              >
-                <label class="kp-list-filter__label">{{ f.label }}</label>
+          <div
+            v-for="f in listFilters"
+            :key="f.key"
+            class="kp-list-filter__field"
+          >
+            <label class="kp-list-filter__label">{{ f.label }}</label>
 
-                <KpSelect
-                  v-if="f.kind === 'select'"
-                  :value="getSelectValue(f.key) || undefined"
-                  class="kp-list-filter__control"
-                  :placeholder="f.placeholder ?? 'Hepsi'"
-                  allow-clear
-                  show-search
-                  :options="f.options"
-                  :filter-option="filterSelectOption"
-                  @update:value="(v: unknown) => setSelectValue(f.key, v == null ? undefined : String(v))"
-                />
+            <KpSelect
+              v-if="f.kind === 'select'"
+              :value="getSelectValue(f.key) || undefined"
+              class="kp-list-filter__control"
+              :placeholder="f.placeholder ?? 'Hepsi'"
+              allow-clear
+              show-search
+              :options="f.options"
+              :filter-option="filterSelectOption"
+              @update:value="(v: unknown) => setSelectValue(f.key, v == null ? undefined : String(v))"
+            />
 
-                <div v-else-if="f.kind === 'numberRange'" class="kp-list-filter__range">
-                  <LocaleInputNumber
-                    :value="getNumberRange(f.key).min ?? null"
-                    :kind="f.numberKind ?? 'currency'"
-                    :placeholder="f.minPlaceholder ?? 'Min'"
-                    class="kp-list-filter__range-input"
-                    @update:value="(v: number | null | undefined) => setNumberRange(f.key, 'min', v)"
-                  />
-                  <span class="kp-list-filter__range-sep">–</span>
-                  <LocaleInputNumber
-                    :value="getNumberRange(f.key).max ?? null"
-                    :kind="f.numberKind ?? 'currency'"
-                    :placeholder="f.maxPlaceholder ?? 'Maks'"
-                    class="kp-list-filter__range-input"
-                    @update:value="(v: number | null | undefined) => setNumberRange(f.key, 'max', v)"
-                  />
-                </div>
-              </div>
+            <div v-else-if="f.kind === 'numberRange'" class="kp-list-filter__range">
+              <LocaleInputNumber
+                :value="getNumberRange(f.key).min ?? null"
+                :kind="f.numberKind ?? 'currency'"
+                :placeholder="f.minPlaceholder ?? 'Min'"
+                class="kp-list-filter__range-input"
+                @update:value="(v: number | null | undefined) => setNumberRange(f.key, 'min', v)"
+              />
+              <span class="kp-list-filter__range-sep">–</span>
+              <LocaleInputNumber
+                :value="getNumberRange(f.key).max ?? null"
+                :kind="f.numberKind ?? 'currency'"
+                :placeholder="f.maxPlaceholder ?? 'Maks'"
+                class="kp-list-filter__range-input"
+                @update:value="(v: number | null | undefined) => setNumberRange(f.key, 'max', v)"
+              />
+            </div>
+          </div>
 
           <template #footer>
             <Button block :disabled="activeFilterCount === 0" @click="clearFilters">
@@ -442,7 +433,7 @@ function clearFilters(): void {
           <template #trigger>
             <Badge :count="activeFilterCount" :show-zero="false" :offset="[-2, 2]" size="small">
               <Button
-                class="kp-analytics-debt-list__filter-trigger"
+                class="kp-analytics-movement-list__filter-trigger"
                 :type="activeFilterCount > 0 ? 'primary' : 'default'"
                 :ghost="activeFilterCount > 0"
                 aria-label="Filtreler"
@@ -458,7 +449,7 @@ function clearFilters(): void {
     <Table
       :columns="tableColumns"
       :data-source="sortedItems"
-      row-key="key"
+      row-key="id"
       size="small"
       :pagination="pagination"
       table-layout="auto"
@@ -470,20 +461,28 @@ function clearFilters(): void {
 </template>
 
 <style scoped>
-.kp-analytics-debt-list__toolbar {
+.kp-analytics-movement-list__toolbar {
   display: flex;
   align-items: center;
   margin-bottom: 12px;
 }
 
-.kp-analytics-debt-list__search-group {
+.kp-analytics-movement-list__search-group {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
 
-.kp-analytics-debt-list__filter-trigger {
+.kp-analytics-movement-list__filter-trigger {
   flex-shrink: 0;
+}
+
+.kp-balance--negative {
+  color: var(--ant-color-error);
+}
+
+.kp-balance--positive {
+  color: var(--ant-color-success);
 }
 </style>

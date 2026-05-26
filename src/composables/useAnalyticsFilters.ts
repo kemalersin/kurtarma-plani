@@ -1,12 +1,13 @@
 import { computed, type ComputedRef, type WritableComputedRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { AnalyticsDateRange, AnalyticsFilters } from '@/features/analytics/reports'
+import type { AnalyticsDateRange, AnalyticsFilters, CardDebtDueMode } from '@/features/analytics/reports'
 
 export interface AnalyticsFilterState {
   range: WritableComputedRef<AnalyticsDateRange>
   bankId: WritableComputedRef<string>
   endpointId: WritableComputedRef<string>
   categoryId: WritableComputedRef<string>
+  cardDueMode: WritableComputedRef<CardDebtDueMode>
   filters: ComputedRef<AnalyticsFilters>
   patch(patch: Partial<{
     from: string
@@ -14,6 +15,7 @@ export interface AnalyticsFilterState {
     bank: string
     endpoint: string
     category: string
+    cardDue: CardDebtDueMode | ''
   }>): void
   reset(): void
 }
@@ -38,7 +40,7 @@ function defaultRange(): AnalyticsDateRange {
 
 /**
  * Analiz sayfası filtrelerini URL query ile senkronlar.
- * Anahtarlar: `from`, `to`, `bank`, `endpoint`, `category`.
+ * Anahtarlar: `from`, `to`, `bank`, `endpoint`, `category`, `cardDue`.
  * Varsayılan aralık URL'e yazılmaz.
  */
 export function useAnalyticsFilters(): AnalyticsFilterState {
@@ -83,11 +85,17 @@ export function useAnalyticsFilters(): AnalyticsFilterState {
     set: (v) => replaceQuery({ category: v || undefined }),
   })
 
+  const cardDueMode = computed<CardDebtDueMode>({
+    get: () => (readStr(route.query.cardDue) === 'statement' ? 'statement' : 'min'),
+    set: (v) => replaceQuery({ cardDue: v === 'min' ? undefined : v }),
+  })
+
   const filters = computed<AnalyticsFilters>(() => ({
     range: range.value,
     bankId: bankId.value || undefined,
     endpointId: endpointId.value || undefined,
     categoryId: categoryId.value || undefined,
+    cardDueMode: cardDueMode.value,
   }))
 
   function patch(p: Partial<{
@@ -96,14 +104,22 @@ export function useAnalyticsFilters(): AnalyticsFilterState {
     bank: string
     endpoint: string
     category: string
+    cardDue: CardDebtDueMode | ''
   }>): void {
-    replaceQuery({
-      from: p.from === defaults.from ? undefined : p.from,
-      to: p.to === defaults.to ? undefined : p.to,
-      bank: p.bank,
-      endpoint: p.endpoint,
-      category: p.category,
-    })
+    const next: Record<string, string | undefined> = {}
+    if ('from' in p) {
+      next.from = p.from === defaults.from ? undefined : p.from
+    }
+    if ('to' in p) {
+      next.to = p.to === defaults.to ? undefined : p.to
+    }
+    if ('bank' in p) next.bank = p.bank || undefined
+    if ('endpoint' in p) next.endpoint = p.endpoint || undefined
+    if ('category' in p) next.category = p.category || undefined
+    if ('cardDue' in p) {
+      next.cardDue = !p.cardDue || p.cardDue === 'min' ? undefined : p.cardDue
+    }
+    if (Object.keys(next).length) replaceQuery(next)
   }
 
   function reset(): void {
@@ -113,8 +129,9 @@ export function useAnalyticsFilters(): AnalyticsFilterState {
       bank: undefined,
       endpoint: undefined,
       category: undefined,
+      cardDue: undefined,
     })
   }
 
-  return { range, bankId, endpointId, categoryId, filters, patch, reset }
+  return { range, bankId, endpointId, categoryId, cardDueMode, filters, patch, reset }
 }

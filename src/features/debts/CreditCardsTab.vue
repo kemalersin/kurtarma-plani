@@ -11,7 +11,7 @@ import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { Bank, CreditCard, CreditCardTransaction } from '@/core/types/entities'
 import { adminPrimaryNameColumn } from '@/features/admin/admin-list-columns'
 import { compareByDisplayLabel, compareNumeric } from '@/features/debts/debtListSorters'
-import { latestCardStatement } from './cardHelpers'
+import { cardCommittedTotal, cardCurrentPeriodProjection, cardOutstandingBalance } from './cardHelpers'
 
 const entities = useEntitiesStore()
 const { formatCurrency } = useLocaleFormatters()
@@ -71,25 +71,43 @@ function bankName(id: string): string {
   return banks.value.find((b) => b.id === id)?.name ?? '—'
 }
 
-const summaryCache = computed<
-  Map<string, { endingBalance: string; minPayment: string; available: number }>
->(() => {
-  const map = new Map<
-    string,
-    { endingBalance: string; minPayment: string; available: number }
-  >()
+interface CardSummary {
+  endingBalance: string
+  minPayment: string
+  committed: string
+  future: string
+  available: number
+}
+
+const summaryCache = computed<Map<string, CardSummary>>(() => {
+  const map = new Map<string, CardSummary>()
   for (const card of cards.value) {
-    const period = latestCardStatement(card, txns.value)
-    const endingBalance = period?.statement.endingBalance ?? '0'
-    const minPayment = period?.statement.minPayment ?? '0'
-    const available = card.limit - Number(endingBalance)
-    map.set(card.id, { endingBalance, minPayment, available })
+    const current = cardCurrentPeriodProjection(card, txns.value)
+    const endingBalance = cardOutstandingBalance(card, txns.value)
+    const minPayment = String(current?.minPayment ?? 0)
+    const totals = cardCommittedTotal(card, txns.value)
+    const available = card.limit - Number(totals.committed)
+    map.set(card.id, {
+      endingBalance,
+      minPayment,
+      committed: totals.committed,
+      future: totals.future,
+      available,
+    })
   }
   return map
 })
 
-function summary(card: CreditCard) {
-  return summaryCache.value.get(card.id) ?? { endingBalance: '0', minPayment: '0', available: card.limit }
+function summary(card: CreditCard): CardSummary {
+  return (
+    summaryCache.value.get(card.id) ?? {
+      endingBalance: '0',
+      minPayment: '0',
+      committed: '0',
+      future: '0',
+      available: card.limit,
+    }
+  )
 }
 
 const filters = computed<ListFilter<CreditCard>[]>(() => [
@@ -103,9 +121,16 @@ const filters = computed<ListFilter<CreditCard>[]>(() => [
   {
     kind: 'numberRange',
     key: 'balance',
-    label: 'Borç',
+    label: 'Ekstre borcu',
     numberKind: 'currency',
     getValue: (card) => Number(summary(card).endingBalance),
+  },
+  {
+    kind: 'numberRange',
+    key: 'committed',
+    label: 'Toplam yükümlülük',
+    numberKind: 'currency',
+    getValue: (card) => Number(summary(card).committed),
   },
   {
     kind: 'numberRange',
@@ -141,12 +166,21 @@ const columns = computed<TableColumnType<CreditCard>[]>(() => [
   },
   {
     key: 'endingBalance',
-    title: 'Borç',
+    title: 'Ekstre borcu',
     align: 'right',
     customRender: ({ record }) =>
       formatCurrency(summary(record as CreditCard).endingBalance, (record as CreditCard).currency),
     sorter: (a, b) =>
       compareNumeric(a, b, (card) => Number(summary(card).endingBalance)),
+  },
+  {
+    key: 'committed',
+    title: 'Toplam yükümlülük',
+    align: 'right',
+    customRender: ({ record }) =>
+      formatCurrency(summary(record as CreditCard).committed, (record as CreditCard).currency),
+    sorter: (a, b) =>
+      compareNumeric(a, b, (card) => Number(summary(card).committed)),
   },
   {
     key: 'available',

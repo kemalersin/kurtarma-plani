@@ -6,6 +6,8 @@ import { D, roundMoney } from '@/finance/decimal'
 import type {
   Account,
   CashRegister,
+  CreditCard,
+  CreditCardTransaction,
   Expense,
   ExpenseType,
   Income,
@@ -15,6 +17,7 @@ import type {
   Loan,
   LoanPayment,
 } from '@/core/types/entities'
+import { buildCardPeriods, projectCardPeriodDebts } from '@/features/debts/cardHelpers'
 import type { AccountMovement } from '@/features/cashflow/movements'
 import {
   buildScheduleForLoan,
@@ -36,18 +39,51 @@ export interface AnalyticsFilters {
   /** `acc:<id>` veya `reg:<id>` */
   endpointId?: string
   categoryId?: string
+  /** Kart vadeleri: asgari ödeme veya dönem toplam ödemesi. Varsayılan `min`. */
+  cardDueMode?: CardDebtDueMode
 }
+
+/** Borç analizinde kredi kartı vade tutarı modu. */
+export type CardDebtDueMode = 'min' | 'statement'
 
 export type DebtInstallmentStatus = 'paid' | 'overdue' | 'upcoming'
 
+export type DebtInstallmentKind =
+  | 'loan'
+  | 'installmentAdvance'
+  | 'creditCardMinPayment'
+  | 'creditCardStatement'
+
+export const DEBT_INSTALLMENT_KIND_LABELS: Record<DebtInstallmentKind, string> = {
+  loan: 'Kredi',
+  installmentAdvance: 'Taksitli avans',
+  creditCardMinPayment: 'Kart asgari ödeme',
+  creditCardStatement: 'Kart toplam ödeme',
+}
+
+export function debtInstallmentKindLabel(kind: DebtInstallmentKind): string {
+  return DEBT_INSTALLMENT_KIND_LABELS[kind]
+}
+
+/** Liste Tür sütunu: kredi/avans satırlarında taksit sırası dahil etiket. */
+export function debtInstallmentTypeLabel(row: DebtInstallmentRow): string {
+  if (row.debtKind === 'creditCardMinPayment' || row.debtKind === 'creditCardStatement') {
+    return debtInstallmentKindLabel(row.debtKind)
+  }
+  const base = debtInstallmentKindLabel(row.debtKind)
+  return `${base} ${row.installmentIndex}. taksiti`
+}
+
 export interface DebtInstallmentRow {
   key: string
-  debtKind: 'loan' | 'installmentAdvance'
+  debtKind: DebtInstallmentKind
   debtId: string
   debtName: string
   bankId: string
   bankName: string
   installmentIndex: number
+  /** Taksitli kart satırlarında toplam taksit sayısı. */
+  installmentCount?: number
   dueDate: string
   amount: string
   paid: boolean
@@ -98,6 +134,49 @@ function installmentStatus(
   if (paid) return 'paid'
   if (dueDate.slice(0, 10) < todayIso.slice(0, 10)) return 'overdue'
   return 'upcoming'
+}
+
+/** Satırda gösterilecek ödenen tutar (kısmi ödeme dahil). */
+export function debtInstallmentPaidDisplay(row: DebtInstallmentRow): number {
+  if (row.paidAmount != null && row.paidAmount !== '') {
+    return Number(row.paidAmount)
+  }
+  if (row.paid) return Number(row.amount)
+  return 0
+}
+
+/** Liste/grafik durum etiketi; kısmi ödeme ayrı gösterilir. */
+export function debtInstallmentStatusDisplay(row: DebtInstallmentRow): {
+  color: 'success' | 'warning' | 'error' | 'processing'
+  label: string
+} {
+  if (row.status === 'paid') return { color: 'success', label: 'Ödendi' }
+  if (debtInstallmentPaidDisplay(row) > 0) {
+    return { color: 'warning', label: 'Kısmi ödendi' }
+  }
+  if (row.status === 'overdue') return { color: 'error', label: 'Gecikmiş' }
+  return { color: 'processing', label: 'Bekliyor' }
+}
+
+function cardRowPaidAmount(p: { paymentsInWindow?: string }): string | undefined {
+  const windowTotal = p.paymentsInWindow
+  if (!windowTotal || windowTotal === '0') return undefined
+  return windowTotal
+}
+
+function cardPeriodsForRange(
+  card: CreditCard,
+  transactions: CreditCardTransaction[],
+  range: AnalyticsDateRange,
+): ReturnType<typeof buildCardPeriods> {
+  const toDate = new Date(range.to)
+  const fromDate = new Date(range.from)
+  const spanMonths =
+    (toDate.getUTCFullYear() - fromDate.getUTCFullYear()) * 12 +
+    (toDate.getUTCMonth() - fromDate.getUTCMonth()) +
+    12
+  const periods = Math.min(Math.max(spanMonths, 18), 120)
+  return buildCardPeriods(card, transactions, { periods, asOf: toDate })
 }
 
 function parseEndpoint(endpointId?: string): {
@@ -179,13 +258,15 @@ export function debtInstallmentRows(
     loanPayments: LoanPayment[]
     installmentAdvances: InstallmentCashAdvance[]
     installmentAdvancePayments: InstallmentCashAdvancePayment[]
+    creditCards: CreditCard[]
+    creditCardTransactions: CreditCardTransaction[]
     banks: { id: string; name: string }[]
     localCurrency: string
   },
   filters: AnalyticsFilters,
   todayIso = new Date().toISOString(),
 ): DebtInstallmentRow[] {
-  const { range, bankId } = filters
+  const { range, bankId, cardDueMode = 'min' } = filters
   const out: DebtInstallmentRow[] = []
   const bankNames = new Map(input.banks.map((b) => [b.id, b.name]))
   const resolveBankName = (id: string) => bankNames.get(id) ?? id
@@ -256,6 +337,57 @@ export function debtInstallmentRows(
             : undefined,
         status: installmentStatus(paid, row.dueDate, todayIso),
       })
+    }
+  }
+
+  for (const card of input.creditCards) {
+    if (card.archived) continue
+    if (card.currency !== input.localCurrency) continue
+    if (bankId && card.bankId !== bankId) continue
+    const txns = input.creditCardTransactions.filter((t) => t.cardId === card.id)
+    const periods = cardPeriodsForRange(card, txns, range)
+    const projections = projectCardPeriodDebts(card, txns, {
+      periods,
+      asOf: new Date(todayIso),
+    })
+
+    for (const p of projections) {
+      if (!inRange(p.dueDate, range)) continue
+      if (p.endingBalance <= 0) continue
+
+      if (cardDueMode === 'statement') {
+        out.push({
+          key: `card:${card.id}:total:${p.cutoffDate}`,
+          debtKind: 'creditCardStatement',
+          debtId: card.id,
+          debtName: card.name,
+          bankId: card.bankId,
+          bankName: resolveBankName(card.bankId),
+          installmentIndex: 0,
+          dueDate: p.dueDate,
+          amount: String(roundMoney(p.endingBalance)),
+          paid: p.paidInFull,
+          paidDate: p.paidDate,
+          paidAmount: cardRowPaidAmount(p),
+          status: installmentStatus(p.paidInFull, p.dueDate, todayIso),
+        })
+      } else if (p.minPayment > 0) {
+        out.push({
+          key: `card:${card.id}:min:${p.cutoffDate}`,
+          debtKind: 'creditCardMinPayment',
+          debtId: card.id,
+          debtName: card.name,
+          bankId: card.bankId,
+          bankName: resolveBankName(card.bankId),
+          installmentIndex: 0,
+          dueDate: p.dueDate,
+          amount: String(roundMoney(p.minPayment)),
+          paid: p.paid,
+          paidDate: p.paidDate,
+          paidAmount: cardRowPaidAmount(p),
+          status: installmentStatus(p.paid, p.dueDate, todayIso),
+        })
+      }
     }
   }
 
@@ -347,10 +479,22 @@ export function debtInstallmentMonthlySeries(
     const k = row.dueDate.slice(0, 7)
     if (!paidMap.has(k)) continue
     const amt = D(row.amount)
-    if (row.paid) {
-      paidMap.set(k, paidMap.get(k)!.plus(amt))
-    } else {
-      pendingMap.set(k, pendingMap.get(k)!.plus(amt))
+    const paidPart =
+      row.paidAmount != null && row.paidAmount !== ''
+        ? D(row.paidAmount)
+        : row.paid
+          ? amt
+          : D(0)
+    if (paidPart.gt(0)) {
+      paidMap.set(k, paidMap.get(k)!.plus(paidPart))
+    }
+    const pendingPart = row.paid
+      ? D(0)
+      : paidPart.gt(amt)
+        ? amt
+        : amt.minus(paidPart)
+    if (pendingPart.gt(0)) {
+      pendingMap.set(k, pendingMap.get(k)!.plus(pendingPart))
     }
   }
   return {

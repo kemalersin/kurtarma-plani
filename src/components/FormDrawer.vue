@@ -18,6 +18,8 @@ interface Props {
   mobileActionsInFooter?: boolean
   /** Ek kök sınıfları (`kp-form-drawer--list-filter` vb.). */
   drawerClass?: string
+  /** Açılışta ilk form alanına otomatik odaklanma (varsayılan: açık). */
+  autoFocusFirst?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -25,6 +27,7 @@ const props = withDefaults(defineProps<Props>(), {
   maskClosable: true,
   layout: 'default',
   mobileActionsInFooter: false,
+  autoFocusFirst: true,
 })
 
 const emit = defineEmits<{
@@ -79,7 +82,7 @@ watch(
 )
 
 function onAfterOpenChange(open: boolean): void {
-  if (open) {
+  if (open && props.autoFocusFirst) {
     void nextTick(() => focusFirstFormField(formRoot.value))
   }
 }

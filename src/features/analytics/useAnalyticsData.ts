@@ -33,6 +33,8 @@ import type {
   ExpenseType,
   Loan,
   LoanPayment,
+  CreditCard,
+  CreditCardTransaction,
   InstallmentCashAdvance,
   InstallmentCashAdvancePayment,
 } from '@/core/types/entities'
@@ -65,8 +67,9 @@ const LOAD_KEYS = [
   'loanPayment',
   'installmentCashAdvance',
   'installmentCashAdvancePayment',
-  'transfer',
+  'creditCard',
   'creditCardTransaction',
+  'transfer',
   'cashAdvanceTransaction',
 ] as const
 
@@ -90,6 +93,8 @@ export function useAnalyticsData(
   const installmentAdvancePayments = entities.list<InstallmentCashAdvancePayment>(
     'installmentCashAdvancePayment',
   )
+  const creditCards = entities.list<CreditCard>('creditCard')
+  const creditCardTransactions = entities.list<CreditCardTransaction>('creditCardTransaction')
 
   onMounted(async () => {
     const tasks: Promise<unknown>[] = []
@@ -118,6 +123,8 @@ export function useAnalyticsData(
         loanPayments: loanPayments.value,
         installmentAdvances: installmentAdvances.value,
         installmentAdvancePayments: installmentAdvancePayments.value,
+        creditCards: creditCards.value,
+        creditCardTransactions: creditCardTransactions.value,
         banks: banks.value,
         localCurrency: lc,
       },

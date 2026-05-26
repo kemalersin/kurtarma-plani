@@ -60,6 +60,7 @@
 - [x] **Entity tipleri:** `CreditCard` + `CreditCardTransaction` (purchase/payment/cashAdvance), `CashAdvanceAccount` + `CashAdvanceTransaction` (draw/payment), `InstallmentCashAdvance` + `InstallmentCashAdvancePayment`
 - [x] **Profil DB EntityType** listesi 4 yeni tip ile genişletildi
 - [x] **Kredi kartı UI:** liste + form + hesap özeti drawer (dönem seçimi + hareket tablosu + asgari) + hareket drawer
+- [x] **Taksitli kart hareketi:** `installmentCount` etkinleştirildi; sanal taksit genişletmesi (`expandInstallments`) + dönem-aware tahakkuk (`buildCardPeriods`) + toplam yükümlülük (`cardCommittedTotal`); form drawer'da taksit sayısı alanı ve tahakkuk kilidi; liste/dashboard "Toplam yükümlülük" sütunu; `debtSnapshot` gerçek banka davranışıyla uyumlu
 - [x] **Nakit avans UI:** liste + form + ledger drawer (kalan anapara, işleyen faiz, toplam, kullanılabilir) + hareket drawer
 - [x] **Taksitli nakit avans UI:** liste + form (bağlı nakit avans hesabı combobox, "Erken kapama faizsiz" bayrağı) + taksit planı drawer + ödeme drawer
 - [x] **DebtsView** 3 sekme aktive edildi
@@ -86,6 +87,7 @@
 - [x] **M7.1 — Analiz motoru + Dashboard:** `src/features/analytics/` saf TS (`snapshot.ts` asset/debt/netWorth, `series.ts` cashflow/category/upcomingDebt, `useDashboardData.ts` reaktif composable); `KpChart.vue` ECharts wrapper (tree-shaken core + Canvas + Bar/Line/Pie + Grid/Legend/Title/Tooltip/DataZoom, responsive, tema-uyumlu); Panel (HomeView) 5 stat + 4 grafik (aylık nakit akışı / borç dağılımı / gider kategorileri / yaklaşan vadeler); 18 yeni Vitest (93/93)
 - [x] **M7.2 — Analiz / rapor sayfası:** `/analytics` sekmeli (borç analizi, nakit akışı, hesap geçmişi); declarative filtreler (tarih aralığı, banka, hesap, kategori); tablo + grafik aynı sayfada; `reports.ts` + `useAnalyticsFilters` + 5 Vitest (98/98)
 - [ ] **M7.3 — Export (UI only):** görünen tablo → Excel (`write-excel-file` ~40 KB); görünen tablo + grafik → PDF (tarayıcı print API + `@media print` özel CSS, 0 KB ek bağımlılık) — **ertelendi**
+- [x] **Kart taksitleri analiz tablosu:** `debtInstallmentRows` kart taksitleri + dönem asgari ödeme vadelerini listeler; status dönem ekstre vade tarihiyle eşlenir
 
 ## M8 — AI
 

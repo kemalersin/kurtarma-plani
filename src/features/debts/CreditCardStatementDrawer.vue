@@ -19,7 +19,13 @@ import type {
   CreditCardTransaction,
   CreditCardTxnType,
 } from '@/core/types/entities'
-import { buildCardPeriods, type CardPeriod } from './cardHelpers'
+import {
+  buildCardPeriods,
+  cardCommittedTotal,
+  projectCardPeriodDebts,
+  type CardPeriod,
+  type PeriodTxn,
+} from './cardHelpers'
 import CreditCardTxnDrawer from './CreditCardTxnDrawer.vue'
 
 interface Props {
@@ -56,6 +62,11 @@ const periods = computed<CardPeriod[]>(() => {
   return buildCardPeriods(props.card, transactions.value, { periods: 6 })
 })
 
+const periodProjections = computed(() => {
+  if (!props.card || !periods.value.length) return []
+  return projectCardPeriodDebts(props.card, transactions.value, { periods: periods.value })
+})
+
 const selectedCutoff = ref<string | undefined>(undefined)
 
 watch(
@@ -83,9 +94,19 @@ const activePeriod = computed<CardPeriod | null>(() => {
   return periods.value.find((p) => p.cutoffDate === selectedCutoff.value) ?? null
 })
 
-const tableRows = computed<CreditCardTransaction[]>(
+const activeProjection = computed(() => {
+  if (!selectedCutoff.value) return null
+  return periodProjections.value.find((p) => p.cutoffDate === selectedCutoff.value) ?? null
+})
+
+const tableRows = computed<PeriodTxn[]>(
   () => activePeriod.value?.transactions ?? [],
 )
+
+const cardCommitted = computed(() => {
+  if (!props.card) return null
+  return cardCommittedTotal(props.card, transactions.value)
+})
 
 const periodOptions = computed(() =>
   periods.value.map((p) => ({ value: p.cutoffDate, label: p.label })),
@@ -102,18 +123,29 @@ const TYPE_COLORS: Record<CreditCardTxnType, string> = {
   cashAdvance: 'orange',
 }
 
-const txnColumns = computed<KpTableColumn<CreditCardTransaction>[]>(() => [
+function installmentLabel(row: PeriodTxn): string {
+  if (!row.installmentCount) return ''
+  return `${row.installmentIndex}/${row.installmentCount} taksit`
+}
+
+function descriptionWithInstallment(row: PeriodTxn): string {
+  const inst = installmentLabel(row)
+  if (!inst) return row.description ?? ''
+  return row.description ? `${row.description} · ${inst}` : inst
+}
+
+const txnColumns = computed<KpTableColumn<PeriodTxn>[]>(() => [
   {
     key: 'date',
     title: 'Tarih',
-    customRender: ({ record }) => formatDate((record as CreditCardTransaction).date),
+    customRender: ({ record }) => formatDate((record as PeriodTxn).date),
     sorter: (a, b) => a.date.localeCompare(b.date),
     defaultSortOrder: 'descend',
   },
   {
     key: 'type',
     title: 'Tür',
-    customRender: ({ record }) => TYPE_LABELS[(record as CreditCardTransaction).type],
+    customRender: ({ record }) => TYPE_LABELS[(record as PeriodTxn).type],
     kpDisplay: (record) => TYPE_LABELS[record.type],
     kpTag: (record) => ({
       color: TYPE_COLORS[record.type],
@@ -123,7 +155,8 @@ const txnColumns = computed<KpTableColumn<CreditCardTransaction>[]>(() => [
   {
     key: 'description',
     title: 'Açıklama',
-    dataIndex: 'description',
+    customRender: ({ record }) => descriptionWithInstallment(record as PeriodTxn),
+    kpDisplay: (record) => descriptionWithInstallment(record),
     ellipsis: { showTitle: false },
   },
   {
@@ -131,21 +164,16 @@ const txnColumns = computed<KpTableColumn<CreditCardTransaction>[]>(() => [
     title: 'Tutar',
     align: 'right',
     customRender: ({ record }) =>
-      formatCurrency((record as CreditCardTransaction).amount, props.card?.currency),
+      formatCurrency((record as PeriodTxn).amount, props.card?.currency),
   },
 ])
 
-function rowClass(row: CreditCardTransaction): string {
-  return `kp-txn-row kp-txn-row--${row.type}`
-}
-
-function customRowProps(row: CreditCardTransaction): Record<string, unknown> {
+function customRowProps(row: PeriodTxn): Record<string, unknown> {
   return {
-    onClick: () => openEdit(row),
+    onClick: () => openEditForRow(row),
     class: 'kp-txn-row-clickable',
   }
 }
-void rowClass
 
 const txnOpen = ref(false)
 const editing = ref<CreditCardTransaction | null>(null)
@@ -154,44 +182,89 @@ function openCreate(): void {
   editing.value = null
   txnOpen.value = true
 }
-function openEdit(t: CreditCardTransaction): void {
-  editing.value = t
+
+function findOriginal(originalId: string): CreditCardTransaction | null {
+  return transactions.value.find((t) => t.id === originalId) ?? null
+}
+
+function openEditForRow(row: PeriodTxn): void {
+  const original = findOriginal(row.originalTxnId)
+  if (!original) {
+    message.error('İlgili kart kaydı bulunamadı.')
+    return
+  }
+  editing.value = original
   txnOpen.value = true
 }
 
-async function onDeleteTxn(t: CreditCardTransaction): Promise<void> {
+async function onDeleteRow(row: PeriodTxn): Promise<void> {
+  const original = findOriginal(row.originalTxnId)
+  if (!original) {
+    message.error('Kayıt bulunamadı.')
+    return
+  }
   try {
-    await entities.remove('creditCardTransaction', t.id)
-    message.success('Hareket silindi.')
+    await entities.remove('creditCardTransaction', original.id)
+    if (original.installmentCount && original.installmentCount > 1) {
+      message.success(
+        `Taksitli işlem silindi (${original.installmentCount} taksit dönemden kaldırıldı).`,
+      )
+    } else {
+      message.success('Hareket silindi.')
+    }
   } catch {
     message.error('Silinemedi.')
   }
 }
 
 const periodStats = computed<KpStat[]>(() => {
-  if (!activePeriod.value || !props.card) return []
-  const ccy = props.card.currency
+  const proj = activeProjection.value
   const p = activePeriod.value
-  return [
+  if (!proj || !p || !props.card) return []
+  const ccy = props.card.currency
+  const stats: KpStat[] = [
     {
       label: 'Açılış bakiyesi',
-      value: formatCurrency(p.openingBalance, ccy),
+      value: formatCurrency(proj.carriedIn, ccy),
+      labelTooltip:
+        proj.carriedIn > 0
+          ? 'Önceki dönemden taşınan ödenmemiş bakiye (gecikme faizi hariç).'
+          : undefined,
     },
+  ]
+  if (proj.lateInterest > 0) {
+    stats.push({
+      label: 'Gecikme faizi',
+      value: formatCurrency(proj.lateInterest, ccy),
+      tone: 'danger',
+      labelTooltip: 'Önceki vade sonrası ödenmemiş bakiye üzerinden hesaplanan gecikme faizi.',
+    })
+  }
+  stats.push(
     {
       label: 'Dönem sonu',
-      value: formatCurrency(p.statement.endingBalance, ccy),
+      value: formatCurrency(proj.endingBalance, ccy),
       tone: 'primary',
+      labelTooltip: 'Taşınan borç, gecikme faizi, bu dönem tahakkukları ve ödemeler sonrası bakiye.',
     },
     {
       label: 'Asgari ödeme',
-      value: formatCurrency(p.statement.minPayment, ccy),
+      value: formatCurrency(proj.minPayment, ccy),
       tone: 'warning',
     },
     {
       label: 'Son ödeme tarihi',
       value: formatDate(p.dueDate),
     },
-  ]
+  )
+  if (cardCommitted.value && Number(cardCommitted.value.future) > 0) {
+    stats.push({
+      label: 'Toplam yükümlülük',
+      value: formatCurrency(cardCommitted.value.committed, ccy),
+      tone: 'danger',
+    })
+  }
+  return stats
 })
 </script>
 
@@ -201,6 +274,7 @@ const periodStats = computed<KpStat[]>(() => {
     :open="open"
     :title="card ? `${card.name} — hesap özeti` : 'Hesap özeti'"
     width="min(960px, 100vw)"
+    :auto-focus-first="false"
     @update:open="emit('update:open', $event)"
   >
     <div v-if="!card">
@@ -210,7 +284,7 @@ const periodStats = computed<KpStat[]>(() => {
       <DismissibleDrawerAlert
         hint-key="credit-card-statement.info"
         message="Dönem özeti"
-        description="Bir dönem, kart hesap kesim tarihinden bir sonrakine kadar olan harcama ve ödemeleri kapsar. Asgari ödeme; limit 25.000 TL altıysa %20, üstündeyse %40."
+        description="Bir dönem, kart hesap kesim tarihinden bir sonrakine kadar olan harcama ve ödemeleri kapsar. Ödenmemiş bakiye sonraki döneme taşınır; vade sonrası gecikme faizi dönem sonu ve asgari tutara yansır. Asgari oran: limit 25.000 TL altı %20, üstü %40."
       />
 
       <Space :size="12" wrap>
@@ -229,12 +303,12 @@ const periodStats = computed<KpStat[]>(() => {
         table-class="kp-card-txn-table"
         :data-source="tableRows"
         :columns="txnColumns"
-        :row-key="(r: CreditCardTransaction) => r.id"
+        :row-key="(r: PeriodTxn) => r.key"
         :custom-row="customRowProps"
         empty-text="Bu dönemde hareket yok."
         row-actions
-        @edit="openEdit"
-        @delete="onDeleteTxn"
+        @edit="openEditForRow"
+        @delete="onDeleteRow"
       />
     </div>
   </FormDrawer>

@@ -4,6 +4,7 @@ import { FormItem, RadioGroup, Space, message } from 'ant-design-vue'
 import KpFormLabel from '@/components/KpFormLabel.vue'
 import BankAccountSelect from '@/components/BankAccountSelect.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
+import DismissibleDrawerAlert from '@/components/DismissibleDrawerAlert.vue'
 import AccountFormDrawer from '@/features/admin/AccountFormDrawer.vue'
 import CashRegisterFormDrawer from '@/features/admin/CashRegisterFormDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
@@ -30,10 +31,15 @@ interface Props {
   required?: boolean
   /** Üst etiket. Boş → kind'a göre default. */
   label?: string
-  /** Input altı açıklama; `labelTooltip` yoksa `extra` olarak gösterilir. */
+  /** Drawer üstünde bilgi alert'ine eklenecek bağlam metni (örn. ödeme/avans). */
   hint?: string
-  /** Etiket yanında bilgi ikonu; verilirse `extra` kullanılmaz. */
+  /** Etiket yanında bilgi ikonu (kısa açıklama); bilgi alert'inden bağımsız. */
   labelTooltip?: string
+  /**
+   * Bilgi alert'i için benzersiz dismiss anahtarı. Boş → `kind`'a göre
+   * `payment-source.<kind>.info`. Drawer'da farklı alanlar için ezilebilir.
+   */
+  hintKey?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -44,6 +50,7 @@ const props = withDefaults(defineProps<Props>(), {
   label: '',
   hint: '',
   labelTooltip: '',
+  hintKey: '',
 })
 
 const emit = defineEmits<{
@@ -211,11 +218,19 @@ const combinedHint = computed(() =>
   props.hint ? `${props.hint} ${currencyHint.value}` : currencyHint.value,
 )
 
-const formExtra = computed(() => (props.labelTooltip ? undefined : combinedHint.value))
+const effectiveHintKey = computed(
+  () => props.hintKey || `payment-source.${props.kind}.info`,
+)
 </script>
 
 <template>
-  <FormItem :required="required" :extra="formExtra">
+  <DismissibleDrawerAlert
+    v-if="!labelTooltip"
+    :hint-key="effectiveHintKey"
+    type="info"
+    :description="combinedHint"
+  />
+  <FormItem :required="required">
     <template #label>
       <KpFormLabel :hint="labelTooltip || undefined">{{ labelText }}</KpFormLabel>
     </template>

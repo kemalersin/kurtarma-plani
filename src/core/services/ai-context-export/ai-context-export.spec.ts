@@ -208,9 +208,82 @@ describe('buildAiContextDocument', () => {
       },
     ]
     doc.schedules.installmentAdvances = []
+    doc.schedules.creditCards = []
+    doc.schedules.creditCardPeriods = []
     const pruned = prunePaidInstallments(doc)
     expect(pruned.schedules.loans[0]?.installments).toHaveLength(1)
     expect(pruned.schedules.loans[0]?.installments[0]?.status).toBe('overdue')
+  })
+
+  it('taksitli kart için toplam yükümlülük ve taksit planı üretir', () => {
+    const doc = buildAiContextDocument({
+      profile,
+      includeSensitive: false,
+      rows: [
+        {
+          id: 'b1',
+          type: 'bank',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          data: { id: 'b1', name: 'Banka', createdAt: '2026-01-01', updatedAt: '2026-01-01' },
+        },
+        {
+          id: 'c1',
+          type: 'creditCard',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          data: {
+            id: 'c1',
+            name: 'Bonus',
+            bankId: 'b1',
+            currency: 'TRY',
+            limit: 50_000,
+            openingBalance: 0,
+            statementCutoffDay: 15,
+            paymentDueDay: 25,
+            purchaseAprMonthly: 0,
+            createdAt: '2026-01-01',
+            updatedAt: '2026-01-01',
+          },
+        },
+        {
+          id: 't1',
+          type: 'creditCardTransaction',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          data: {
+            id: 't1',
+            cardId: 'c1',
+            date: '2026-05-20T10:00:00.000Z',
+            amount: 12_000,
+            type: 'purchase',
+            installmentCount: 12,
+            repaymentTotal: 12_000,
+            description: 'Telefon',
+            createdAt: '2026-01-01',
+            updatedAt: '2026-01-01',
+          },
+        },
+      ],
+    })
+
+    const card = doc.sections.creditCards[0]!
+    expect(Number((card.totalCommitted as { value: string }).value)).toBe(12_000)
+    expect(Number((card.futureInstallments as { value: string }).value)).toBeGreaterThan(0)
+    expect(doc.sections.creditCardTransactions).toHaveLength(1)
+    expect(doc.schedules.creditCards).toHaveLength(1)
+    expect(doc.schedules.creditCards[0]?.installmentCount).toBe(12)
+    expect(doc.schedules.creditCardPeriods.length).toBeGreaterThan(0)
+    expect(doc.schedules.creditCardPeriods[0]?.periods.length).toBeGreaterThan(0)
+    expect(doc.meta.contextVersion).toBe(3)
+    expect(doc.schedules.creditCardPeriods).toBeDefined()
+
+    const json = formatAiContextJson(doc)
+    const parsed = JSON.parse(json) as {
+      schedules: {
+        creditCards: Array<{ installments: Array<{ status: string }> }>
+      }
+    }
+    expect(
+      parsed.schedules.creditCards[0]?.installments.every((r) => r.status === 'future'),
+    ).toBe(true)
   })
 })
 
@@ -218,5 +291,17 @@ describe('formatters', () => {
   it('markdown profil adını içerir', () => {
     const doc = buildAiContextDocument({ profile, includeSensitive: false, rows: [] })
     expect(formatAiContextMarkdown(doc)).toContain('Test')
+  })
+
+  it('markdown model talimatları JSON yollarına değil belge bölümlerine referans verir', () => {
+    const doc = buildAiContextDocument({ profile, includeSensitive: false, rows: [] })
+    const md = formatAiContextMarkdown(doc)
+    const instructions = md.split('## Özet')[0] ?? md
+    expect(instructions).toContain('**Özet**')
+    expect(instructions).toContain('**Kart dönem vadeleri**')
+    expect(instructions).not.toContain('schedules.')
+    expect(instructions).not.toContain('sections.')
+    expect(instructions).not.toContain('formatted alan')
+    expect(doc.meta.instructionsForModel).toContain('summary')
   })
 })

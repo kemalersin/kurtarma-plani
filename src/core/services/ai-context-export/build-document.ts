@@ -44,7 +44,13 @@ import {
   paidThroughIndex,
   payoffForLoan,
 } from '@/features/debts/loanHelpers'
-import { creditCardStatement } from '@/finance/credit-card'
+import {
+  accruedInstallmentCount,
+  cardCommittedTotal,
+  expandInstallments,
+} from '@/features/debts/cardHelpers'
+import { resolveCreditCardRepaymentTotal } from '@/finance/credit-card'
+import { D } from '@/finance/decimal'
 import { runRevolvingLedger } from '@/finance/cash-advance'
 import { cashflowStatus } from '@/finance/cashflow'
 import type { AiSnapshotSourceRow } from '@/features/ai/snapshot'
@@ -54,7 +60,7 @@ import { computeScheduleDelinquencyMetrics } from '@/core/services/ai-context-ex
 import {
   AI_CONTEXT_DISCLAIMER,
   AI_CONTEXT_GLOSSARY,
-  AI_CONTEXT_INSTRUCTIONS,
+  AI_CONTEXT_INSTRUCTIONS_JSON,
   AI_CONTEXT_PURPOSE,
   accountTypeLabel,
   cashflowStatusLabel,
@@ -65,8 +71,10 @@ import {
   moneyField,
   type AiContextFormatters,
 } from '@/core/services/ai-context-export/format-helpers'
+import { buildCreditCardPeriodSchedules } from '@/core/services/ai-context-export/credit-card-period-schedules'
 import type {
   AiContextDocument,
+  CreditCardInstallmentScheduleExport,
   InstallmentAdvanceScheduleExport,
   LoanScheduleExport,
   ScheduleInstallmentRow,
@@ -248,6 +256,49 @@ function buildScheduleRows(
   })
 }
 
+function buildCreditCardInstallmentSchedules(
+  creditCards: CreditCard[],
+  creditCardTxns: CreditCardTransaction[],
+  bankMap: Map<string, Bank>,
+  fmt: AiContextFormatters,
+  asOf: string,
+): CreditCardInstallmentScheduleExport[] {
+  const asOfDate = new Date(asOf)
+  const asOfIso = asOf
+  const out: CreditCardInstallmentScheduleExport[] = []
+
+  for (const card of creditCards) {
+    const bank = card.bankId ? bankMap.get(card.bankId) : undefined
+    const own = creditCardTxns.filter((t) => t.cardId === card.id)
+    for (const t of own) {
+      if (t.type === 'payment') continue
+      if (!t.installmentCount || t.installmentCount <= 1) continue
+      const virtual = expandInstallments(card, [t]).filter((v) => v.installmentIndex != null)
+      const repaymentTotal = resolveCreditCardRepaymentTotal(t, card)
+      out.push({
+        cardId: card.id,
+        transactionId: t.id,
+        label: t.description ? `${card.name} — ${t.description}` : card.name,
+        bankName: bank?.name,
+        currency: card.currency,
+        originalDate: dateField(t.date, fmt),
+        transactionAmount: moneyField(t.amount, card.currency, fmt),
+        repaymentTotal: moneyField(repaymentTotal, card.currency, fmt),
+        installmentCount: t.installmentCount,
+        accruedThroughIndex: accruedInstallmentCount(t.date, t.installmentCount, asOfDate),
+        installments: virtual.map((v) => ({
+          index: v.installmentIndex!,
+          accrualDate: dateField(v.date, fmt),
+          amount: moneyField(v.amount, card.currency, fmt),
+          status: v.date <= asOfIso ? 'accrued' : 'future',
+        })),
+      })
+    }
+  }
+
+  return out
+}
+
 export function buildAiContextDocument(params: BuildAiContextDocumentParams): AiContextDocument {
   const { profile, rows, includeSensitive } = params
   const fmt = createAiContextFormatters(profile.localeSettings)
@@ -358,6 +409,22 @@ export function buildAiContextDocument(params: BuildAiContextDocumentParams): Ai
     },
   )
 
+  const creditCardPeriodSchedules = buildCreditCardPeriodSchedules({
+    creditCards,
+    creditCardTxns,
+    bankMap,
+    fmt,
+    asOf,
+  })
+
+  const creditCardInstallmentSchedules = buildCreditCardInstallmentSchedules(
+    creditCards,
+    creditCardTxns,
+    bankMap,
+    fmt,
+    asOf,
+  )
+
   const totalOverdueInstallments =
     loanSchedules.reduce((n, s) => n + s.overdueInstallmentCount, 0) +
     advanceSchedules.reduce((n, s) => n + s.overdueInstallmentCount, 0)
@@ -372,7 +439,7 @@ export function buildAiContextDocument(params: BuildAiContextDocumentParams): Ai
       generatedAt: asOf,
       appVersion: APP_VERSION,
       purpose: AI_CONTEXT_PURPOSE,
-      instructionsForModel: AI_CONTEXT_INSTRUCTIONS,
+      instructionsForModel: AI_CONTEXT_INSTRUCTIONS_JSON,
       disclaimer: AI_CONTEXT_DISCLAIMER,
       locale: { ...profile.localeSettings },
       profileName: profile.name,
@@ -456,23 +523,28 @@ export function buildAiContextDocument(params: BuildAiContextDocumentParams): Ai
       creditCards: creditCards.map((card) => {
         const bank = card.bankId ? bankMap.get(card.bankId) : undefined
         const txns = creditCardTxns.filter((t) => t.cardId === card.id)
-        const statement = creditCardStatement({
-          openingBalance: 0,
-          transactions: txns.map((t) => ({
-            date: t.date,
-            amount: t.amount,
-            type: t.type,
-          })),
-          limit: card.limit,
-        })
+        const committed = cardCommittedTotal(card, txns, new Date(asOf))
+        const periodSched = creditCardPeriodSchedules.find((s) => s.cardId === card.id)
+        const latestPeriod = periodSched?.periods[periodSched.periods.length - 1]
+        const available = D(card.limit).minus(D(committed.committed))
+        const availableCredit = available.lt(0) ? D(0) : available
+        const totalCommitted = committed.committed
         return {
           id: card.id,
           name: card.name,
           label: bank ? `${card.name} · ${bank.name}` : card.name,
           bankName: bank?.name,
           limit: moneyField(card.limit, card.currency, fmt),
-          balance: moneyField(statement.endingBalance, card.currency, fmt),
-          minPayment: moneyField(statement.minPayment, card.currency, fmt),
+          balance: moneyField(totalCommitted, card.currency, fmt),
+          accruedBalance: moneyField(committed.ending, card.currency, fmt),
+          futureInstallments: moneyField(committed.future, card.currency, fmt),
+          totalCommitted: moneyField(totalCommitted, card.currency, fmt),
+          availableCredit: moneyField(availableCredit, card.currency, fmt),
+          currentPeriodEndingBalance:
+            latestPeriod?.endingBalance ??
+            moneyField(0, card.currency, fmt),
+          minPayment:
+            latestPeriod?.minPayment ?? moneyField(0, card.currency, fmt),
         }
       }),
       cashAdvanceAccounts: cashAdvanceAccounts.map((acc) => {
@@ -512,6 +584,36 @@ export function buildAiContextDocument(params: BuildAiContextDocumentParams): Ai
           remainingDebt: sched?.remainingDebt,
           earlyPayoff: sched?.earlyPayoff,
         }
+      }),
+      creditCardTransactions: creditCardTxns.map((t) => {
+        const card = creditCards.find((c) => c.id === t.cardId)
+        const bank = card?.bankId ? bankMap.get(card.bankId) : undefined
+        const cur = card?.currency ?? currency
+        const row: Record<string, unknown> = {
+          id: t.id,
+          cardId: t.cardId,
+          cardName: card?.name,
+          bankName: bank?.name,
+          date: dateField(t.date, fmt),
+          type: t.type,
+          amount: moneyField(t.amount, cur, fmt),
+          description: t.description,
+        }
+        if (t.installmentCount != null && t.installmentCount > 1) {
+          row.installmentCount = t.installmentCount
+          if (card) {
+            row.repaymentTotal = moneyField(
+              resolveCreditCardRepaymentTotal(t, card),
+              cur,
+              fmt,
+            )
+          } else if (t.repaymentTotal != null) {
+            row.repaymentTotal = moneyField(t.repaymentTotal, cur, fmt)
+          }
+        } else if (t.repaymentTotal != null) {
+          row.repaymentTotal = moneyField(t.repaymentTotal, cur, fmt)
+        }
+        return row
       }),
       incomes: incomes.map((inc) => {
         const type = inc.incomeTypeId ? incomeTypeMap.get(inc.incomeTypeId) : undefined
@@ -585,6 +687,8 @@ export function buildAiContextDocument(params: BuildAiContextDocumentParams): Ai
     schedules: {
       loans: loanSchedules,
       installmentAdvances: advanceSchedules,
+      creditCards: creditCardInstallmentSchedules,
+      creditCardPeriods: creditCardPeriodSchedules,
     },
     omitted: {
       archivedRecordCount: archivedCount,

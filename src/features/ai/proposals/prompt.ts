@@ -33,6 +33,15 @@ Yalnızca \`loan\` ve \`installmentCashAdvance\` için \`payments\` dizisi kulla
 
 \`creditCard\`, \`cashAdvanceAccount\` ve benzeri tiplerde **iç içe hareket dizisi yok** — her hareket ayrı \`creditCardTransaction\` veya \`cashAdvanceTransaction\` öğesi olmalı.
 
+### Kart taksitli hareket kuralları
+
+- **Tek kayıt = tüm taksit planı.** Aylık taksitleri ayrı \`creditCardTransaction\` olarak yazma; uygulama \`installmentCount\` ile sanal aylık tahakkuk üretir.
+- \`installmentCount\` yalnızca \`purchase\` ve \`cashAdvance\` için (≥2). \`payment\` türünde **kullanma** — kart ödemesi taksitlendirilmez.
+- \`amount\` = **işlem tutarı** (alışveriş/çekim tutarı). Nakit akışı ve kullanıcı girişi budur.
+- \`repaymentTotal\` = kart **borcuna yansıyan toplam** (faiz veya ek ücret dahil). Opsiyonel; **verilmezse \`amount\`'a eşit alınır** (otomatik faiz hesaplaması yapılmaz). Peşin işlemde de (\`installmentCount\` yokken) farklı bir geri ödenecek tutar belirtmek için kullanılabilir.
+- \`amount\`'tan **küçük** \`repaymentTotal\` geçersizdir (uygulama hata verir).
+- Ödemeler (\`type: "payment"\`) yalnızca dönem ekstre borcunu düşürür; gelecek taksitler ayrı kayıt olarak kalır.
+
 ### Desteklenen \`type\` değerleri
 
 | type | Zorunlu \`data\` alanları | Opsiyonel / ilişki |
@@ -43,8 +52,8 @@ Yalnızca \`loan\` ve \`installmentCashAdvance\` için \`payments\` dizisi kulla
 | incomeType / expenseType | name | color, notes |
 | loan | name, bankId veya bankRef/bankName, principal, termMonths, startDate, firstInstallmentDate, interestRate, interestPeriod (\`monthly\`/\`annual\`) | disbursementAccountId, lateInterestRate, lateInterestPeriod, taxRateMonthly, notes, payments[] |
 | loanPayment | loanId veya loanRef/loanName, installmentIndex, dueDate, scheduledAmount | paidDate, paidAmount, lateFee, notes, sourceAccountId/sourceAccountName, sourceCashRegisterId/sourceCashRegisterName |
-| creditCard | name, bankId veya bankRef/bankName, limit, statementCutoffDay (1–28), paymentDueDay (1–28), purchaseAprMonthly | openingBalance, lateAprMonthly, cashAdvanceAprMonthly, notes |
-| creditCardTransaction | cardId veya cardRef/cardName, date, type (\`purchase\`/\`payment\`/\`cashAdvance\`), amount | description, installmentCount, notes; \`payment\` → sourceAccountId/sourceAccountName, sourceCashRegisterId/sourceCashRegisterName; \`cashAdvance\` → targetAccountId/targetAccountName, targetCashRegisterId/targetCashRegisterName |
+| creditCard | name, bankId veya bankRef/bankName, limit, statementCutoffDay (1–28), paymentDueDay (1–28), purchaseAprMonthly | openingBalance, lateAprMonthly, notes |
+| creditCardTransaction | cardId veya cardRef/cardName, date, type (\`purchase\`/\`payment\`/\`cashAdvance\`), amount (işlem tutarı) | description, installmentCount (≥2), repaymentTotal (kart borcuna yansıyan toplam; boşsa amount), notes; \`payment\` → sourceAccountId/sourceAccountName, sourceCashRegisterId/sourceCashRegisterName; \`cashAdvance\` → targetAccountId/targetAccountName, targetCashRegisterId/targetCashRegisterName |
 | cashAdvanceAccount | name, bankId veya bankRef/bankName, limit, openingDate, interestRate, interestPeriod | openingBalance, lateInterestRate, lateInterestPeriod, notes |
 | cashAdvanceTransaction | accountId veya accountRef/cashAdvanceAccountRef/cashAdvanceAccountName, date, type (\`draw\`/\`payment\`), amount | description, notes; \`payment\` → sourceAccountId/sourceAccountName, sourceCashRegisterId/sourceCashRegisterName; \`draw\` → targetAccountId/targetAccountName, targetCashRegisterId/targetCashRegisterName |
 | installmentCashAdvance | name, bankId veya bankRef/bankName, principal, termMonths, startDate, firstInstallmentDate, interestRate, interestPeriod | cashAdvanceAccountId/cashAdvanceAccountRef/cashAdvanceAccountName, taxRateMonthly, lateInterestRate, lateInterestPeriod, earlyPayoffWithoutInterest, notes, payments[] |
@@ -125,9 +134,53 @@ Yalnızca \`loan\` ve \`installmentCashAdvance\` için \`payments\` dizisi kulla
 }
 \`\`\`
 
-### Örnek — mevcut karta hareket (snapshot'tan)
+### Örnek — taksitli alışveriş + geri ödenecek tutar
 
-Snapshot'ta \`type: "creditCard"\` kaydının \`id\` alanını kullan:
+\`\`\`kp-proposals
+{
+  "version": 1,
+  "items": [
+    {
+      "type": "creditCardTransaction",
+      "data": {
+        "cardName": "Bonus Kart",
+        "date": "2025-06-20",
+        "type": "purchase",
+        "amount": 12000,
+        "installmentCount": 12,
+        "repaymentTotal": 13500,
+        "description": "Telefon"
+      }
+    }
+  ]
+}
+\`\`\`
+
+### Örnek — taksitli nakit avans (kart hareketi)
+
+\`\`\`kp-proposals
+{
+  "version": 1,
+  "items": [
+    {
+      "type": "creditCardTransaction",
+      "data": {
+        "cardId": "<snapshot-creditCard-id>",
+        "date": "2025-04-10",
+        "type": "cashAdvance",
+        "amount": 5000,
+        "installmentCount": 6,
+        "targetAccountName": "Vadesiz TL",
+        "description": "Nakit avans"
+      }
+    }
+  ]
+}
+\`\`\`
+
+### Örnek — mevcut karta peşin / taksitli hareket (snapshot'tan)
+
+Snapshot'ta \`type: "creditCard"\` kaydının \`id\` alanını kullan. Taksit sayısı biliniyorsa \`installmentCount\` ekle; \`repaymentTotal\` yalnızca borca yansıyan toplam \`amount\`'tan farklıysa (faiz/ek ücret) yaz, aksi halde boş bırak:
 
 \`\`\`kp-proposals
 {
@@ -140,8 +193,18 @@ Snapshot'ta \`type: "creditCard"\` kaydının \`id\` alanını kullan:
         "date": "2025-03-15",
         "type": "purchase",
         "amount": 890,
-        "description": "Akaryakıt",
-        "installmentCount": 3
+        "description": "Akaryakıt"
+      }
+    },
+    {
+      "type": "creditCardTransaction",
+      "data": {
+        "cardId": "<snapshot-creditCard-id>",
+        "date": "2025-03-18",
+        "type": "purchase",
+        "amount": 3000,
+        "installmentCount": 3,
+        "description": "Beyaz eşya"
       }
     }
   ]

@@ -2,13 +2,18 @@ import { describe, expect, it } from 'vitest'
 import {
   cashflowMonthRows,
   debtInstallmentMonthlySeries,
+  debtInstallmentPaidDisplay,
   debtInstallmentRows,
+  debtInstallmentStatusDisplay,
+  debtInstallmentTypeLabel,
   filterCashflowRecords,
   movementRows,
 } from './reports'
 import type { AccountMovement } from '@/features/cashflow/movements'
 import type {
   Account,
+  CreditCard,
+  CreditCardTransaction,
   Expense,
   Income,
   InstallmentCashAdvance,
@@ -80,16 +85,88 @@ function account(over: Partial<Account> = {}): Account {
   } as Account
 }
 
+function creditCard(over: Partial<CreditCard> = {}): CreditCard {
+  return {
+    id: 'card-1',
+    bankId: 'b1',
+    name: 'Bonus',
+    currency: 'TRY',
+    limit: 50_000,
+    openingBalance: 0,
+    statementCutoffDay: 15,
+    paymentDueDay: 25,
+    purchaseAprMonthly: 0,
+    createdAt: ISO,
+    updatedAt: ISO,
+    ...over,
+  } as CreditCard
+}
+
+function cardTxn(
+  partial: Pick<CreditCardTransaction, 'date' | 'amount' | 'type'> &
+    Partial<CreditCardTransaction>,
+): CreditCardTransaction {
+  return {
+    id: partial.id ?? `txn-${partial.date}`,
+    cardId: 'card-1',
+    createdAt: ISO,
+    updatedAt: ISO,
+    ...partial,
+  } as CreditCardTransaction
+}
+
+const emptyDebtInput = {
+  loans: [] as Loan[],
+  loanPayments: [] as LoanPayment[],
+  installmentAdvances: [] as InstallmentCashAdvance[],
+  installmentAdvancePayments: [],
+  creditCards: [] as CreditCard[],
+  creditCardTransactions: [] as CreditCardTransaction[],
+  banks: [{ id: 'b1', name: 'Test Bankası' }],
+  localCurrency: 'TRY',
+}
+
+describe('debtInstallmentTypeLabel', () => {
+  it('kredi ve avans satırlarında taksit sırasını tür etiketine ekler', () => {
+    expect(
+      debtInstallmentTypeLabel({
+        key: '1',
+        debtKind: 'loan',
+        debtId: 'l1',
+        debtName: 'Konut',
+        bankId: 'b1',
+        bankName: 'Bank',
+        installmentIndex: 3,
+        dueDate: '2026-06-01',
+        amount: '1000',
+        paid: false,
+        status: 'upcoming',
+      }),
+    ).toBe('Kredi 3. taksiti')
+    expect(
+      debtInstallmentTypeLabel({
+        key: '2',
+        debtKind: 'creditCardMinPayment',
+        debtId: 'c1',
+        debtName: 'Bonus',
+        bankId: 'b1',
+        bankName: 'Bank',
+        installmentIndex: 0,
+        dueDate: '2026-06-01',
+        amount: '500',
+        paid: false,
+        status: 'upcoming',
+      }),
+    ).toBe('Kart asgari ödeme')
+  })
+})
+
 describe('debtInstallmentRows', () => {
   it('aralıktaki taksitleri döner; banka filtresi uygular', () => {
     const rows = debtInstallmentRows(
       {
+        ...emptyDebtInput,
         loans: [loan({ bankId: 'b1' }), loan({ id: 'l2', bankId: 'b2', name: 'Taşıt' })],
-        loanPayments: [] as LoanPayment[],
-        installmentAdvances: [] as InstallmentCashAdvance[],
-        installmentAdvancePayments: [],
-        banks: [{ id: 'b1', name: 'Test Bankası' }],
-        localCurrency: 'TRY',
       },
       {
         range: { from: '2026-06-01', to: '2026-12-31' },
@@ -101,6 +178,272 @@ describe('debtInstallmentRows', () => {
     expect(rows.every((r) => r.bankId === 'b1')).toBe(true)
     expect(rows.every((r) => r.bankName === 'Test Bankası')).toBe(true)
     expect(rows.some((r) => r.status === 'upcoming')).toBe(true)
+  })
+
+  it('toplam ödeme modunda gelecek vadeler birbirine yansımaz; her dönem bağımsız', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        creditCards: [creditCard()],
+        creditCardTransactions: [
+          cardTxn({
+            id: 'taksit',
+            date: '2026-05-20T10:00:00.000Z',
+            amount: 15_000,
+            type: 'purchase',
+            installmentCount: 3,
+            repaymentTotal: 16_292.68,
+            description: 'Alışveriş',
+          }),
+        ],
+      },
+      { range: { from: '2026-06-01', to: '2026-08-31' }, cardDueMode: 'statement' },
+      '2026-05-26T00:00:00.000Z',
+    )
+    const stmtRows = rows.filter((r) => r.debtKind === 'creditCardStatement')
+    expect(stmtRows).toHaveLength(3)
+    expect(stmtRows.every((r) => r.debtName === 'Bonus')).toBe(true)
+    const amounts = stmtRows
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+      .map((r) => Number(r.amount))
+    for (const a of amounts) expect(a).toBeCloseTo(5430.89, 0)
+    expect(rows.every((r) => r.debtKind !== 'creditCardMinPayment')).toBe(true)
+  })
+
+  it('toplam ödeme modunda geçmişte kalmış ödenmemiş borç sonraki vadeye faizle yansır', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        creditCards: [creditCard({ purchaseAprMonthly: 0.03, lateAprMonthly: 0.035 })],
+        creditCardTransactions: [
+          cardTxn({
+            id: 'taksit',
+            date: '2026-05-20T10:00:00.000Z',
+            amount: 15_000,
+            type: 'purchase',
+            installmentCount: 3,
+            repaymentTotal: 16_292.68,
+          }),
+        ],
+      },
+      { range: { from: '2026-06-01', to: '2026-08-31' }, cardDueMode: 'statement' },
+      '2026-08-31T00:00:00.000Z',
+    )
+    const amounts = rows
+      .filter((r) => r.debtKind === 'creditCardStatement')
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+      .map((r) => Number(r.amount))
+    expect(amounts).toHaveLength(3)
+    expect(amounts[1]!).toBeGreaterThan(amounts[0]!)
+    expect(amounts[2]!).toBeGreaterThan(amounts[1]!)
+  })
+
+  it('toplam ödeme: tüm vadeler geçmiş + ödenmemişse taksitler bittikten sonra biriken borç devam eder', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        creditCards: [creditCard({ purchaseAprMonthly: 0.03, lateAprMonthly: 0.035 })],
+        creditCardTransactions: [
+          cardTxn({
+            id: 'taksit',
+            date: '2026-05-20T10:00:00.000Z',
+            amount: 15_000,
+            type: 'purchase',
+            installmentCount: 3,
+            repaymentTotal: 16_292.68,
+          }),
+        ],
+      },
+      { range: { from: '2026-09-01', to: '2026-10-31' }, cardDueMode: 'statement' },
+      '2026-10-31T00:00:00.000Z',
+    )
+    const stmtRows = rows.filter((r) => r.debtKind === 'creditCardStatement')
+    expect(stmtRows.length).toBeGreaterThan(0)
+    expect(Number(stmtRows[0]!.amount)).toBeGreaterThan(16_292)
+  })
+
+  it('asgari modda gelecek dönemler bağımsız; her dönem yalnız o ayın asgarisi', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        creditCards: [creditCard({ limit: 20_000 })],
+        creditCardTransactions: [
+          cardTxn({
+            id: 'taksit',
+            date: '2026-05-20T10:00:00.000Z',
+            amount: 15_000,
+            type: 'purchase',
+            installmentCount: 3,
+            repaymentTotal: 16_292.68,
+          }),
+        ],
+      },
+      { range: { from: '2026-06-01', to: '2026-08-31' }, cardDueMode: 'min' },
+      '2026-05-26T00:00:00.000Z',
+    )
+    const minRows = rows
+      .filter((r) => r.debtKind === 'creditCardMinPayment')
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+    expect(minRows).toHaveLength(3)
+    const amounts = minRows.map((r) => Number(r.amount))
+    for (const a of amounts) expect(a).toBeCloseTo(amounts[0]!, 1)
+    expect(amounts.every((a) => a > 0 && a < 6000)).toBe(true)
+  })
+
+  it('asgari modda geçmiş kalmış ödenmemiş borç sonraki asgariyi artırır', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        creditCards: [creditCard({ limit: 20_000 })],
+        creditCardTransactions: [
+          cardTxn({
+            id: 'taksit',
+            date: '2026-05-20T10:00:00.000Z',
+            amount: 15_000,
+            type: 'purchase',
+            installmentCount: 3,
+            repaymentTotal: 16_292.68,
+          }),
+        ],
+      },
+      { range: { from: '2026-06-01', to: '2026-08-31' }, cardDueMode: 'min' },
+      '2026-08-31T00:00:00.000Z',
+    )
+    const minRows = rows
+      .filter((r) => r.debtKind === 'creditCardMinPayment')
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+    expect(minRows).toHaveLength(3)
+    const amounts = minRows.map((r) => Number(r.amount))
+    expect(amounts[1]!).toBeGreaterThan(amounts[0]!)
+    expect(amounts[2]!).toBeGreaterThan(amounts[1]!)
+  })
+
+  it('varsayılan modda kart asgari ödeme vadelerini listeler; ödeme kaydı varsa ödendi sayar', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        creditCards: [creditCard({ limit: 20_000 })],
+        creditCardTransactions: [
+          cardTxn({
+            id: 'buy',
+            date: '2026-06-20T10:00:00.000Z',
+            amount: 2000,
+            type: 'purchase',
+          }),
+          cardTxn({
+            id: 'pay',
+            date: '2026-07-10T10:00:00.000Z',
+            amount: 500,
+            type: 'payment',
+          }),
+        ],
+      },
+      { range: { from: '2026-07-01', to: '2026-08-31' } },
+      '2026-08-22T00:00:00.000Z',
+    )
+    const minRows = rows.filter((r) => r.debtKind === 'creditCardMinPayment')
+    expect(minRows.length).toBeGreaterThan(0)
+    expect(minRows.some((r) => r.paid)).toBe(true)
+    expect(minRows.some((r) => r.paid && Number(r.paidAmount) === 500)).toBe(true)
+    expect(rows.every((r) => r.debtKind !== 'creditCardInstallment')).toBe(true)
+  })
+
+  it('asgari ödeme modunda pencere toplamı ödenen tutar olarak yansır', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        creditCards: [
+          creditCard({
+            limit: 200_000,
+            purchaseAprMonthly: 0.0375,
+            lateAprMonthly: 0.0455,
+          }),
+        ],
+        creditCardTransactions: [
+          cardTxn({
+            id: 'buy',
+            date: '2026-01-14T12:00:00.000Z',
+            amount: 10_000,
+            type: 'purchase',
+            repaymentTotal: 12_000,
+          }),
+          cardTxn({
+            id: 'pay',
+            date: '2026-02-27T12:00:00.000Z',
+            amount: 12_382.2,
+            type: 'payment',
+          }),
+        ],
+      },
+      {
+        range: { from: '2026-03-01', to: '2026-05-31' },
+        cardDueMode: 'min',
+      },
+      '2026-05-26T12:00:00.000Z',
+    )
+    const mar = rows.find(
+      (r) => r.debtKind === 'creditCardMinPayment' && r.dueDate.startsWith('2026-03'),
+    )
+    expect(mar).toBeDefined()
+    expect(mar!.paid).toBe(true)
+    expect(Number(mar!.paidAmount)).toBeCloseTo(12_382.2, 0)
+
+    const series = debtInstallmentMonthlySeries(rows, { from: '2026-03-01', to: '2026-05-31' })
+    const marIdx = series.months.indexOf('2026-03')
+    expect(series.paid[marIdx]).toBeCloseTo(12_382.2, 0)
+    expect(series.pending[marIdx]).toBe(0)
+  })
+
+  it('toplam ödeme modunda geç ödeme pencere toplamını ödenen olarak yansıtır', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        creditCards: [
+          creditCard({
+            limit: 200_000,
+            purchaseAprMonthly: 0.0375,
+            lateAprMonthly: 0.0455,
+          }),
+        ],
+        creditCardTransactions: [
+          cardTxn({
+            id: 'buy',
+            date: '2026-01-14T12:00:00.000Z',
+            amount: 10_000,
+            type: 'purchase',
+            repaymentTotal: 12_000,
+          }),
+          cardTxn({
+            id: 'pay',
+            date: '2026-02-27T12:00:00.000Z',
+            amount: 12_382.2,
+            type: 'payment',
+          }),
+        ],
+      },
+      {
+        range: { from: '2026-03-01', to: '2026-05-31' },
+        cardDueMode: 'statement',
+      },
+      '2026-05-26T12:00:00.000Z',
+    )
+    const mar = rows.find(
+      (r) => r.debtKind === 'creditCardStatement' && r.dueDate.startsWith('2026-03'),
+    )
+    expect(mar).toBeDefined()
+    expect(mar!.paid).toBe(false)
+    expect(Number(mar!.amount)).toBeCloseTo(338.03, 0)
+    expect(Number(mar!.paidAmount)).toBeCloseTo(12_382.2, 0)
+    expect(mar!.paidDate).toBeDefined()
+    expect(mar!.status).toBe('overdue')
+    expect(debtInstallmentStatusDisplay(mar!).label).toBe('Kısmi ödendi')
+    expect(debtInstallmentPaidDisplay(mar!)).toBeCloseTo(12_382.2, 0)
+
+    const series = debtInstallmentMonthlySeries(rows, { from: '2026-03-01', to: '2026-05-31' })
+    const marIdx = series.months.indexOf('2026-03')
+    expect(marIdx).toBeGreaterThanOrEqual(0)
+    expect(series.paid[marIdx]).toBeCloseTo(12_382.2, 0)
+    expect(series.pending[marIdx]).toBeCloseTo(338.03, 0)
   })
 })
 
@@ -209,5 +552,53 @@ describe('debtInstallmentMonthlySeries', () => {
     expect(series.months).toEqual(['2026-06', '2026-07'])
     expect(series.paid[0]).toBe(1000)
     expect(series.pending[1]).toBe(2000)
+  })
+
+  it('kısmi ödemeleri ödenen tutara, kalanı bekleyene yansıtır', () => {
+    const series = debtInstallmentMonthlySeries(
+      [
+        {
+          key: 'card',
+          debtKind: 'creditCardStatement',
+          debtId: 'c1',
+          debtName: 'Bonus',
+          bankId: 'b1',
+          bankName: 'Test Bankası',
+          installmentIndex: 0,
+          dueDate: '2026-06-25T00:00:00.000Z',
+          amount: '10000',
+          paid: false,
+          paidAmount: '3000',
+          status: 'overdue',
+        },
+      ],
+      { from: '2026-06-01', to: '2026-06-30' },
+    )
+    expect(series.paid[0]).toBe(3000)
+    expect(series.pending[0]).toBe(7000)
+  })
+
+  it('ödeme tutarı satır borcundan büyükse bekleyen satır tutarı kadar kalır', () => {
+    const series = debtInstallmentMonthlySeries(
+      [
+        {
+          key: 'card',
+          debtKind: 'creditCardStatement',
+          debtId: 'c1',
+          debtName: 'Bonus',
+          bankId: 'b1',
+          bankName: 'Test Bankası',
+          installmentIndex: 0,
+          dueDate: '2026-03-25T00:00:00.000Z',
+          amount: '338.03',
+          paid: false,
+          paidAmount: '12382.20',
+          status: 'overdue',
+        },
+      ],
+      { from: '2026-03-01', to: '2026-03-31' },
+    )
+    expect(series.paid[0]).toBeCloseTo(12_382.2, 0)
+    expect(series.pending[0]).toBeCloseTo(338.03, 0)
   })
 })

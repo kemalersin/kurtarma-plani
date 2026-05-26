@@ -5,6 +5,8 @@ import { buildScheduleForLoan, remainingDebtForLoan } from '@/features/debts/loa
 import type {
   Account,
   CashRegister,
+  CreditCard,
+  CreditCardTransaction,
   Loan,
 } from '@/core/types/entities'
 
@@ -115,6 +117,50 @@ describe('debtSnapshot', () => {
     expect(snap.byType.loans).toBe(expected)
     expect(Number(snap.byType.loans)).toBeGreaterThan(12000)
     expect(snap.breakdown.find((b) => b.name === 'Krediler')).toBeDefined()
+  })
+
+  it('taksitli kart alışverişi geri ödeme toplamını borca yansıtır', () => {
+    const card: CreditCard = {
+      id: 'cc1',
+      bankId: 'b1',
+      name: 'Kart',
+      currency: 'TRY',
+      limit: 50_000,
+      openingBalance: 0,
+      statementCutoffDay: 15,
+      paymentDueDay: 25,
+      purchaseAprMonthly: 0,
+      createdAt: ISO,
+      updatedAt: ISO,
+    } as CreditCard
+    const txn: CreditCardTransaction = {
+      id: 'tx1',
+      cardId: 'cc1',
+      date: '2026-04-20T10:00:00.000Z',
+      type: 'purchase',
+      amount: 12_000,
+      installmentCount: 12,
+      repaymentTotal: 12_000,
+      createdAt: ISO,
+      updatedAt: ISO,
+    } as CreditCardTransaction
+
+    // asOf = 1 May 2026 → yalnız 1 taksit (20 Nis) tahakkuk
+    const snap = debtSnapshot({
+      loans: [],
+      loanPayments: [],
+      creditCards: [card],
+      creditCardTransactions: [txn],
+      cashAdvanceAccounts: [],
+      cashAdvanceTransactions: [],
+      installmentAdvances: [],
+      installmentAdvancePayments: [],
+      localCurrency: 'TRY',
+      asOf: ISO,
+    })
+    // Toplam yükümlülük = 12.000 (1.000 ekstre + 11.000 gelecek)
+    expect(snap.byType.creditCards).toBe('12000')
+    expect(Number(snap.total)).toBe(12_000)
   })
 
   it('dövizli kredi local currency snap toplamına girmez', () => {

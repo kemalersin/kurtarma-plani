@@ -3,6 +3,11 @@
  * Hassas kayıtlar ve gizli alanlar (API anahtarları vb.) dahil edilmez.
  */
 import type { EntityType } from '@/core/db/profile-db'
+import { AI_CONTEXT_VERSION } from '@/core/constants'
+import type { Bank, CreditCard, CreditCardTransaction } from '@/core/types/entities'
+import type { LocaleSettings } from '@/core/types/profile'
+import { buildCreditCardPeriodSchedulesFromRows } from '@/core/services/ai-context-export/credit-card-period-schedules'
+import type { CreditCardPeriodScheduleExport } from '@/core/services/ai-context-export/types'
 import { AI_PROPOSAL_GUIDE } from '@/features/ai/proposals/prompt'
 
 /** AI bağlamına hiç dahil edilmeyen entity tipleri */
@@ -26,6 +31,11 @@ export interface AiSnapshotEntity {
   data: unknown
 }
 
+export interface AiFinanceDerivedContext {
+  contextVersion: number
+  creditCardPeriods: CreditCardPeriodScheduleExport[]
+}
+
 export interface AiFinanceSnapshot {
   generatedAt: string
   profile: {
@@ -35,6 +45,8 @@ export interface AiFinanceSnapshot {
     timeZone: string
   }
   entities: AiSnapshotEntity[]
+  /** Finans motorundan türetilmiş analiz (ham entity'lerin yanında). */
+  derived?: AiFinanceDerivedContext
 }
 
 export function stripSecretFields(value: unknown): unknown {
@@ -77,6 +89,7 @@ Yanıtları Türkçe ver; tutarları profil para birimiyle ifade et.
 Eksik veri varsa varsayım yapma, kullanıcıya sor.
 Kullanıcı ekran görüntüsü veya belge fotoğrafı yükleyebilir (ör. banka ödeme planı, ekstre, taksit tablosu). Veriyi okuyup kayıt önerisi üret; eksik alan varsa sor.
 Finans verisi sohbet bağlamında [kp:snapshot] ile işaretli mesajlarda verilir; güncelleme olduğunda yeni bir bağlam mesajı eklenir. Snapshot \`entities\` dizisinde tüm finans kayıtları (\`creditCard\`, \`creditCardTransaction\`, \`cashAdvanceTransaction\` vb.) \`type\` + \`id\` + \`data\` biçiminde gelir — mevcut kayıtlara bağlanırken bu \`id\` veya kayıt adını (\`*Name\`) kullan.
+\`derived.creditCardPeriods\`: kart hesap kesim dönemleri — taşınan borç, gecikme faizi, dönem sonu bakiyesi, asgari ödeme ve dönem içi ödemeler (analiz borç grafiği / hesap özeti ile aynı \`projectCardPeriodDebts\` motoru).
 Veri eklerken \`kp-proposals\` JSON bloğu zorunludur; kart/kredi hareketleri ana kayıttan **ayrı item** olarak yazılır.
 
 ${AI_PROPOSAL_GUIDE}`
@@ -127,7 +140,15 @@ export function buildSnapshotContextContent(
 ${label}
 
 \`\`\`json
-${JSON.stringify({ generatedAt: snapshot.generatedAt, entities: snapshot.entities }, null, 2)}
+${JSON.stringify(
+  {
+    generatedAt: snapshot.generatedAt,
+    entities: snapshot.entities,
+    ...(snapshot.derived ? { derived: snapshot.derived } : {}),
+  },
+  null,
+  2,
+)}
 \`\`\``
 }
 
@@ -142,7 +163,15 @@ export function buildSystemPrompt(
   customAppend?: string,
 ): string {
   const jsonBlock = `\`\`\`json
-${JSON.stringify({ generatedAt: snapshot.generatedAt, entities: snapshot.entities }, null, 2)}
+${JSON.stringify(
+  {
+    generatedAt: snapshot.generatedAt,
+    entities: snapshot.entities,
+    ...(snapshot.derived ? { derived: snapshot.derived } : {}),
+  },
+  null,
+  2,
+)}
 \`\`\``
 
   const base = `${AI_DOMAIN_GUIDE}
@@ -160,13 +189,56 @@ Kullanıcı talimatları (sistem prompt eklentisi):
 ${extra}`
 }
 
+function isArchivedEntity(data: unknown): boolean {
+  return Boolean(
+    data &&
+      typeof data === 'object' &&
+      'archived' in data &&
+      (data as { archived?: boolean }).archived,
+  )
+}
+
+function buildDerivedContext(
+  rows: AiSnapshotSourceRow[],
+  localeSettings: LocaleSettings,
+  asOf: string,
+): AiFinanceDerivedContext {
+  const creditCards: CreditCard[] = []
+  const creditCardTxns: CreditCardTransaction[] = []
+  const banks: Bank[] = []
+  for (const row of rows) {
+    if (EXCLUDED_TYPES.has(row.type) || row.sensitive || isArchivedEntity(row.data)) continue
+    if (row.type === 'creditCard') creditCards.push(row.data as CreditCard)
+    if (row.type === 'creditCardTransaction') {
+      creditCardTxns.push(row.data as CreditCardTransaction)
+    }
+    if (row.type === 'bank') banks.push(row.data as Bank)
+  }
+  return {
+    contextVersion: AI_CONTEXT_VERSION,
+    creditCardPeriods: buildCreditCardPeriodSchedulesFromRows(
+      creditCards,
+      creditCardTxns,
+      banks,
+      localeSettings,
+      asOf,
+    ),
+  }
+}
+
 export function buildAiFinanceSnapshot(
   profile: AiFinanceSnapshot['profile'],
   rows: AiSnapshotSourceRow[],
+  localeSettings?: LocaleSettings,
 ): AiFinanceSnapshot {
-  return {
-    generatedAt: new Date().toISOString(),
+  const generatedAt = new Date().toISOString()
+  const snapshot: AiFinanceSnapshot = {
+    generatedAt,
     profile,
     entities: filterRowsForAiSnapshot(rows),
   }
+  if (localeSettings) {
+    snapshot.derived = buildDerivedContext(rows, localeSettings, generatedAt)
+  }
+  return snapshot
 }

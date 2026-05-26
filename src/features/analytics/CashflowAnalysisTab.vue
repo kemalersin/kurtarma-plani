@@ -170,12 +170,6 @@ const isCashflowEmpty = computed(
 </template>
 
 <style scoped>
-.kp-analytics-tab {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
 .kp-balance--negative {
   color: var(--ant-color-error);
 }

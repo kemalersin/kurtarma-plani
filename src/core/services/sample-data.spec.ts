@@ -43,7 +43,6 @@ describe('buildSampleProfileRows', () => {
     expect(loan.taxRateMonthly).toBe(0.3)
     expect(card.purchaseAprMonthly).toBe(0.0375)
     expect(card.lateAprMonthly).toBe(0.0405)
-    expect(card.cashAdvanceAprMonthly).toBe(0.0425)
     expect(cashAdv.interestRate).toBe(0.0425)
     expect(cashAdv.lateInterestRate).toBe(0.0455)
     expect(inst.interestRate).toBe(0.0365)

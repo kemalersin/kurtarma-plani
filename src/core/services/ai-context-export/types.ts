@@ -63,6 +63,54 @@ export interface InstallmentAdvanceScheduleExport {
   installments: ScheduleInstallmentRow[]
 }
 
+export interface CreditCardPeriodRowExport {
+  periodLabel: string
+  cutoffDate: DateField
+  dueDate: DateField
+  carriedIn: MoneyField
+  lateInterest: MoneyField
+  periodAccruals: MoneyField
+  endingBalance: MoneyField
+  minPayment: MoneyField
+  paidInPeriod: MoneyField
+  paidInFull: boolean
+  minPaymentMet: boolean
+  status: 'paid' | 'overdue' | 'upcoming'
+}
+
+export interface CreditCardPeriodScheduleExport {
+  cardId: string
+  label: string
+  bankName?: string
+  currency: string
+  periods: CreditCardPeriodRowExport[]
+}
+
+export interface CreditCardInstallmentRowExport {
+  index: number
+  accrualDate: DateField
+  amount: MoneyField
+  /** \`accrued\` = bugüne kadar ekstreye yansımış; \`future\` = henüz tahakkuk etmemiş */
+  status: 'accrued' | 'future'
+}
+
+export interface CreditCardInstallmentScheduleExport {
+  cardId: string
+  transactionId: string
+  label: string
+  bankName?: string
+  currency: string
+  originalDate: DateField
+  /** İşlem tutarı (faiz hariç; nakit akışı) */
+  transactionAmount: MoneyField
+  /** Kart borcuna yansıyan toplam (faiz dahil) */
+  repaymentTotal: MoneyField
+  installmentCount: number
+  /** Bugüne kadar tahakkuk etmiş taksit sayısı (1..installmentCount) */
+  accruedThroughIndex: number
+  installments: CreditCardInstallmentRowExport[]
+}
+
 export interface AiContextDocument {
   meta: {
     type: typeof AI_CONTEXT_FILE_TYPE
@@ -119,6 +167,7 @@ export interface AiContextDocument {
     creditCards: Array<Record<string, unknown>>
     cashAdvanceAccounts: Array<Record<string, unknown>>
     installmentAdvances: Array<Record<string, unknown>>
+    creditCardTransactions: Array<Record<string, unknown>>
     incomes: Array<Record<string, unknown>>
     expenses: Array<Record<string, unknown>>
     transfers: Array<Record<string, unknown>>
@@ -126,6 +175,10 @@ export interface AiContextDocument {
   schedules: {
     loans: LoanScheduleExport[]
     installmentAdvances: InstallmentAdvanceScheduleExport[]
+    /** Taksitli işlem başına sanal tahakkuk planı */
+    creditCards: CreditCardInstallmentScheduleExport[]
+    /** Hesap kesim dönemleri — taşınan borç, gecikme faizi, toplam/asgari vade */
+    creditCardPeriods: CreditCardPeriodScheduleExport[]
   }
   omitted: {
     archivedRecordCount: number

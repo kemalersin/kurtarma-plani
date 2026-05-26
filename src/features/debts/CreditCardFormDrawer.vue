@@ -50,7 +50,6 @@ interface Form {
   paymentDueDay: number
   purchaseAprMonthly: number
   lateAprMonthly: number | undefined
-  cashAdvanceAprMonthly: number | undefined
   notes: string
   archived: boolean
   sensitive: boolean
@@ -66,7 +65,6 @@ function emptyForm(): Form {
     paymentDueDay: 25,
     purchaseAprMonthly: 3.75,
     lateAprMonthly: undefined,
-    cashAdvanceAprMonthly: undefined,
     notes: '',
     archived: false,
     ...emptySensitiveFields(),
@@ -96,10 +94,6 @@ watch(
         purchaseAprMonthly: props.card.purchaseAprMonthly * 100,
         lateAprMonthly:
           props.card.lateAprMonthly != null ? props.card.lateAprMonthly * 100 : undefined,
-        cashAdvanceAprMonthly:
-          props.card.cashAdvanceAprMonthly != null
-            ? props.card.cashAdvanceAprMonthly * 100
-            : undefined,
         notes: props.card.notes ?? '',
         archived: !!props.card.archived,
         sensitive: readSensitiveDraft('creditCard', props.card.id),
@@ -150,18 +144,6 @@ function fillRefLate(): void {
   }
 }
 
-function fillRefCashAdvance(): void {
-  const cc = presetStore.active.preset.creditCard.cashAdvanceAprMonthly
-  if (cc != null) {
-    draft.cashAdvanceAprMonthly = cc * 100
-    message.success(
-      `Nakit avans aylık faizi referanstan dolduruldu (${(cc * 100).toFixed(2)}%).`,
-    )
-  } else {
-    message.info('Referansta nakit avans faizi tanımlı değil.')
-  }
-}
-
 function openBankDrawer(): void {
   bankDrawerOpen.value = true
 }
@@ -197,10 +179,6 @@ async function submit(): Promise<void> {
       lateAprMonthly:
         draft.lateAprMonthly !== undefined
           ? Number(draft.lateAprMonthly) / 100
-          : undefined,
-      cashAdvanceAprMonthly:
-        draft.cashAdvanceAprMonthly !== undefined
-          ? Number(draft.cashAdvanceAprMonthly) / 100
           : undefined,
       notes: draft.notes.trim() || undefined,
       archived: draft.archived || undefined,
@@ -293,18 +271,6 @@ function close(): void {
             style="flex: 1; min-width: 0"
           />
           <Button @click="fillRefLate">Referansla doldur</Button>
-        </Space.Compact>
-      </FormItem>
-      <FormItem label="Nakit avans aylık faizi (%)">
-        <Space.Compact style="width: 100%">
-          <LocaleInputNumber
-            v-model:value="draft.cashAdvanceAprMonthly"
-            kind="percent"
-            :min="0"
-            placeholder="Boş bırakılabilir"
-            style="flex: 1; min-width: 0"
-          />
-          <Button @click="fillRefCashAdvance">Referansla doldur</Button>
         </Space.Compact>
       </FormItem>
       <FormItem label="Notlar">

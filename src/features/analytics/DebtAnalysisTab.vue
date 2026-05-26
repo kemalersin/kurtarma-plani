@@ -28,6 +28,12 @@ function currencyAxisFormatter(value: number | string): string {
   })
 }
 
+const chartSubtitle = computed(() =>
+  props.filters.cardDueMode.value === 'statement'
+    ? 'Kart vadeleri: toplam ödeme'
+    : 'Kart vadeleri: asgari ödeme',
+)
+
 const chartOption = computed<EChartsOption>(() => {
   const d = props.data.debtSeries
   return {
@@ -74,7 +80,11 @@ const isChartEmpty = computed(
 
 <template>
   <div class="kp-analytics-tab">
-    <Card title="Aylık borç vadeleri" size="small" class="kp-analytics-tab__chart-card">
+    <Card size="small" class="kp-analytics-tab__chart-card">
+      <template #title>Aylık borç vadeleri</template>
+      <template #extra>
+        <span class="kp-analytics-debt-chart-hint">{{ chartSubtitle }}</span>
+      </template>
       <KpChart :option="chartOption" :height="280" :is-empty="isChartEmpty" />
     </Card>
     <Card title="Taksit listesi" size="small" class="kp-analytics-tab__table-card">
@@ -89,13 +99,8 @@ const isChartEmpty = computed(
 </template>
 
 <style scoped>
-.kp-analytics-tab {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.kp-analytics-tab__chart-card :deep(.ant-card-body) {
-  padding-top: 8px;
+.kp-analytics-debt-chart-hint {
+  font-size: 12px;
+  color: var(--ant-color-text-secondary);
 }
 </style>

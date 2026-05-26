@@ -224,7 +224,6 @@ export function buildSampleProfileRows(currency = 'TRY', ref = new Date()): Samp
     paymentDueDay: 5,
     purchaseAprMonthly: 0.0375,
     lateAprMonthly: 0.0405,
-    cashAdvanceAprMonthly: 0.0425,
     notes: 'Günlük harcamalar',
     createdAt: now,
     updatedAt: now,

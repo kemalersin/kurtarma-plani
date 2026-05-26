@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { computed, h } from 'vue'
-import { Card, Table } from 'ant-design-vue'
+import { computed } from 'vue'
+import { Card } from 'ant-design-vue'
 import type { EChartsOption } from 'echarts/types/dist/echarts'
 import KpChart from '@/components/KpChart.vue'
-import AnalyticsFilterBar from '@/features/analytics/AnalyticsFilterBar.vue'
+import MovementList from '@/features/analytics/MovementList.vue'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { AnalyticsFilterState } from '@/composables/useAnalyticsFilters'
 import type { AnalyticsData } from '@/features/analytics/useAnalyticsData'
-import type { MovementRow } from '@/features/analytics/reports'
-import { prepareListTableColumns, TABLE_SCROLL_X } from '@/core/util/table-columns'
 
 const props = defineProps<{
   data: AnalyticsData
@@ -56,46 +54,6 @@ const trendOption = computed<EChartsOption>(() => {
   }
 })
 
-const columns = prepareListTableColumns<MovementRow>([
-  {
-    title: 'Tarih',
-    dataIndex: 'date',
-    key: 'date',
-    sorter: (a, b) => a.date.localeCompare(b.date),
-    defaultSortOrder: 'descend',
-    customRender: ({ text }) => formatDate(String(text)),
-  },
-  {
-    title: 'Hesap / kasa',
-    dataIndex: 'endpointName',
-    key: 'endpointName',
-    sorter: (a, b) => a.endpointName.localeCompare(b.endpointName, 'tr'),
-  },
-  {
-    title: 'Kaynak',
-    dataIndex: 'sourceLabel',
-    key: 'sourceLabel',
-    filters: [
-      { text: 'Gelir', value: 'Gelir' },
-      { text: 'Gider', value: 'Gider' },
-      { text: 'Transfer', value: 'Transfer' },
-    ],
-    onFilter: (value, record) => record.sourceLabel === value,
-  },
-  {
-    title: 'Tutar',
-    dataIndex: 'amount',
-    key: 'amount',
-    align: 'right',
-    sorter: (a, b) => a.amount - b.amount,
-    customRender: ({ text }) => {
-      const val = Number(text)
-      const cls = val < 0 ? 'kp-balance kp-balance--negative' : 'kp-balance kp-balance--positive'
-      return h('span', { class: cls }, formatCurrency(val, currency.value))
-    },
-  },
-])
-
 const isTrendEmpty = computed(() => props.data.assetTrend.values.every((v) => v === 0))
 </script>
 
@@ -105,35 +63,12 @@ const isTrendEmpty = computed(() => props.data.assetTrend.values.every((v) => v 
       <KpChart :option="trendOption" :height="280" :is-empty="isTrendEmpty" />
     </Card>
     <Card title="Hareket listesi" size="small" class="kp-analytics-tab__table-card">
-      <template #extra>
-        <AnalyticsFilterBar :filters="filters" :data="data" :show-category="false" />
-      </template>
-      <Table
-        :columns="columns"
-        :data-source="data.movementRows"
-        row-key="id"
-        size="small"
-        :pagination="{ pageSize: 20, showSizeChanger: true, pageSizeOptions: ['10', '20', '50', '100'] }"
-        table-layout="auto"
-        :scroll="{ x: TABLE_SCROLL_X }"
-        :show-sorter-tooltip="false"
+      <MovementList
+        :rows="data.movementRows"
+        :currency="currency"
+        :filters="filters"
+        :data="data"
       />
     </Card>
   </div>
 </template>
-
-<style scoped>
-.kp-analytics-tab {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.kp-balance--negative {
-  color: var(--ant-color-error);
-}
-
-.kp-balance--positive {
-  color: var(--ant-color-success);
-}
-</style>
