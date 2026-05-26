@@ -31,9 +31,9 @@ export const DEBT_INSTALLMENT_LIST_FILTERS: ListFilter<DebtInstallmentRow>[] = [
     placeholder: 'Tümü',
     options: [
       { value: 'loan', label: 'Kredi' },
-      { value: 'installmentAdvance', label: 'Taksitli avans' },
       { value: 'creditCard', label: 'Kredi kartı' },
       { value: 'cashAdvance', label: 'Nakit avans' },
+      { value: 'installmentAdvance', label: 'Taksitli avans' },
     ],
     getValue: (row) => {
       if (
