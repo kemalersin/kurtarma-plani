@@ -7,9 +7,12 @@ import {
   filterCashflowRecords,
   movementRows,
 } from './reports'
+import { cashAdvanceState } from '@/features/debts/cashAdvanceHelpers'
 import type { AccountMovement } from '@/features/cashflow/movements'
 import type {
   Account,
+  CashAdvanceAccount,
+  CashAdvanceTransaction,
   CreditCard,
   CreditCardTransaction,
   Expense,
@@ -118,10 +121,42 @@ const emptyDebtInput = {
   loanPayments: [] as LoanPayment[],
   installmentAdvances: [] as InstallmentCashAdvance[],
   installmentAdvancePayments: [],
+  cashAdvanceAccounts: [] as CashAdvanceAccount[],
+  cashAdvanceTransactions: [] as CashAdvanceTransaction[],
   creditCards: [] as CreditCard[],
   creditCardTransactions: [] as CreditCardTransaction[],
   banks: [{ id: 'b1', name: 'Test Bankası' }],
   localCurrency: 'TRY',
+}
+
+function cashAdvanceAccount(over: Partial<CashAdvanceAccount> = {}): CashAdvanceAccount {
+  return {
+    id: 'ca-1',
+    name: 'Nakit Avans',
+    bankId: 'b1',
+    currency: 'TRY',
+    limit: 30_000,
+    openingBalance: 5_000,
+    openingDate: '2026-01-01T00:00:00.000Z',
+    interestRate: 0.0425,
+    interestPeriod: 'monthly',
+    createdAt: ISO,
+    updatedAt: ISO,
+    ...over,
+  } as CashAdvanceAccount
+}
+
+function cashAdvanceTxn(
+  partial: Pick<CashAdvanceTransaction, 'date' | 'amount' | 'type'> &
+    Partial<CashAdvanceTransaction>,
+): CashAdvanceTransaction {
+  return {
+    id: partial.id ?? `ca-txn-${partial.date}`,
+    accountId: 'ca-1',
+    createdAt: ISO,
+    updatedAt: ISO,
+    ...partial,
+  } as CashAdvanceTransaction
 }
 
 describe('debtInstallmentTypeLabel', () => {
@@ -156,6 +191,21 @@ describe('debtInstallmentTypeLabel', () => {
         status: 'upcoming',
       }),
     ).toBe('Kart asgari ödeme')
+    expect(
+      debtInstallmentTypeLabel({
+        key: '3',
+        debtKind: 'cashAdvance',
+        debtId: 'ca1',
+        debtName: 'KMH',
+        bankId: 'b1',
+        bankName: 'Bank',
+        installmentIndex: 0,
+        dueDate: '2026-06-30',
+        amount: '8500',
+        paid: false,
+        status: 'upcoming',
+      }),
+    ).toBe('Nakit avans asgari')
   })
 })
 
@@ -176,6 +226,109 @@ describe('debtInstallmentRows', () => {
     expect(rows.every((r) => r.bankId === 'b1')).toBe(true)
     expect(rows.every((r) => r.bankName === 'Test Bankası')).toBe(true)
     expect(rows.some((r) => r.status === 'upcoming')).toBe(true)
+  })
+
+  it('kredi planı aralıkla kesişiyorsa tüm taksitleri listeler (son vadeler aralık dışında olsa bile)', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        loans: [
+          loan({
+            firstInstallmentDate: '2026-02-01T00:00:00.000Z',
+            termMonths: 12,
+          }),
+        ],
+      },
+      {
+        range: { from: '2025-11-26', to: '2026-11-26' },
+      },
+      '2026-05-26T00:00:00.000Z',
+    )
+    const loanRows = rows.filter((r) => r.debtKind === 'loan')
+    expect(loanRows).toHaveLength(12)
+    expect(loanRows.map((r) => r.installmentIndex).sort((a, b) => a - b)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+    ])
+    expect(loanRows.some((r) => r.dueDate.startsWith('2027-'))).toBe(true)
+  })
+
+  it('kredi planı aralıkla kesişmiyorsa listede görünmez', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        loans: [
+          loan({
+            firstInstallmentDate: '2027-06-01T00:00:00.000Z',
+            termMonths: 12,
+          }),
+        ],
+      },
+      {
+        range: { from: '2025-11-26', to: '2026-11-26' },
+      },
+      '2026-05-26T00:00:00.000Z',
+    )
+    expect(rows.filter((r) => r.debtKind === 'loan')).toHaveLength(0)
+  })
+
+  it('geciken kredi taksitlerinde faiz bir sonraki vade satırına yansır', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        loans: [
+          loan({
+            firstInstallmentDate: '2026-03-01T00:00:00.000Z',
+            termMonths: 6,
+            interestRate: 0.04,
+            interestPeriod: 'monthly',
+          }),
+        ],
+      },
+      { range: { from: '2026-01-01', to: '2026-12-31' } },
+      '2026-03-15T00:00:00.000Z',
+    )
+    const loanRows = rows
+      .filter((r) => r.debtKind === 'loan')
+      .sort((a, b) => a.installmentIndex - b.installmentIndex)
+    expect(loanRows[0]!.installmentIndex).toBe(1)
+    expect(Number(loanRows[1]!.amount)).toBe(Number(loanRows[0]!.amount))
+    expect(Number(loanRows[2]!.amount)).toBe(Number(loanRows[0]!.amount))
+    expect(Number(loanRows[1]!.dueAmount)).toBeGreaterThan(Number(loanRows[1]!.amount))
+    expect(Number(loanRows[2]!.dueAmount)).toBe(Number(loanRows[2]!.amount))
+  })
+
+  it('kredi taksit listesinde Tutar plan, Ödenen gerçek ödeme tutarıdır', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        loans: [
+          loan({
+            firstInstallmentDate: '2026-03-01T00:00:00.000Z',
+            termMonths: 6,
+            interestRate: 0.04,
+            interestPeriod: 'monthly',
+          }),
+        ],
+        loanPayments: [
+          {
+            id: 'p1',
+            loanId: 'l1',
+            installmentIndex: 1,
+            paidDate: '2026-03-20T00:00:00.000Z',
+            paidAmount: 10_500,
+            createdAt: ISO,
+            updatedAt: ISO,
+          } as LoanPayment,
+        ],
+      },
+      { range: { from: '2026-01-01', to: '2026-12-31' } },
+      '2026-04-01T00:00:00.000Z',
+    )
+    const paid = rows.find((r) => r.debtKind === 'loan' && r.installmentIndex === 1)
+    expect(paid).toBeDefined()
+    expect(Number(paid!.paidAmount)).toBe(10_500)
+    expect(Number(paid!.amount)).toBeGreaterThan(Number(paid!.paidAmount))
+    expect(paid!.paid).toBe(true)
   })
 
   it('toplam ödeme modunda gelecek vadeler birbirine yansımaz; her dönem bağımsız', () => {
@@ -316,7 +469,7 @@ describe('debtInstallmentRows', () => {
     expect(amounts[2]!).toBeGreaterThan(amounts[1]!)
   })
 
-  it('varsayılan modda kart asgari ödeme vadelerini listeler; ödeme kaydı varsa ödendi sayar', () => {
+  it('varsayılan modda kart toplam ödeme vadelerini listeler; ödeme kaydı varsa ödendi sayar', () => {
     const rows = debtInstallmentRows(
       {
         ...emptyDebtInput,
@@ -339,11 +492,12 @@ describe('debtInstallmentRows', () => {
       { range: { from: '2026-07-01', to: '2026-08-31' } },
       '2026-08-22T00:00:00.000Z',
     )
-    const minRows = rows.filter((r) => r.debtKind === 'creditCardMinPayment')
-    expect(minRows.length).toBeGreaterThan(0)
-    expect(minRows.some((r) => r.paid)).toBe(true)
-    expect(minRows.some((r) => r.paid && Number(r.paidAmount) === 500)).toBe(true)
-    expect(rows.every((r) => r.debtKind !== 'creditCardStatement')).toBe(true)
+    const stmtRows = rows.filter((r) => r.debtKind === 'creditCardStatement')
+    expect(stmtRows.length).toBeGreaterThan(0)
+    const paidRow = stmtRows.find((r) => Number(r.paidAmount) === 500)
+    expect(paidRow).toBeDefined()
+    expect(paidRow!.paid).toBe(false)
+    expect(rows.every((r) => r.debtKind !== 'creditCardMinPayment')).toBe(true)
   })
 
   it('asgari ödeme modunda pencere toplamı ödenen tutar olarak yansır', () => {
@@ -385,6 +539,147 @@ describe('debtInstallmentRows', () => {
     expect(feb).toBeDefined()
     expect(feb!.paid).toBe(true)
     expect(Number(feb!.paidAmount)).toBeCloseTo(5_000, 0)
+  })
+
+  it('nakit avans hesabı ay sonu bakiyesini sonraki aya taşır', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        cashAdvanceAccounts: [cashAdvanceAccount()],
+        cashAdvanceTransactions: [
+          cashAdvanceTxn({
+            date: '2026-03-10T00:00:00.000Z',
+            amount: 2_000,
+            type: 'draw',
+          }),
+        ],
+      },
+      { range: { from: '2026-03-01', to: '2026-06-30' } },
+      '2026-06-15T12:00:00.000Z',
+    )
+    const caRows = rows.filter((r) => r.debtKind === 'cashAdvanceStatement')
+    expect(caRows.length).toBeGreaterThanOrEqual(2)
+    expect(caRows.every((r) => r.debtName === 'Nakit Avans')).toBe(true)
+    const amounts = caRows.map((r) => Number(r.amount))
+    expect(Math.max(...amounts)).toBeGreaterThan(Math.min(...amounts))
+  })
+
+  it('nakit avans toplam ödeme modunda asgari tutardan büyük listelenir', () => {
+    const input = {
+      ...emptyDebtInput,
+      cashAdvanceAccounts: [cashAdvanceAccount()],
+      cashAdvanceTransactions: [
+        cashAdvanceTxn({
+          date: '2026-03-10T00:00:00.000Z',
+          amount: 2_000,
+          type: 'draw',
+        }),
+      ],
+    }
+    const range = { from: '2026-03-01', to: '2026-06-30' }
+    const today = '2026-06-15T12:00:00.000Z'
+    const minRows = debtInstallmentRows(input, { range, cardDueMode: 'min' }, today).filter(
+      (r) => r.debtKind === 'cashAdvance',
+    )
+    const totalRows = debtInstallmentRows(
+      input,
+      { range, cardDueMode: 'statement' },
+      today,
+    ).filter((r) => r.debtKind === 'cashAdvanceStatement')
+    expect(minRows.length).toBeGreaterThan(0)
+    expect(totalRows.length).toBeGreaterThan(0)
+    const marMin = minRows.find((r) => r.dueDate.startsWith('2026-03'))
+    const marTotal = totalRows.find((r) => r.dueDate.startsWith('2026-03'))
+    expect(marMin).toBeDefined()
+    expect(marTotal).toBeDefined()
+    expect(Number(marTotal!.amount)).toBeGreaterThan(Number(marMin!.amount))
+  })
+
+  it('nakit avans asgari satırı güncel ay minPayment ile borç listesi uyumlu', () => {
+    const today = '2026-06-15T12:00:00.000Z'
+    const account = cashAdvanceAccount()
+    const txns = [
+      cashAdvanceTxn({
+        date: '2026-03-10T00:00:00.000Z',
+        amount: 2_000,
+        type: 'draw',
+      }),
+    ]
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        cashAdvanceAccounts: [account],
+        cashAdvanceTransactions: txns,
+        cashAdvanceTaxRateMonthly: 0.25,
+      },
+      { range: { from: '2026-06-01', to: '2026-06-30' }, cardDueMode: 'min' },
+      today,
+    )
+    const june = rows.find(
+      (r) => r.debtKind === 'cashAdvance' && r.dueDate.startsWith('2026-06'),
+    )
+    expect(june).toBeDefined()
+    const state = cashAdvanceState(account, txns, today, 0.25)
+    expect(Number(june!.amount)).toBeCloseTo(Number(state.minPayment), 0)
+  })
+
+  it('nakit avans borcu bugünden sonraki aylara yansımaz', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        cashAdvanceAccounts: [cashAdvanceAccount()],
+        cashAdvanceTransactions: [
+          cashAdvanceTxn({
+            date: '2026-03-10T00:00:00.000Z',
+            amount: 2_000,
+            type: 'draw',
+          }),
+        ],
+      },
+      { range: { from: '2026-03-01', to: '2026-12-31' } },
+      '2026-06-15T12:00:00.000Z',
+    )
+    const caRows = rows.filter((r) => r.debtKind === 'cashAdvanceStatement')
+    expect(caRows.length).toBeGreaterThan(0)
+    expect(caRows.every((r) => r.dueDate.slice(0, 7) <= '2026-06')).toBe(true)
+    expect(caRows.some((r) => r.dueDate.startsWith('2026-07'))).toBe(false)
+  })
+
+  it('nakit avans kapama ödemesi grafik ve listede görünür', () => {
+    const range = { from: '2026-06-01', to: '2026-06-30' }
+    const today = '2026-06-25T12:00:00.000Z'
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        cashAdvanceAccounts: [cashAdvanceAccount({ openingBalance: 0 })],
+        cashAdvanceTransactions: [
+          cashAdvanceTxn({
+            date: '2026-06-05T00:00:00.000Z',
+            amount: 5_000,
+            type: 'draw',
+          }),
+          cashAdvanceTxn({
+            date: '2026-06-20T00:00:00.000Z',
+            amount: 6_000,
+            type: 'payment',
+          }),
+        ],
+      },
+      { range, cardDueMode: 'statement' },
+      today,
+    )
+    const june = rows.find(
+      (r) =>
+        r.debtKind === 'cashAdvanceStatement' && r.dueDate.startsWith('2026-06'),
+    )
+    expect(june).toBeDefined()
+    expect(june!.paid).toBe(true)
+    expect(Number(june!.paidAmount)).toBeCloseTo(6_000, 0)
+
+    const series = debtInstallmentMonthlySeries(rows, range)
+    const idx = series.months.indexOf('2026-06')
+    expect(idx).toBeGreaterThanOrEqual(0)
+    expect(series.paid[idx]!).toBeGreaterThan(0)
   })
 
   it('toplam ödeme modunda geç ödeme pencere toplamını ödenen olarak yansıtır', () => {

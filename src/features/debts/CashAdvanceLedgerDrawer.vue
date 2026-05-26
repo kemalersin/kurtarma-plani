@@ -13,6 +13,7 @@ import type { KpTableColumn } from '@/core/util/table-columns'
 import FormDrawer from '@/components/FormDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
+import { useCreditCardRateContext } from '@/composables/useCreditCardRateContext'
 import type {
   CashAdvanceAccount,
   CashAdvanceTransaction,
@@ -32,6 +33,7 @@ const emit = defineEmits<{
 
 const entities = useEntitiesStore()
 const { formatCurrency, formatDate } = useLocaleFormatters()
+const { taxRateMonthly } = useCreditCardRateContext()
 
 const txns = entities.list<CashAdvanceTransaction>('cashAdvanceTransaction')
 
@@ -44,7 +46,7 @@ const own = computed<CashAdvanceTransaction[]>(() => {
 
 const state = computed(() => {
   if (!props.account) return null
-  return cashAdvanceState(props.account, txns.value)
+  return cashAdvanceState(props.account, txns.value, undefined, taxRateMonthly.value)
 })
 
 const TYPE_LABELS: Record<CashAdvanceTxnType, string> = {
@@ -133,6 +135,11 @@ const stats = computed<KpStat[]>(() => {
       tone: 'warning',
     },
     {
+      label: 'Asgari ödeme',
+      value: formatCurrency(s?.minPayment ?? 0, ccy),
+      tone: 'default',
+    },
+    {
       label: 'Toplam borç',
       value: formatCurrency(s?.total ?? 0, ccy),
       tone: 'danger',
@@ -161,7 +168,7 @@ const stats = computed<KpStat[]>(() => {
       <DismissibleDrawerAlert
         hint-key="cash-advance-ledger.info"
         message="Revolving hesap"
-        description="Kalan anapara üzerinden günlük basit faiz işler. Ödeme önce tahakkuk eden faizi, sonra anaparayı kapatır."
+        description="Anapara üzerinden günlük akdi faiz (vergi dahil efektif oran) işler. Ay sonunda limit tier'ına göre asgari ödeme hesaplanır; asgari altı ödemede ödenmeyen asgari kısma gecikme faizi yansır. Ödeme önce tahakkuk eden faizi, sonra anaparayı kapatır."
       />
 
       <KpStatRow :items="stats" />

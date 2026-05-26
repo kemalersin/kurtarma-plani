@@ -8,6 +8,7 @@ import CashAdvanceFormDrawer from './CashAdvanceFormDrawer.vue'
 import CashAdvanceLedgerDrawer from './CashAdvanceLedgerDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
+import { useCreditCardRateContext } from '@/composables/useCreditCardRateContext'
 import type {
   Bank,
   CashAdvanceAccount,
@@ -19,6 +20,7 @@ import { cashAdvanceState } from './cashAdvanceHelpers'
 
 const entities = useEntitiesStore()
 const { formatCurrency } = useLocaleFormatters()
+const { taxRateMonthly } = useCreditCardRateContext()
 
 const accounts = entities.list<CashAdvanceAccount>('cashAdvanceAccount')
 const txns = entities.list<CashAdvanceTransaction>('cashAdvanceTransaction')
@@ -76,18 +78,34 @@ function bankName(id: string): string {
 }
 
 const summaryCache = computed<
-  Map<string, { principal: string; accrued: string; total: string; available: number }>
+  Map<
+    string,
+    {
+      principal: string
+      accrued: string
+      total: string
+      minPayment: string
+      available: number
+    }
+  >
 >(() => {
   const map = new Map<
     string,
-    { principal: string; accrued: string; total: string; available: number }
+    {
+      principal: string
+      accrued: string
+      total: string
+      minPayment: string
+      available: number
+    }
   >()
   for (const account of accounts.value) {
-    const state = cashAdvanceState(account, txns.value)
+    const state = cashAdvanceState(account, txns.value, undefined, taxRateMonthly.value)
     map.set(account.id, {
       principal: state.principal,
       accrued: state.accruedInterest,
       total: state.total,
+      minPayment: state.minPayment,
       available: account.limit - Number(state.principal),
     })
   }
@@ -100,6 +118,7 @@ function summary(a: CashAdvanceAccount) {
       principal: '0',
       accrued: '0',
       total: '0',
+      minPayment: '0',
       available: a.limit,
     }
   )
@@ -133,6 +152,13 @@ const filters = computed<ListFilter<CashAdvanceAccount>[]>(() => [
     label: 'Toplam borç',
     numberKind: 'currency',
     getValue: (account) => Number(summary(account).total),
+  },
+  {
+    kind: 'numberRange',
+    key: 'minPayment',
+    label: 'Asgari ödeme',
+    numberKind: 'currency',
+    getValue: (account) => Number(summary(account).minPayment),
   },
   {
     kind: 'numberRange',
@@ -193,6 +219,18 @@ const columns = computed<TableColumnType<CashAdvanceAccount>[]>(() => [
         (record as CashAdvanceAccount).currency,
       ),
     sorter: (a, b) => compareNumeric(a, b, (account) => Number(summary(account).total)),
+  },
+  {
+    key: 'minPayment',
+    title: 'Asgari',
+    align: 'right',
+    customRender: ({ record }) =>
+      formatCurrency(
+        summary(record as CashAdvanceAccount).minPayment,
+        (record as CashAdvanceAccount).currency,
+      ),
+    sorter: (a, b) =>
+      compareNumeric(a, b, (account) => Number(summary(account).minPayment)),
   },
   {
     key: 'available',

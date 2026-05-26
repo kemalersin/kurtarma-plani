@@ -134,10 +134,14 @@ describe('ai snapshot filter', () => {
       ],
       DEFAULT_LOCALE_SETTINGS,
     )
-    expect(snap.derived?.contextVersion).toBe(4)
+    expect(snap.derived?.contextVersion).toBe(11)
     expect(snap.derived?.creditCardPeriods).toHaveLength(1)
     expect(snap.derived?.creditCardPeriods[0]?.periods.length).toBeGreaterThan(0)
+    expect(snap.derived?.cashAdvancePeriods).toEqual([])
+    expect(snap.entities.some((e) => e.type === 'creditCardTransaction')).toBe(false)
     expect(buildSnapshotContextContent(snap, 'initial')).toContain('creditCardPeriods')
+    expect(buildSnapshotContextContent(snap, 'initial')).toContain('cashAdvancePeriods')
+    expect(buildSnapshotContextContent(snap, 'initial')).not.toContain('creditCardInstallments')
   })
 
   it('buildAiFinanceSnapshot profil meta taşır', () => {

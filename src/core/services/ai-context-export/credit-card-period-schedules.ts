@@ -16,6 +16,10 @@ import type {
   CreditCardPeriodScheduleExport,
 } from '@/core/services/ai-context-export/types'
 import type { LocaleSettings } from '@/core/types/profile'
+import {
+  trimCreditCardPeriodRowsForAi,
+  trimCreditCardPeriodSchedulesForAi,
+} from '@/core/services/ai-context-export/schedule-prune'
 
 function periodExportStatus(
   p: CardPeriodDebtProjection,
@@ -48,7 +52,7 @@ export function buildCreditCardPeriodSchedules(params: {
   creditCardRateContext?: CardProjectionRateContext
 }): CreditCardPeriodScheduleExport[] {
   const { creditCards, creditCardTxns, bankMap, fmt, asOf } = params
-  const periodsCount = params.periodsCount ?? 12
+  const periodsCount = params.periodsCount ?? 18
   const asOfDate = new Date(asOf)
   const out: CreditCardPeriodScheduleExport[] = []
 
@@ -56,9 +60,14 @@ export function buildCreditCardPeriodSchedules(params: {
     if (card.archived) continue
     const bank = card.bankId ? bankMap.get(card.bankId) : undefined
     const own = creditCardTxns.filter((t) => t.cardId === card.id)
-    const periods = buildCardPeriods(card, own, { periods: periodsCount, asOf: asOfDate })
+    const periods = buildCardPeriods(card, own, {
+      periods: periodsCount,
+      asOf: asOfDate,
+      extendForFutureInstallments: true,
+    })
     const projections = projectCardPeriodDebts(card, own, {
       periods,
+      asOf: asOfDate,
       ...params.creditCardRateContext,
     })
 
@@ -92,11 +101,11 @@ export function buildCreditCardPeriodSchedules(params: {
       label: bank ? `${card.name} · ${bank.name}` : card.name,
       bankName: bank?.name,
       currency: card.currency,
-      periods: periodRows,
+      periods: trimCreditCardPeriodRowsForAi(periodRows, asOf),
     })
   }
 
-  return out
+  return trimCreditCardPeriodSchedulesForAi(out, asOf)
 }
 
 /** Sohbet snapshot'ı için türetilmiş kart dönem projeksiyonları. */

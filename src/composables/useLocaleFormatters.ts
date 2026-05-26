@@ -1,6 +1,7 @@
 import { computed } from 'vue'
 import { formatInTimeZone } from 'date-fns-tz'
 import { DEFAULT_LOCALE_SETTINGS } from '@/core/locale/defaults'
+import { formatFractionAsPercent } from '@/core/locale/number-format'
 import { useProfileStore } from '@/stores/profile'
 
 interface LocaleFormatters {
@@ -12,6 +13,8 @@ interface LocaleFormatters {
   formatDateLong(iso: string): string
   /** Salt sayı (binlik, ondalık) profil locale'ine göre. */
   formatNumber(value: number | string, options?: Intl.NumberFormatOptions): string
+  /** 0–1 kesir oranı → locale yüzde metni (toast / ipucu; form percent alanı ile uyumlu). */
+  formatPercentFromFraction(fraction: number): string
 }
 
 /**
@@ -69,5 +72,9 @@ export function useLocaleFormatters(): LocaleFormatters {
     )
   }
 
-  return { formatCurrency, formatDate, formatDateLong, formatNumber }
+  function formatPercentFromFraction(fraction: number): string {
+    return formatFractionAsPercent(fraction, locale.value)
+  }
+
+  return { formatCurrency, formatDate, formatDateLong, formatNumber, formatPercentFromFraction }
 }

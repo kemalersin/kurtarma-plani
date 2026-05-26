@@ -1,4 +1,5 @@
 import type { Loan, LoanPayment } from '@/core/types/entities'
+import type { InstallmentLateFeeRates } from './installmentDisplay'
 import { unpaidInstallmentOverrides } from './installmentDisplay'
 import { buildAnnuitySchedule, payoffAmount, remainingDebtTotal, remainingPrincipalBalance, type LoanSchedule } from '@/finance/loan'
 
@@ -50,6 +51,11 @@ function loanRateInput(loan: Loan) {
         ? { value: loan.lateInterestRate, period: loan.lateInterestPeriod }
         : undefined,
   }
+}
+
+/** Gecikme faizi hesabı için sözleşme oranları. */
+export function loanLateFeeRates(loan: Loan): InstallmentLateFeeRates {
+  return loanRateInput(loan)
 }
 
 /** Kalan borç = ödenmemiş taksitler + biriken gecikme faizi. */

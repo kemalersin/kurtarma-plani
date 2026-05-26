@@ -25,6 +25,16 @@ export function getPercentMaxFractionDigits(locale: string): number {
   )
 }
 
+/** 0–1 kesir oranı → locale yüzde metni (örn. 0,0425 → «4,25%»). */
+export function formatFractionAsPercent(fraction: number, locale: string): string {
+  const maxFd = getPercentMaxFractionDigits(locale)
+  const body = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxFd,
+  }).format(fraction * 100)
+  return `${body}%`
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

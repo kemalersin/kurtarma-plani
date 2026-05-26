@@ -38,6 +38,8 @@ import type {
   CreditCardTransaction,
   InstallmentCashAdvance,
   InstallmentCashAdvancePayment,
+  CashAdvanceAccount,
+  CashAdvanceTransaction,
 } from '@/core/types/entities'
 
 export interface AnalyticsData {
@@ -68,6 +70,7 @@ const LOAD_KEYS = [
   'loanPayment',
   'installmentCashAdvance',
   'installmentCashAdvancePayment',
+  'cashAdvanceAccount',
   'creditCard',
   'creditCardTransaction',
   'transfer',
@@ -79,7 +82,7 @@ export function useAnalyticsData(
 ): { data: ComputedRef<AnalyticsData>; loading: ComputedRef<boolean> } {
   const entities = useEntitiesStore()
   const profileStore = useProfileStore()
-  const { rateContext } = useCreditCardRateContext()
+  const { rateContext, taxRateMonthly } = useCreditCardRateContext()
   const { movements } = useAccountBalances()
 
   const banks = entities.list<Bank>('bank')
@@ -95,6 +98,8 @@ export function useAnalyticsData(
   const installmentAdvancePayments = entities.list<InstallmentCashAdvancePayment>(
     'installmentCashAdvancePayment',
   )
+  const cashAdvanceAccounts = entities.list<CashAdvanceAccount>('cashAdvanceAccount')
+  const cashAdvanceTransactions = entities.list<CashAdvanceTransaction>('cashAdvanceTransaction')
   const creditCards = entities.list<CreditCard>('creditCard')
   const creditCardTransactions = entities.list<CreditCardTransaction>('creditCardTransaction')
 
@@ -125,11 +130,14 @@ export function useAnalyticsData(
         loanPayments: loanPayments.value,
         installmentAdvances: installmentAdvances.value,
         installmentAdvancePayments: installmentAdvancePayments.value,
+        cashAdvanceAccounts: cashAdvanceAccounts.value,
+        cashAdvanceTransactions: cashAdvanceTransactions.value,
         creditCards: creditCards.value,
         creditCardTransactions: creditCardTransactions.value,
         banks: banks.value,
         localCurrency: lc,
         creditCardRateContext: rateContext.value,
+        cashAdvanceTaxRateMonthly: taxRateMonthly.value,
       },
       f,
     )

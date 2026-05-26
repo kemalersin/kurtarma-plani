@@ -33,30 +33,13 @@ import {
   accountBalance,
   cashRegisterBalance,
 } from '@/features/cashflow/balanceHelpers'
-import {
-  buildScheduleForInstallmentAdvance,
-  advancePaidThroughIndex,
-  payoffForInstallmentAdvance,
-} from '@/features/debts/installmentAdvanceHelpers'
-import { displayInstallmentAmount } from '@/features/debts/installmentDisplay'
-import {
-  buildScheduleForLoan,
-  paidThroughIndex,
-  payoffForLoan,
-} from '@/features/debts/loanHelpers'
-import {
-  accruedInstallmentCount,
-  cardCommittedTotal,
-  expandInstallments,
-} from '@/features/debts/cardHelpers'
-import { resolveCreditCardRepaymentTotal } from '@/finance/credit-card'
+import { cardCommittedTotal, creditCardOpeningDate } from '@/features/debts/cardHelpers'
 import { D } from '@/finance/decimal'
 import { runRevolvingLedger } from '@/finance/cash-advance'
+import { revolvingRatesFromAccount } from '@/features/debts/cashAdvanceHelpers'
 import { cashflowStatus } from '@/finance/cashflow'
 import type { AiSnapshotSourceRow } from '@/features/ai/snapshot'
 import { stripSecretFields } from '@/features/ai/snapshot'
-import type { LoanSchedule, ScheduleRow } from '@/finance/loan'
-import { computeScheduleDelinquencyMetrics } from '@/core/services/ai-context-export/schedule-metrics'
 import {
   AI_CONTEXT_DISCLAIMER,
   AI_CONTEXT_GLOSSARY,
@@ -69,15 +52,21 @@ import {
   createAiContextFormatters,
   dateField,
   moneyField,
-  type AiContextFormatters,
 } from '@/core/services/ai-context-export/format-helpers'
 import { buildCreditCardPeriodSchedules } from '@/core/services/ai-context-export/credit-card-period-schedules'
+import { buildCashAdvancePeriodSchedules } from '@/core/services/ai-context-export/cash-advance-period-schedules'
+import {
+  buildInstallmentAdvanceSchedules,
+  buildLoanSchedules,
+} from '@/core/services/ai-context-export/loan-schedules'
+import {
+  computeSettledDebtIndex,
+  filterSettledDebtInput,
+} from '@/core/services/ai-context-export/settled-debts'
 import type {
   AiContextDocument,
-  CreditCardInstallmentScheduleExport,
   InstallmentAdvanceScheduleExport,
   LoanScheduleExport,
-  ScheduleInstallmentRow,
 } from '@/core/services/ai-context-export/types'
 
 const EXCLUDED_TYPES: ReadonlySet<EntityType> = new Set([
@@ -87,7 +76,7 @@ const EXCLUDED_TYPES: ReadonlySet<EntityType> = new Set([
 ])
 
 import type { CardProjectionRateContext } from '@/features/debts/cardHelpers'
-import { creditCardRateContextFromPreset } from '@/core/util/banking-preset-credit-card'
+import { creditCardRateContextFromPreset, creditCardTaxRateFromPreset } from '@/core/util/banking-preset-credit-card'
 import type { BankingPreset } from '@/core/types/banking-preset'
 
 export interface BuildAiContextDocumentParams {
@@ -161,156 +150,14 @@ function resolveEndpoint(
   return '—'
 }
 
-function loanRateInput(loan: Loan) {
-  return {
-    contractRate: { value: loan.interestRate, period: loan.interestPeriod },
-    lateRate:
-      loan.lateInterestRate !== undefined && loan.lateInterestPeriod
-        ? { value: loan.lateInterestRate, period: loan.lateInterestPeriod }
-        : undefined,
-  }
-}
-
-function advanceRateInput(advance: InstallmentCashAdvance) {
-  return {
-    contractRate: { value: advance.interestRate, period: advance.interestPeriod },
-    lateRate:
-      advance.lateInterestRate !== undefined && advance.lateInterestPeriod
-        ? { value: advance.lateInterestRate, period: advance.lateInterestPeriod }
-        : undefined,
-  }
-}
-
-function buildScheduleExportFields(
-  schedule: LoanSchedule,
-  paidIdx: number,
-  ownPayments: Array<{
-    installmentIndex: number
-    paidDate?: string
-    paidAmount?: number
-    scheduledAmount?: number
-  }>,
-  currency: string,
-  fmt: AiContextFormatters,
-  asOf: string,
-  rates: ReturnType<typeof loanRateInput>,
-) {
-  const payMap = new Map(ownPayments.map((p) => [p.installmentIndex, p]))
-  const metrics = computeScheduleDelinquencyMetrics(
-    schedule,
-    paidIdx,
-    asOf,
-    rates.contractRate,
-    rates.lateRate,
-    ownPayments,
-  )
-  return {
-    paidThroughIndex: paidIdx,
-    remainingDebt: moneyField(metrics.remainingDebt, currency, fmt),
-    remainingDebtBreakdown: {
-      unpaidInstallments: moneyField(
-        metrics.breakdown.unpaidInstallments,
-        currency,
-        fmt,
-      ),
-      accruedLateFees: moneyField(metrics.breakdown.accruedLateFees, currency, fmt),
-    },
-    overdueInstallmentCount: metrics.overdueInstallmentCount,
-    historicalLatePaymentCount: metrics.historicalLatePaymentCount,
-    installments: buildScheduleRows(schedule.rows, paidIdx, payMap, currency, fmt, asOf),
-  }
-}
-
-function installmentStatus(
-  row: ScheduleRow,
-  paidIdx: number,
-  asOf: string,
-): 'paid' | 'unpaid' | 'overdue' {
-  if (row.index <= paidIdx) return 'paid'
-  if (new Date(row.dueDate).getTime() < new Date(asOf).getTime()) return 'overdue'
-  return 'unpaid'
-}
-
-function buildScheduleRows(
-  scheduleRows: ScheduleRow[],
-  paidIdx: number,
-  paymentMap: Map<number, { paidDate?: string; paidAmount?: number; scheduledAmount?: number }>,
-  currency: string,
-  fmt: AiContextFormatters,
-  asOf: string,
-): ScheduleInstallmentRow[] {
-  return scheduleRows.map((row) => {
-    const payment = paymentMap.get(row.index)
-    const amount = displayInstallmentAmount(row.installment, payment)
-    const status = installmentStatus(row, paidIdx, asOf)
-    const base: ScheduleInstallmentRow = {
-      index: row.index,
-      dueDate: dateField(row.dueDate, fmt),
-      installment: moneyField(amount, currency, fmt),
-      principal: moneyField(row.principal, currency, fmt),
-      interest: moneyField(row.interest, currency, fmt),
-      beginningBalance: moneyField(row.beginningBalance, currency, fmt),
-      endingBalance: moneyField(row.endingBalance, currency, fmt),
-      status,
-    }
-    if (payment?.paidDate) {
-      base.paidDate = dateField(payment.paidDate, fmt)
-      if (payment.paidAmount != null) {
-        base.paidAmount = moneyField(payment.paidAmount, currency, fmt)
-      }
-    }
-    return base
-  })
-}
-
-function buildCreditCardInstallmentSchedules(
-  creditCards: CreditCard[],
-  creditCardTxns: CreditCardTransaction[],
-  bankMap: Map<string, Bank>,
-  fmt: AiContextFormatters,
-  asOf: string,
-): CreditCardInstallmentScheduleExport[] {
-  const asOfDate = new Date(asOf)
-  const asOfIso = asOf
-  const out: CreditCardInstallmentScheduleExport[] = []
-
-  for (const card of creditCards) {
-    const bank = card.bankId ? bankMap.get(card.bankId) : undefined
-    const own = creditCardTxns.filter((t) => t.cardId === card.id)
-    for (const t of own) {
-      if (t.type === 'payment') continue
-      if (!t.installmentCount || t.installmentCount <= 1) continue
-      const virtual = expandInstallments(card, [t]).filter((v) => v.installmentIndex != null)
-      const repaymentTotal = resolveCreditCardRepaymentTotal(t, card)
-      out.push({
-        cardId: card.id,
-        transactionId: t.id,
-        label: t.description ? `${card.name} — ${t.description}` : card.name,
-        bankName: bank?.name,
-        currency: card.currency,
-        originalDate: dateField(t.date, fmt),
-        transactionAmount: moneyField(t.amount, card.currency, fmt),
-        repaymentTotal: moneyField(repaymentTotal, card.currency, fmt),
-        installmentCount: t.installmentCount,
-        accruedThroughIndex: accruedInstallmentCount(t.date, t.installmentCount, asOfDate),
-        installments: virtual.map((v) => ({
-          index: v.installmentIndex!,
-          accrualDate: dateField(v.date, fmt),
-          amount: moneyField(v.amount, card.currency, fmt),
-          status: v.date <= asOfIso ? 'accrued' : 'future',
-        })),
-      })
-    }
-  }
-
-  return out
-}
-
 export function buildAiContextDocument(params: BuildAiContextDocumentParams): AiContextDocument {
   const { profile, rows, includeSensitive } = params
   const creditCardRateContext =
     params.creditCardRateContext ??
     (params.bankingPreset ? creditCardRateContextFromPreset(params.bankingPreset) : undefined)
+  const cashAdvanceTaxRateMonthly = params.bankingPreset
+    ? creditCardTaxRateFromPreset(params.bankingPreset)
+    : undefined
   const fmt = createAiContextFormatters(profile.localeSettings)
   const currency = profile.localeSettings.currency
   const asOf = new Date().toISOString()
@@ -320,17 +167,64 @@ export function buildAiContextDocument(params: BuildAiContextDocumentParams): Ai
   const banks = groupByType<Bank>(included, 'bank')
   const accounts = groupByType<Account>(included, 'account')
   const registers = groupByType<CashRegister>(included, 'cashRegister')
-  const loans = groupByType<Loan>(included, 'loan')
-  const loanPayments = groupByType<LoanPayment>(included, 'loanPayment')
-  const creditCards = groupByType<CreditCard>(included, 'creditCard')
-  const creditCardTxns = groupByType<CreditCardTransaction>(included, 'creditCardTransaction')
-  const cashAdvanceAccounts = groupByType<CashAdvanceAccount>(included, 'cashAdvanceAccount')
-  const cashAdvanceTxns = groupByType<CashAdvanceTransaction>(included, 'cashAdvanceTransaction')
-  const installmentAdvances = groupByType<InstallmentCashAdvance>(included, 'installmentCashAdvance')
-  const installmentPayments = groupByType<InstallmentCashAdvancePayment>(
+  let loans = groupByType<Loan>(included, 'loan')
+  let loanPayments = groupByType<LoanPayment>(included, 'loanPayment')
+  let creditCards = groupByType<CreditCard>(included, 'creditCard')
+  let creditCardTxns = groupByType<CreditCardTransaction>(included, 'creditCardTransaction')
+  let cashAdvanceAccounts = groupByType<CashAdvanceAccount>(included, 'cashAdvanceAccount')
+  let cashAdvanceTxns = groupByType<CashAdvanceTransaction>(included, 'cashAdvanceTransaction')
+  let installmentAdvances = groupByType<InstallmentCashAdvance>(included, 'installmentCashAdvance')
+  let installmentPayments = groupByType<InstallmentCashAdvancePayment>(
     included,
     'installmentCashAdvancePayment',
   )
+
+  const settled = computeSettledDebtIndex(
+    {
+      loans,
+      loanPayments,
+      installmentAdvances,
+      installmentAdvancePayments: installmentPayments,
+      creditCards,
+      creditCardTransactions: creditCardTxns,
+      cashAdvanceAccounts,
+      cashAdvanceTransactions: cashAdvanceTxns,
+    },
+    {
+      asOf,
+      creditCardRateContext,
+      cashAdvanceTaxRateMonthly,
+    },
+  )
+  const settledDebtCount =
+    settled.loanIds.size +
+    settled.installmentAdvanceIds.size +
+    settled.creditCardIds.size +
+    settled.cashAdvanceAccountIds.size
+
+  ;({
+    loans,
+    loanPayments,
+    installmentAdvances,
+    installmentAdvancePayments: installmentPayments,
+    creditCards,
+    creditCardTransactions: creditCardTxns,
+    cashAdvanceAccounts,
+    cashAdvanceTransactions: cashAdvanceTxns,
+  } = filterSettledDebtInput(
+    {
+      loans,
+      loanPayments,
+      installmentAdvances,
+      installmentAdvancePayments: installmentPayments,
+      creditCards,
+      creditCardTransactions: creditCardTxns,
+      cashAdvanceAccounts,
+      cashAdvanceTransactions: cashAdvanceTxns,
+    },
+    settled,
+  ))
+
   const incomes = groupByType<Income>(included, 'income')
   const incomeTypes = groupByType<IncomeType>(included, 'incomeType')
   const expenses = groupByType<Expense>(included, 'expense')
@@ -365,6 +259,7 @@ export function buildAiContextDocument(params: BuildAiContextDocumentParams): Ai
     installmentAdvancePayments: installmentPayments,
     localCurrency: currency,
     asOf,
+    cashAdvanceTaxRateMonthly,
   })
   const worth = netWorth(assets.total, debts.total)
 
@@ -383,41 +278,21 @@ export function buildAiContextDocument(params: BuildAiContextDocumentParams): Ai
     else if (s === 'due') dueExpenses++
   }
 
-  const loanSchedules: LoanScheduleExport[] = loans.map((loan) => {
-    const schedule = buildScheduleForLoan(loan)
-    const ownPayments = loanPayments.filter((p) => p.loanId === loan.id)
-    const paidIdx = paidThroughIndex(ownPayments)
-    const bank = loan.bankId ? bankMap.get(loan.bankId) : undefined
-    const payoff = payoffForLoan(loan, schedule, paidIdx, asOf, ownPayments)
-    const rates = loanRateInput(loan)
-    return {
-      loanId: loan.id,
-      label: loan.name,
-      bankName: bank?.name,
-      currency: loan.currency,
-      earlyPayoff: moneyField(payoff, loan.currency, fmt),
-      ...buildScheduleExportFields(schedule, paidIdx, ownPayments, loan.currency, fmt, asOf, rates),
-    }
+  const loanSchedules: LoanScheduleExport[] = buildLoanSchedules({
+    loans,
+    loanPayments,
+    bankMap,
+    fmt,
+    asOf,
   })
 
-  const advanceSchedules: InstallmentAdvanceScheduleExport[] = installmentAdvances.map(
-    (adv) => {
-      const schedule = buildScheduleForInstallmentAdvance(adv)
-      const ownPayments = installmentPayments.filter((p) => p.installmentAdvanceId === adv.id)
-      const paidIdx = advancePaidThroughIndex(ownPayments)
-      const bank = adv.bankId ? bankMap.get(adv.bankId) : undefined
-      const payoff = payoffForInstallmentAdvance(adv, schedule, paidIdx, asOf, ownPayments)
-      const rates = advanceRateInput(adv)
-      return {
-        advanceId: adv.id,
-        label: adv.name,
-        bankName: bank?.name,
-        currency: adv.currency,
-        earlyPayoff: moneyField(payoff, adv.currency, fmt),
-        ...buildScheduleExportFields(schedule, paidIdx, ownPayments, adv.currency, fmt, asOf, rates),
-      }
-    },
-  )
+  const advanceSchedules: InstallmentAdvanceScheduleExport[] = buildInstallmentAdvanceSchedules({
+    installmentAdvances,
+    installmentPayments,
+    bankMap,
+    fmt,
+    asOf,
+  })
 
   const creditCardPeriodSchedules = buildCreditCardPeriodSchedules({
     creditCards,
@@ -428,13 +303,14 @@ export function buildAiContextDocument(params: BuildAiContextDocumentParams): Ai
     creditCardRateContext,
   })
 
-  const creditCardInstallmentSchedules = buildCreditCardInstallmentSchedules(
-    creditCards,
-    creditCardTxns,
+  const cashAdvancePeriodSchedules = buildCashAdvancePeriodSchedules({
+    accounts: cashAdvanceAccounts,
+    txns: cashAdvanceTxns,
     bankMap,
     fmt,
     asOf,
-  )
+    taxRateMonthly: cashAdvanceTaxRateMonthly,
+  })
 
   const totalOverdueInstallments =
     loanSchedules.reduce((n, s) => n + s.overdueInstallmentCount, 0) +
@@ -546,6 +422,8 @@ export function buildAiContextDocument(params: BuildAiContextDocumentParams): Ai
           label: bank ? `${card.name} · ${bank.name}` : card.name,
           bankName: bank?.name,
           limit: moneyField(card.limit, card.currency, fmt),
+          openingBalance: moneyField(card.openingBalance ?? 0, card.currency, fmt),
+          openingDate: dateField(creditCardOpeningDate(card), fmt),
           balance: moneyField(totalCommitted, card.currency, fmt),
           accruedBalance: moneyField(committed.ending, card.currency, fmt),
           futureInstallments: moneyField(committed.future, card.currency, fmt),
@@ -569,17 +447,33 @@ export function buildAiContextDocument(params: BuildAiContextDocumentParams): Ai
             amount: t.amount,
             type: t.type,
           })),
-          apr: { value: acc.interestRate, period: acc.interestPeriod },
+          rates: revolvingRatesFromAccount(acc, cashAdvanceTaxRateMonthly),
           asOf,
         })
+        const periodSched = cashAdvancePeriodSchedules.find((s) => s.accountId === acc.id)
+        const latestPeriod = periodSched?.periods[periodSched.periods.length - 1]
+        const available = D(acc.limit).minus(D(ledger.principal))
+        const availableCredit = available.lt(0) ? D(0) : available
         return {
           id: acc.id,
           name: acc.name,
           label: bank ? `${acc.name} · ${bank.name}` : acc.name,
           bankName: bank?.name,
           limit: moneyField(acc.limit, acc.currency, fmt),
+          principal: moneyField(ledger.principal, acc.currency, fmt),
           totalDebt: moneyField(ledger.total, acc.currency, fmt),
           accruedInterest: moneyField(ledger.accruedInterest, acc.currency, fmt),
+          contractualInterest: moneyField(ledger.contractualInterest, acc.currency, fmt),
+          lateInterest: moneyField(ledger.lateInterest, acc.currency, fmt),
+          minPayment: moneyField(ledger.minPayment, acc.currency, fmt),
+          minPaymentRate: ledger.minPaymentRate,
+          availableCredit: moneyField(availableCredit.toString(), acc.currency, fmt),
+          currentPeriodEndingBalance:
+            latestPeriod?.endingBalance ??
+            moneyField(0, acc.currency, fmt),
+          interestRate: acc.interestRate,
+          interestPeriod: acc.interestPeriod,
+          taxRateMonthly: acc.taxRateMonthly,
         }
       }),
       installmentAdvances: installmentAdvances.map((adv) => {
@@ -596,35 +490,21 @@ export function buildAiContextDocument(params: BuildAiContextDocumentParams): Ai
           earlyPayoff: sched?.earlyPayoff,
         }
       }),
-      creditCardTransactions: creditCardTxns.map((t) => {
-        const card = creditCards.find((c) => c.id === t.cardId)
-        const bank = card?.bankId ? bankMap.get(card.bankId) : undefined
-        const cur = card?.currency ?? currency
-        const row: Record<string, unknown> = {
+      creditCardTransactions: [],
+      cashAdvanceTransactions: cashAdvanceTxns.map((t) => {
+        const acc = cashAdvanceAccounts.find((a) => a.id === t.accountId)
+        const bank = acc?.bankId ? bankMap.get(acc.bankId) : undefined
+        const cur = acc?.currency ?? currency
+        return {
           id: t.id,
-          cardId: t.cardId,
-          cardName: card?.name,
+          accountId: t.accountId,
+          accountName: acc?.name,
           bankName: bank?.name,
           date: dateField(t.date, fmt),
           type: t.type,
           amount: moneyField(t.amount, cur, fmt),
           description: t.description,
         }
-        if (t.installmentCount != null && t.installmentCount > 1) {
-          row.installmentCount = t.installmentCount
-          if (card) {
-            row.repaymentTotal = moneyField(
-              resolveCreditCardRepaymentTotal(t, card),
-              cur,
-              fmt,
-            )
-          } else if (t.repaymentTotal != null) {
-            row.repaymentTotal = moneyField(t.repaymentTotal, cur, fmt)
-          }
-        } else if (t.repaymentTotal != null) {
-          row.repaymentTotal = moneyField(t.repaymentTotal, cur, fmt)
-        }
-        return row
       }),
       incomes: incomes.map((inc) => {
         const type = inc.incomeTypeId ? incomeTypeMap.get(inc.incomeTypeId) : undefined
@@ -698,15 +578,17 @@ export function buildAiContextDocument(params: BuildAiContextDocumentParams): Ai
     schedules: {
       loans: loanSchedules,
       installmentAdvances: advanceSchedules,
-      creditCards: creditCardInstallmentSchedules,
+      creditCards: [],
       creditCardPeriods: creditCardPeriodSchedules,
+      cashAdvancePeriods: cashAdvancePeriodSchedules,
     },
     omitted: {
       archivedRecordCount: archivedCount,
       sensitiveRecordCount: sensitiveCount,
+      settledDebtCount,
       excludedTypes: [...EXCLUDED_TYPES],
       note:
-        'Arşivlenmiş kayıtlar varsayılan olarak dahil edilmez. Hassas işaretli kayıtlar yalnızca kullanıcı onayıyla eklenir. AI ayarları ve sohbet geçmişi hiçbir zaman dahil edilmez.',
+        'Arşivlenmiş kayıtlar varsayılan olarak dahil edilmez. Kalan borcu sıfır olan borçlar (kredi, taksitli avans, sıfır bakiyeli kart/nakit avans) dahil edilmez. Hassas işaretli kayıtlar yalnızca kullanıcı onayıyla eklenir. AI ayarları ve sohbet geçmişi hiçbir zaman dahil edilmez.',
     },
   }
 }

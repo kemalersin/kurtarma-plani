@@ -28,8 +28,12 @@ import type {
 import type { ScheduleRow } from '@/finance/loan'
 import { computeLateFee, lateDays } from '@/finance/loan'
 import { D } from '@/finance/decimal'
-import { isInstallmentUpcoming, canMarkInstallmentAsPaid } from './installmentDisplay'
-import { advancePaidThroughIndex } from './installmentAdvanceHelpers'
+import { isInstallmentUpcoming, canMarkInstallmentAsPaid, displayInstallmentDueAmount } from './installmentDisplay'
+import {
+  advancePaidThroughIndex,
+  indexAdvancePayments,
+  installmentAdvanceLateFeeRates,
+} from './installmentAdvanceHelpers'
 import {
   buildInstallmentPaymentStats,
   installmentAmountHint,
@@ -112,6 +116,20 @@ const advanceOwnPayments = computed(() => {
 
 const paidThrough = computed(() => advancePaidThroughIndex(advanceOwnPayments.value))
 
+const paymentMap = computed(() => indexAdvancePayments(advanceOwnPayments.value))
+
+function paymentDueAmount(asOf?: Dayjs): string {
+  if (!props.advance || !props.row) return '0'
+  const asOfIso = (asOf ?? draft.paidDate ?? dayjs()).toISOString()
+  return displayInstallmentDueAmount(
+    props.row.installment,
+    props.row.dueDate,
+    asOfIso,
+    installmentAdvanceLateFeeRates(props.advance),
+    paymentMap.value.get(props.row.index),
+  )
+}
+
 const canMarkAsPaid = computed(() =>
   props.row ? canMarkInstallmentAsPaid(props.row.index, paidThrough.value) : false,
 )
@@ -137,6 +155,7 @@ const lateFee = computed<string>(() => {
 
 const totalDue = computed<string>(() => {
   if (!props.row) return '0'
+  if (markAsPaid.value) return paymentDueAmount()
   return D(props.row.installment).plus(lateFee.value).toDecimalPlaces(2).toString()
 })
 
@@ -209,7 +228,11 @@ watch(
           ? !isInstallmentUpcoming(props.row.dueDate)
           : false
       draft.paidDate = markAsPaid.value ? dayjs() : undefined
-      draft.paidAmount = Number(props.row?.installment ?? 0)
+      draft.paidAmount = hasLaterPayments.value
+        ? Number(props.row?.installment ?? 0)
+        : Number(
+            markAsPaid.value ? paymentDueAmount(dayjs()) : props.row?.installment ?? 0,
+          )
       draft.sourceAccountId = undefined
       draft.sourceCashRegisterId = undefined
       draft.notes = ''
@@ -353,7 +376,7 @@ function close(): void {
     @update:open="emit('update:open', $event)"
   >
     <Space direction="vertical" :size="16" style="width: 100%">
-      <KpStatRow :min-column-width="100" :items="statItems" />
+      <KpStatRow :columns="2" :items="statItems" />
 
       <Form layout="vertical" :colon="false" @submit.prevent="submit">
         <FormItem v-if="showPaidToggle" label="Ödendi olarak işaretle">

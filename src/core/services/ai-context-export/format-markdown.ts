@@ -1,7 +1,7 @@
 import { AI_CONTEXT_INSTRUCTIONS_MARKDOWN } from '@/core/services/ai-context-export/labels-tr'
 import type {
   AiContextDocument,
-  CreditCardInstallmentScheduleExport,
+  CashAdvancePeriodScheduleExport,
   CreditCardPeriodScheduleExport,
   InstallmentAdvanceScheduleExport,
   LoanScheduleExport,
@@ -55,20 +55,17 @@ function creditCardPeriodTable(sched: CreditCardPeriodScheduleExport): string {
   return lines.join('\n')
 }
 
-function creditCardInstallmentTable(sched: CreditCardInstallmentScheduleExport): string {
-  const pending = sched.installments.filter((row) => row.status !== 'accrued')
+function cashAdvancePeriodTable(sched: CashAdvancePeriodScheduleExport): string {
+  const pending = sched.periods.filter((row) => row.status !== 'paid')
   const lines: string[] = [
-    `### Kart taksit planı: ${sched.label}`,
+    `### Nakit avans ay sonu vadeleri: ${sched.label}`,
     '',
-    `- İşlem tutarı: ${mdMoney(sched.transactionAmount)} · Geri ödenecek: ${mdMoney(sched.repaymentTotal)} · ${sched.installmentCount} taksit`,
-    `- Tahakkuk eden taksit: ${sched.accruedThroughIndex}/${sched.installmentCount}`,
-    '',
-    '| # | Tahakkuk | Tutar | Durum |',
-    '|---:|---|---:|---|',
+    '| Ay | Vade | Akdi faiz | Gecikme | Dönem sonu | Asgari | Ödenen | Durum |',
+    '|---|---|---:|---:|---:|---:|---:|---|',
   ]
   for (const row of pending) {
     lines.push(
-      `| ${row.index} | ${row.accrualDate.formatted} | ${row.amount.formatted} | ${row.status} |`,
+      `| ${row.periodLabel} | ${row.dueDate.formatted} | ${row.contractualInterest.formatted} | ${row.lateInterest.formatted} | ${row.endingBalance.formatted} | ${row.minPayment.formatted} | ${row.paidInPeriod.formatted} | ${row.status} |`,
     )
   }
   lines.push('')
@@ -113,6 +110,7 @@ export function formatAiContextMarkdown(doc: AiContextDocument): string {
     '',
     `- Arşivlenmiş kayıt: ${omitted.archivedRecordCount}`,
     `- Hassas kayıt (bu dışa aktarımda): ${omitted.sensitiveRecordCount}`,
+    `- Kapanmış borç (kalan sıfır): ${omitted.settledDebtCount}`,
     `- ${omitted.note}`,
     '',
     '## Referanslar',
@@ -168,31 +166,42 @@ export function formatAiContextMarkdown(doc: AiContextDocument): string {
     lines.push('')
   }
 
-  if (sections.creditCardTransactions.length) {
+  for (const sched of schedules.creditCardPeriods) {
+    lines.push(creditCardPeriodTable(sched))
+  }
+
+  if (sections.cashAdvanceAccounts.length) {
     lines.push(
-      '## Kart hareketleri',
+      '## Nakit avans (kredili mevduat)',
       '',
-      '| Kart | Tarih | Tür | Tutar | Taksit | Geri ödenecek | Açıklama |',
-      '|---|---|---|---:|---:|---:|---|',
+      '| Hesap | Toplam borç | Anapara | Faiz | Asgari | Güncel dönem | Kullanılabilir | Limit |',
+      '|---|---:|---:|---:|---:|---:|---:|---:|',
     )
-    for (const t of sections.creditCardTransactions) {
-      const inst =
-        typeof t.installmentCount === 'number' && t.installmentCount > 1
-          ? String(t.installmentCount)
-          : '—'
+    for (const a of sections.cashAdvanceAccounts) {
       lines.push(
-        `| ${t.cardName ?? t.cardId} | ${(t.date as { formatted: string })?.formatted ?? '—'} | ${t.type} | ${mdMoney(t.amount as MoneyField)} | ${inst} | ${mdMoney(t.repaymentTotal as MoneyField | undefined)} | ${t.description ?? '—'} |`,
+        `| ${a.label} | ${mdMoney(a.totalDebt as MoneyField)} | ${mdMoney(a.principal as MoneyField)} | ${mdMoney(a.accruedInterest as MoneyField)} | ${mdMoney(a.minPayment as MoneyField)} | ${mdMoney(a.currentPeriodEndingBalance as MoneyField)} | ${mdMoney(a.availableCredit as MoneyField)} | ${mdMoney(a.limit as MoneyField)} |`,
       )
     }
     lines.push('')
   }
 
-  for (const sched of schedules.creditCards) {
-    lines.push(creditCardInstallmentTable(sched))
+  if (sections.cashAdvanceTransactions.length) {
+    lines.push(
+      '## Nakit avans hareketleri',
+      '',
+      '| Hesap | Tarih | Tür | Tutar | Açıklama |',
+      '|---|---|---|---:|---|',
+    )
+    for (const t of sections.cashAdvanceTransactions) {
+      lines.push(
+        `| ${t.accountName ?? t.accountId} | ${(t.date as { formatted: string })?.formatted ?? '—'} | ${t.type} | ${mdMoney(t.amount as MoneyField)} | ${t.description ?? '—'} |`,
+      )
+    }
+    lines.push('')
   }
 
-  for (const sched of schedules.creditCardPeriods) {
-    lines.push(creditCardPeriodTable(sched))
+  for (const sched of schedules.cashAdvancePeriods) {
+    lines.push(cashAdvancePeriodTable(sched))
   }
 
   if (sections.installmentAdvances.length) {

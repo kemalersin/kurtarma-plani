@@ -18,6 +18,7 @@ import type {
   LoanPayment,
 } from '@/core/types/entities'
 import { runRevolvingLedger } from '@/finance/cash-advance'
+import { revolvingRatesFromAccount } from '@/features/debts/cashAdvanceHelpers'
 import { cardCommittedTotal, type CardProjectionRateContext } from '@/features/debts/cardHelpers'
 import {
   accountBalance,
@@ -104,6 +105,8 @@ interface DebtSnapshotInput {
   localCurrency: string
   asOf?: string
   creditCardRateContext?: CardProjectionRateContext
+  /** Preset KKDF+BSMV; hesapta tanımlı değilse nakit avans motorunda kullanılır */
+  cashAdvanceTaxRateMonthly?: number
 }
 
 export type { DebtSnapshotInput }
@@ -155,6 +158,7 @@ function cashAdvanceDebtTotal(
   acc: CashAdvanceAccount,
   cashAdvanceTransactions: CashAdvanceTransaction[],
   asOf: string,
+  taxRateMonthly?: number,
 ): string {
   const txns = cashAdvanceTransactions.filter((t) => t.accountId === acc.id)
   const ledger = runRevolvingLedger({
@@ -165,7 +169,7 @@ function cashAdvanceDebtTotal(
       amount: t.amount,
       type: t.type,
     })),
-    apr: { value: acc.interestRate, period: acc.interestPeriod },
+    rates: revolvingRatesFromAccount(acc, taxRateMonthly),
     asOf,
   })
   return ledger.total
@@ -224,7 +228,7 @@ export function debtTotalsByBankId(input: DebtSnapshotInput): Map<string, string
   for (const acc of input.cashAdvanceAccounts) {
     if (acc.archived) continue
     if (acc.currency !== input.localCurrency) continue
-    add(acc.bankId, cashAdvanceDebtTotal(acc, input.cashAdvanceTransactions, asOf))
+    add(acc.bankId, cashAdvanceDebtTotal(acc, input.cashAdvanceTransactions, asOf, input.cashAdvanceTaxRateMonthly))
   }
 
   for (const adv of input.installmentAdvances) {
@@ -272,7 +276,12 @@ export function debtSnapshot(input: DebtSnapshotInput): DebtSnapshot {
     if (acc.archived) continue
     if (acc.currency !== input.localCurrency) continue
     caTotal = caTotal.plus(
-      cashAdvanceDebtTotal(acc, input.cashAdvanceTransactions, asOf),
+      cashAdvanceDebtTotal(
+        acc,
+        input.cashAdvanceTransactions,
+        asOf,
+        input.cashAdvanceTaxRateMonthly,
+      ),
     )
   }
 

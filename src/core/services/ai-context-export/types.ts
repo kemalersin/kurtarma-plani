@@ -88,6 +88,27 @@ export interface CreditCardPeriodScheduleExport {
   periods: CreditCardPeriodRowExport[]
 }
 
+export interface CashAdvancePeriodRowExport {
+  periodLabel: string
+  dueDate: DateField
+  endingBalance: MoneyField
+  minPayment: MoneyField
+  contractualInterest: MoneyField
+  lateInterest: MoneyField
+  paidInPeriod: MoneyField
+  paidInFull: boolean
+  minPaymentMet: boolean
+  status: 'paid' | 'overdue' | 'upcoming'
+}
+
+export interface CashAdvancePeriodScheduleExport {
+  accountId: string
+  label: string
+  bankName?: string
+  currency: string
+  periods: CashAdvancePeriodRowExport[]
+}
+
 export interface CreditCardInstallmentRowExport {
   index: number
   accrualDate: DateField
@@ -170,6 +191,7 @@ export interface AiContextDocument {
     cashAdvanceAccounts: Array<Record<string, unknown>>
     installmentAdvances: Array<Record<string, unknown>>
     creditCardTransactions: Array<Record<string, unknown>>
+    cashAdvanceTransactions: Array<Record<string, unknown>>
     incomes: Array<Record<string, unknown>>
     expenses: Array<Record<string, unknown>>
     transfers: Array<Record<string, unknown>>
@@ -181,10 +203,13 @@ export interface AiContextDocument {
     creditCards: CreditCardInstallmentScheduleExport[]
     /** Hesap kesim dönemleri — taşınan borç, gecikme faizi, toplam/asgari vade */
     creditCardPeriods: CreditCardPeriodScheduleExport[]
+    /** Revolving nakit avans ay sonu vadeleri — asgari, faiz, dönem sonu bakiye */
+    cashAdvancePeriods: CashAdvancePeriodScheduleExport[]
   }
   omitted: {
     archivedRecordCount: number
     sensitiveRecordCount: number
+    settledDebtCount: number
     excludedTypes: string[]
     note: string
   }

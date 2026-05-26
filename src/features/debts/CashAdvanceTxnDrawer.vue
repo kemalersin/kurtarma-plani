@@ -18,7 +18,10 @@ import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
 import PaymentSourcePicker from '@/components/PaymentSourcePicker.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useProfileStore } from '@/stores/profile'
+import { useCreditCardRateContext } from '@/composables/useCreditCardRateContext'
+import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import { disableFutureDates } from '@/core/util/datepicker'
+import { cashAdvanceDrawCapacity } from '@/features/debts/cashAdvanceHelpers'
 import type {
   CashAdvanceAccount,
   CashAdvanceTransaction,
@@ -38,6 +41,10 @@ const emit = defineEmits<{
 
 const entities = useEntitiesStore()
 const profileStore = useProfileStore()
+const { taxRateMonthly } = useCreditCardRateContext()
+const { formatCurrency } = useLocaleFormatters()
+
+const cashAdvanceTxns = entities.list<CashAdvanceTransaction>('cashAdvanceTransaction')
 
 const profileCurrency = computed(
   () => profileStore.activeProfile?.localeSettings.currency ?? 'TRY',
@@ -83,6 +90,24 @@ const draft = reactive<Form>({
 })
 const saving = ref(false)
 
+const drawCapacity = computed(() => {
+  if (!props.account || draft.type !== 'draw') return undefined
+  return cashAdvanceDrawCapacity(
+    props.account,
+    cashAdvanceTxns.value,
+    draft.date.toISOString(),
+    {
+      taxRateMonthly: taxRateMonthly.value,
+      excludeTransactionId: props.txn?.id,
+    },
+  )
+})
+
+const drawCapacityHint = computed(() => {
+  if (draft.type !== 'draw' || drawCapacity.value == null || !props.account) return ''
+  return `Kullanılabilir limit: ${formatCurrency(drawCapacity.value, props.account.currency)}`
+})
+
 watch(
   () => [props.open, props.txn?.id] as const,
   ([open]) => {
@@ -116,6 +141,15 @@ async function submit(): Promise<void> {
   if (draft.amount <= 0) {
     message.error('Tutar sıfırdan büyük olmalı.')
     return
+  }
+  if (draft.type === 'draw' && props.account) {
+    const cap = drawCapacity.value ?? 0
+    if (draft.amount > cap) {
+      message.error(
+        `Kullanım tutarı kullanılabilir limiti (${formatCurrency(cap, props.account.currency)}) aşamaz.`,
+      )
+      return
+    }
   }
   saving.value = true
   try {
@@ -185,8 +219,13 @@ function close(): void {
       <FormItem label="Tür" required>
         <KpSelect v-model:value="draft.type" :options="typeOptions" />
       </FormItem>
-      <FormItem label="Tutar" required>
-        <LocaleInputNumber v-model:value="draft.amount" kind="currency" :min="0" />
+      <FormItem label="Tutar" required :extra="drawCapacityHint || undefined">
+        <LocaleInputNumber
+          v-model:value="draft.amount"
+          kind="currency"
+          :min="0"
+          :max="draft.type === 'draw' ? drawCapacity : undefined"
+        />
       </FormItem>
 
       <PaymentSourcePicker

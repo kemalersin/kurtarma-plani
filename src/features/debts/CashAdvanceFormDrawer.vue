@@ -26,7 +26,9 @@ import BankFormDrawer from '@/features/admin/BankFormDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useProfileStore } from '@/stores/profile'
 import { useBankingPresetStore } from '@/stores/banking-preset'
+import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { Bank, CashAdvanceAccount, RatePeriodEnum } from '@/core/types/entities'
+import { creditCardTaxRateFromPreset } from '@/core/util/banking-preset-credit-card'
 
 interface Props {
   open: boolean
@@ -41,6 +43,7 @@ const emit = defineEmits<{
 const entities = useEntitiesStore()
 const profileStore = useProfileStore()
 const presetStore = useBankingPresetStore()
+const { formatPercentFromFraction } = useLocaleFormatters()
 
 const banks = entities.list<Bank>('bank')
 
@@ -59,12 +62,14 @@ interface Form {
   interestPeriod: RatePeriodEnum
   lateInterestRate: number | undefined
   lateInterestPeriod: RatePeriodEnum
+  taxRateMonthly: number | undefined
   notes: string
   archived: boolean
   sensitive: boolean
 }
 
 function emptyForm(): Form {
+  const tax = creditCardTaxRateFromPreset(presetStore.active.preset)
   return {
     name: '',
     bankId: undefined,
@@ -75,6 +80,7 @@ function emptyForm(): Form {
     interestPeriod: 'monthly',
     lateInterestRate: undefined,
     lateInterestPeriod: 'monthly',
+    taxRateMonthly: tax > 0 ? tax * 100 : undefined,
     notes: '',
     archived: false,
     ...emptySensitiveFields(),
@@ -107,6 +113,8 @@ watch(
             ? props.account.lateInterestRate * 100
             : undefined,
         lateInterestPeriod: props.account.lateInterestPeriod ?? 'monthly',
+        taxRateMonthly:
+          props.account.taxRateMonthly != null ? props.account.taxRateMonthly * 100 : undefined,
         notes: props.account.notes ?? '',
         archived: !!props.account.archived,
         sensitive: readSensitiveDraft('cashAdvanceAccount', props.account.id),
@@ -125,7 +133,7 @@ function fillRefRate(): void {
     draft.interestRate = ceil * 100
     draft.interestPeriod = 'monthly'
     message.success(
-      `Aylık akdi faiz referanstan dolduruldu (${(ceil * 100).toFixed(2)}%).`,
+      `Aylık akdi faiz referanstan dolduruldu (${formatPercentFromFraction(ceil)}).`,
     )
   } else {
     message.info('Referansta nakit avans tavanı tanımlı değil.')
@@ -138,10 +146,22 @@ function fillRefLate(): void {
     draft.lateInterestRate = ceil * 100
     draft.lateInterestPeriod = 'monthly'
     message.success(
-      `Aylık gecikme faizi referanstan dolduruldu (${(ceil * 100).toFixed(2)}%).`,
+      `Aylık gecikme faizi referanstan dolduruldu (${formatPercentFromFraction(ceil)}).`,
     )
   } else {
     message.info('Referansta gecikme tavanı tanımlı değil.')
+  }
+}
+
+function fillRefTax(): void {
+  const tax = creditCardTaxRateFromPreset(presetStore.active.preset)
+  if (tax > 0) {
+    draft.taxRateMonthly = tax * 100
+    message.success(
+      `Faiz vergisi referanstan dolduruldu (${formatPercentFromFraction(tax)}).`,
+    )
+  } else {
+    message.info('Referansta KKDF/BSMV tanımlı değil.')
   }
 }
 
@@ -183,6 +203,10 @@ async function submit(): Promise<void> {
           : undefined,
       lateInterestPeriod:
         draft.lateInterestRate !== undefined ? draft.lateInterestPeriod : undefined,
+      taxRateMonthly:
+        draft.taxRateMonthly !== undefined
+          ? Number(draft.taxRateMonthly) / 100
+          : undefined,
       notes: draft.notes.trim() || undefined,
       archived: draft.archived || undefined,
     }, sensitiveSaveOptions(draft))
@@ -261,6 +285,23 @@ function close(): void {
           />
           <KpSelect v-model:value="draft.lateInterestPeriod" :options="PERIOD_OPTIONS" style="width: 110px" />
           <Button @click="fillRefLate">Referansla doldur</Button>
+        </Space.Compact>
+      </FormItem>
+      <FormItem>
+        <template #label>
+          <KpFormLabel hint="KKDF + BSMV toplamı; faiz hesabına eklenir (örn. %25).">
+            Faiz vergisi (%)
+          </KpFormLabel>
+        </template>
+        <Space.Compact style="width: 100%">
+          <LocaleInputNumber
+            v-model:value="draft.taxRateMonthly"
+            kind="percent"
+            :min="0"
+            placeholder="Boş bırakılabilir"
+            style="flex: 1; min-width: 0"
+          />
+          <Button @click="fillRefTax">Referansla doldur</Button>
         </Space.Compact>
       </FormItem>
       <FormItem label="Notlar">

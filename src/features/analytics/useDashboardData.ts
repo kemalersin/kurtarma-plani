@@ -29,6 +29,7 @@ import {
 import { computeDebtCoverage, sumByDateRange, cashflowStatus, type DebtCoverage } from '@/finance/cashflow'
 import { D } from '@/finance/decimal'
 import { collectDebtDueEntries } from '@/features/analytics/debtDueEntries'
+import { useCreditCardRateContext } from '@/composables/useCreditCardRateContext'
 import type {
   Account,
   CashAdvanceAccount,
@@ -87,6 +88,7 @@ export function useDashboardData(): {
 } {
   const entities = useEntitiesStore()
   const profileStore = useProfileStore()
+  const { taxRateMonthly } = useCreditCardRateContext()
   const { movements } = useAccountBalances()
 
   const accounts = entities.list<Account>('account')
@@ -172,9 +174,12 @@ export function useDashboardData(): {
       loanPayments: loanPayments.value,
       creditCards: creditCards.value,
       creditCardTransactions: creditCardTransactions.value,
+      cashAdvanceAccounts: cashAdvanceAccounts.value,
+      cashAdvanceTransactions: cashAdvanceTransactions.value,
       installmentAdvances: installmentAdvances.value,
       installmentAdvancePayments: installmentAdvancePayments.value,
       localCurrency: localCurrency.value,
+      cashAdvanceTaxRateMonthly: taxRateMonthly.value,
     })
   })
 
@@ -234,6 +239,7 @@ export function useDashboardData(): {
       installmentAdvances: installmentAdvances.value,
       installmentAdvancePayments: installmentAdvancePayments.value,
       localCurrency: localCurrency.value,
+      cashAdvanceTaxRateMonthly: taxRateMonthly.value,
     })
     const worth = netWorth(assets.total, debts.total)
     const cashflow = monthlyCashflowSeries(

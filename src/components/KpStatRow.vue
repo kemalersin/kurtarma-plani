@@ -36,7 +36,9 @@ export interface KpStat {
 
 interface Props {
   items: KpStat[]
-  /** Tek sütun minimum genişliği (px). Default 150. */
+  /** Sabit sütun sayısı (örn. 2 → 2×2 kart ızgarası). Verilmezse auto-fit. */
+  columns?: number
+  /** Tek sütun minimum genişliği (px). Default 150. `columns` yokken kullanılır. */
   minColumnWidth?: number
 }
 
@@ -47,7 +49,10 @@ const props = withDefaults(defineProps<Props>(), {
 const isMobileViewport = useMobileViewport()
 
 const gridStyle = computed(() => ({
-  gridTemplateColumns: `repeat(auto-fit, minmax(${props.minColumnWidth}px, 1fr))`,
+  gridTemplateColumns:
+    props.columns != null && props.columns > 0
+      ? `repeat(${props.columns}, minmax(0, 1fr))`
+      : `repeat(auto-fit, minmax(${props.minColumnWidth}px, 1fr))`,
 }))
 </script>
 

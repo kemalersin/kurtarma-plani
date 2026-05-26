@@ -23,6 +23,7 @@ import {
   advancePaidThroughIndex,
   buildScheduleForInstallmentAdvance,
   indexAdvancePayments,
+  installmentAdvanceLateFeeRates,
   payoffForInstallmentAdvance,
   remainingDebtForInstallmentAdvance,
 } from './installmentAdvanceHelpers'
@@ -31,7 +32,7 @@ import type { KpTableColumn } from '@/core/util/table-columns'
 import InstallmentAdvancePaymentDrawer from './InstallmentAdvancePaymentDrawer.vue'
 import SchedulePayoffDrawer from './SchedulePayoffDrawer.vue'
 import { payoffStatTooltip } from './payoffStatTooltip'
-import { displayInstallmentAmount } from './installmentDisplay'
+import { projectInstallmentRowDueAmount } from './installmentDisplay'
 
 interface Props {
   open: boolean
@@ -96,8 +97,17 @@ function formatMoney(value: string | number): string {
 }
 
 function installmentDisplay(row: ScheduleRow): string {
-  const payment = paymentMap.value.get(row.index)
-  return formatMoney(displayInstallmentAmount(row.installment, payment))
+  if (!props.advance || !schedule.value) return formatMoney(row.installment)
+  return formatMoney(
+    projectInstallmentRowDueAmount(
+      row,
+      schedule.value.rows,
+      paidIndex.value,
+      new Date().toISOString(),
+      installmentAdvanceLateFeeRates(props.advance),
+      paymentMap.value,
+    ),
+  )
 }
 
 const canEarlyPayoff = computed(() => {

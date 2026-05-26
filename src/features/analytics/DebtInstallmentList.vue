@@ -89,6 +89,8 @@ const listFilters: ListFilter<DebtInstallmentRow>[] = [
     options: [
       { value: 'loan', label: 'Kredi' },
       { value: 'installmentAdvance', label: 'Taksitli avans' },
+      { value: 'cashAdvance', label: 'Nakit avans asgari' },
+      { value: 'cashAdvanceStatement', label: 'Nakit avans toplam' },
       { value: 'creditCardMinPayment', label: 'Kart asgari ödeme' },
       { value: 'creditCardStatement', label: 'Kart toplam ödeme' },
     ],
@@ -147,7 +149,6 @@ function filterActiveFor(f: ListFilter<DebtInstallmentRow>): boolean {
 const activeFilterCount = computed(() => {
   let n = listFilters.filter(filterActiveFor).length
   if (props.filters.bankId.value) n++
-  if (props.filters.cardDueMode.value !== 'min') n++
   return n
 })
 
@@ -365,19 +366,6 @@ function clearFilters(): void {
                   class="kp-list-filter__control"
                   :allow-clear="false"
                   @update:value="(v: unknown) => onAnalyticsRangeChange(v as [Dayjs, Dayjs] | null)"
-                />
-              </div>
-
-              <div class="kp-list-filter__field">
-                <label class="kp-list-filter__label">Kart borcu</label>
-                <KpSelect
-                  :value="filters.cardDueMode.value"
-                  class="kp-list-filter__control"
-                  :options="[
-                    { value: 'min', label: 'Asgari ödeme' },
-                    { value: 'statement', label: 'Toplam ödeme' },
-                  ]"
-                  @update:value="(v: unknown) => filters.patch({ cardDue: v === 'statement' ? 'statement' : 'min' })"
                 />
               </div>
 

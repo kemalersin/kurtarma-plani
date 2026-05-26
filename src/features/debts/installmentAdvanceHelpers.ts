@@ -2,6 +2,7 @@ import type {
   InstallmentCashAdvance,
   InstallmentCashAdvancePayment,
 } from '@/core/types/entities'
+import type { InstallmentLateFeeRates } from './installmentDisplay'
 import { unpaidInstallmentOverrides } from './installmentDisplay'
 import { buildAnnuitySchedule, payoffAmount, outstandingLateFeesTotal, remainingDebtTotal, remainingPrincipalBalance, type LoanSchedule } from '@/finance/loan'
 import { D, roundMoney } from '@/finance/decimal'
@@ -58,6 +59,13 @@ function advanceRateInput(advance: InstallmentCashAdvance) {
         ? { value: advance.lateInterestRate, period: advance.lateInterestPeriod }
         : undefined,
   }
+}
+
+/** Gecikme faizi hesabı için sözleşme oranları. */
+export function installmentAdvanceLateFeeRates(
+  advance: InstallmentCashAdvance,
+): InstallmentLateFeeRates {
+  return advanceRateInput(advance)
 }
 
 /** Kalan borç = ödenmemiş taksitler + biriken gecikme faizi. */

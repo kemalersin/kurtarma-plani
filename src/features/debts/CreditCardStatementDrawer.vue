@@ -4,6 +4,7 @@ import {
   Button,
   Space,
   Empty,
+  Tag,
   message,
 } from 'ant-design-vue'
 import KpSelect from '@/components/KpSelect.vue'
@@ -21,12 +22,14 @@ import type {
 } from '@/core/types/entities'
 import {
   buildCardPeriods,
-  cardCommittedTotal,
+  defaultCardStatementPeriodCutoff,
   projectCardPeriodDebts,
   type CardPeriod,
   type PeriodTxn,
 } from './cardHelpers'
 import { useCreditCardRateContext } from '@/composables/useCreditCardRateContext'
+import { useMobileViewport } from '@/composables/useMatchMedia'
+import CreditCardTxnDrawer from '@/features/debts/CreditCardTxnDrawer.vue'
 
 interface Props {
   open: boolean
@@ -40,6 +43,7 @@ const emit = defineEmits<{
 const entities = useEntitiesStore()
 const { formatCurrency, formatDate } = useLocaleFormatters()
 const { rateContext } = useCreditCardRateContext()
+const isMobileViewport = useMobileViewport()
 
 const transactions = entities.list<CreditCardTransaction>('creditCardTransaction')
 
@@ -60,7 +64,10 @@ watch(
 
 const periods = computed<CardPeriod[]>(() => {
   if (!props.card) return []
-  return buildCardPeriods(props.card, transactions.value, { periods: 6 })
+  return buildCardPeriods(props.card, transactions.value, {
+    periods: 6,
+    extendForFutureInstallments: true,
+  })
 })
 
 const periodProjections = computed(() => {
@@ -87,7 +94,7 @@ watch(
     if (!open || !list.length) return
     const valid = list.some((p) => p.cutoffDate === selectedCutoff.value)
     if (!valid) {
-      selectedCutoff.value = list[list.length - 1]!.cutoffDate
+      selectedCutoff.value = defaultCardStatementPeriodCutoff(list)
     }
   },
   { immediate: true },
@@ -106,11 +113,6 @@ const activeProjection = computed(() => {
 const tableRows = computed<PeriodTxn[]>(
   () => activePeriod.value?.transactions ?? [],
 )
-
-const cardCommitted = computed(() => {
-  if (!props.card) return null
-  return cardCommittedTotal(props.card, transactions.value)
-})
 
 const periodOptions = computed(() =>
   periods.value.map((p) => ({ value: p.cutoffDate, label: p.label })),
@@ -221,6 +223,19 @@ async function onDeleteRow(row: PeriodTxn): Promise<void> {
   }
 }
 
+const activeDueDateLabel = computed(() => {
+  const p = activePeriod.value
+  return p ? formatDate(p.dueDate) : ''
+})
+
+/** Gecikme faizi varken masaüstünde son ödeme araç çubuğunda etiket; mobilde stat satırının sonunda. */
+const showDueDateAsTag = computed(
+  () =>
+    (activeProjection.value?.lateInterest ?? 0) > 0 &&
+    !!activeDueDateLabel.value &&
+    !isMobileViewport.value,
+)
+
 const periodStats = computed<KpStat[]>(() => {
   const proj = activeProjection.value
   const p = activePeriod.value
@@ -266,16 +281,11 @@ const periodStats = computed<KpStat[]>(() => {
       value: formatCurrency(proj.minPayment, ccy),
       tone: 'warning',
     },
-    {
+  )
+  if (!showDueDateAsTag.value) {
+    stats.push({
       label: 'Son ödeme tarihi',
       value: formatDate(p.dueDate),
-    },
-  )
-  if (cardCommitted.value && Number(cardCommitted.value.future) > 0) {
-    stats.push({
-      label: 'Toplam yükümlülük',
-      value: formatCurrency(cardCommitted.value.committed, ccy),
-      tone: 'danger',
     })
   }
   return stats
@@ -301,15 +311,20 @@ const periodStats = computed<KpStat[]>(() => {
         description="Bir dönem, kart hesap kesim tarihinden bir sonrakine kadar olan harcama ve ödemeleri kapsar. Vade sonrası asgari ödendiyse kalan bakiyeye akdi faiz; asgari altı ödemede ödenmeyen asgari kısma gecikme faizi yansır. Kademeli modda oranlar dönem borcuna göre belirlenir. Asgari oran: limit 25.000 TL altı %20, üstü %40."
       />
 
-      <Space :size="12" wrap>
-        <KpSelect
-          v-model:value="selectedCutoff"
-          style="min-width: 220px"
-          placeholder="Dönem seçin"
-          :options="periodOptions"
-        />
-        <Button type="primary" @click="openCreate">Yeni hareket</Button>
-      </Space>
+      <div class="kp-statement-toolbar">
+        <Space :size="12" wrap>
+          <KpSelect
+            v-model:value="selectedCutoff"
+            style="min-width: 220px"
+            placeholder="Dönem seçin"
+            :options="periodOptions"
+          />
+          <Button type="primary" @click="openCreate">Yeni hareket</Button>
+        </Space>
+        <Tag v-if="showDueDateAsTag" class="kp-statement-due-tag">
+          Son ödeme: {{ activeDueDateLabel }}
+        </Tag>
+      </div>
 
       <KpStatRow v-if="activePeriod" :items="periodStats" />
 
@@ -333,3 +348,18 @@ const periodStats = computed<KpStat[]>(() => {
     :txn="editing"
   />
 </template>
+
+<style scoped>
+.kp-statement-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kp-statement-due-tag {
+  margin-inline-end: 0;
+  font-variant-numeric: tabular-nums;
+}
+</style>

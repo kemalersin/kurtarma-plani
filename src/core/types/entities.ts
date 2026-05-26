@@ -133,6 +133,8 @@ export const CreditCardSchema = z.object({
   limit: z.number().positive(),
   /** Önceki dönemden devreden bakiye (kuruluşta) */
   openingBalance: z.number().default(0),
+  /** Devreden bakiyenin geçerli olduğu tarih; yoksa createdAt kullanılır */
+  openingDate: Iso.optional(),
   /** Hesap kesim günü 1–28 */
   statementCutoffDay: z.number().int().min(1).max(28),
   /** Son ödeme günü 1–28 */
@@ -212,6 +214,8 @@ export const CashAdvanceAccountSchema = z.object({
   /** Gecikme aylık faizi (opsiyonel) */
   lateInterestRate: z.number().min(0).optional(),
   lateInterestPeriod: z.enum(RatePeriods).optional(),
+  /** KKDF+BSMV toplamı (faiz vergisi) */
+  taxRateMonthly: z.number().min(0).optional(),
   notes: z.string().optional(),
   archived: z.boolean().optional(),
   createdAt: Iso,

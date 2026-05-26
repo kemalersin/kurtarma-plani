@@ -6,6 +6,65 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.29]
+
+### Added — kredi kartı açılış tarihi
+
+- Kredi kartına nakit avansla aynı **açılış tarihi** alanı eklendi; devreden bakiye ve hareketler bu tarihten itibaren hesaplanır (eski kayıtlarda `createdAt` kullanılır).
+- Dönem projeksiyonu, borç toplamı ve ödeme penceresi hesapları açılış tarihine göre devreden bakiyeyi uygular; açılış öncesi dönemlerde bakiye sıfırdır.
+
+### Changed — kredi kartı hesap özeti
+
+- Dönem özetinden **Toplam yükümlülük** stat kartı kaldırıldı (liste ekranında kalır).
+- Taksitli işlemlerde gelecek tahakkuk dönemleri ay seçim combobox'ında listelenir; varsayılan seçim güncel (açık) dönemde kalır.
+
+### Fixed — kart ödemesi çift sayım (borç analizi)
+
+- Kesim sonrası ödeme (ör. 15 Nisan kesim, 24 Nisan ödeme) artık yalnızca ilgili ekstre döneminin `paymentsInWindow` / **Ödenen** sütununa yazılır; sonraki dönem penceresinde tekrarlanmaz.
+- **Taşınan borç:** aynı ödeme bir sonraki dönemin hareket listesinde tekrar düşülüyordu; kısmi ödemeden sonra Mayıs vadesi ~7.400 TL yerine önceki dönem kalanı + faiz (~17.000 TL) olarak hesaplanır.
+
+### Changed — AI bağlam kart dönem vadeleri
+
+- **AI bağlam (`AI_CONTEXT_VERSION` → 11):** kart hareketleri (`sections.creditCardTransactions`, snapshot `creditCardTransaction` entity'leri) bağlamdan çıkarıldı; kart borcu `sections.creditCards` özeti ve `schedules.creditCardPeriods` / `derived.creditCardPeriods` ile yeterli.
+- **AI bağlam (`AI_CONTEXT_VERSION` → 10):** kart taksit planları (`schedules.creditCards`, `derived.creditCardInstallments`) kaldırıldı; taksit tahakkukları **Kart dönem vadeleri** (`schedules.creditCardPeriods`) içinde `periodAccruals` olarak dönem başına toplu — borç analizi taksit listesi ile aynı motor (`extendForFutureInstallments`, 18 dönem).
+- **AI bağlam (`AI_CONTEXT_VERSION` → 9):** `schedules.creditCardPeriods` yalnızca **güncel ay ve sonrası** ödenmemiş vade satırlarını içerir; kredi ve taksitli avans tablolarıyla aynı kırpma kuralı. Geçmiş ay vadeleri yok — kalan borç `sections.creditCards` özetinde kalır.
+- AI bağlam ve öneri prompt'unda `openingDate` desteklenir.
+
+### Added — borç analizi: revolving nakit avans
+
+- `debtInstallmentRows`: `CashAdvanceAccount` ay sonu **asgari ödemesi** borç grafiği ve taksit listesine yansır; `cashAdvanceAccountMonthlyDebts` motoru kullanılır.
+- Analiz veri yükleme: `cashAdvanceAccount` entity'si eklendi; liste filtresine **Nakit avans asgari** türü.
+- Nakit avans satırları yalnızca **içinde bulunulan aya kadar** üretilir; filtre aralığı geleceği kapsasa bile sonraki aylara tahmini taşıma yapılmaz.
+- **Kart / nakit avans** filtresi: asgari ve toplam ödeme modları nakit avans satırlarına da uygulanır (`cashAdvanceStatement` = ay sonu bakiye).
+- Borç taksit listesi tür filtresinden kullanılmayan **Kart taksiti** ve **Nakit avans** (orphan) seçenekleri kaldırıldı.
+
+### Fixed — nakit avans tutar tutarlılığı
+
+- **Güncel ay vadesi:** ay sonu gelmeden borç analizi grafiği/tablosu boş kalıyordu; `simulateRevolvingLedger` devam eden ay dönem satırını üretir.
+- **Preset vergi (KKDF+BSMV):** analiz dışında dashboard, borç snapshot'ı, nakit avans listesi ve hareket drawer'ı preset vergisini fallback olarak kullanır — asgari/toplam tutarlar analiz ile uyumlu.
+
+### Changed — borç analizi vade modu
+
+- Varsayılan mod **toplam ödeme**; filtre popover'daki combobox kaldırıldı, grafik kartında **Asgari ödeme** toggle'ı eklendi (URL `cardDue=min`).
+
+### Added — revolving nakit avans faiz modeli
+
+- **Finans motoru (`cash-advance.ts`):** KKDF+BSMV vergi katmanı; limit tier'ına göre asgari ödeme (`creditCardMinPaymentRate`); asgari altı ödemede gecikme faizi; ay bazlı `simulateRevolvingLedger` projeksiyonu.
+- **Entity / form:** `CashAdvanceAccount.taxRateMonthly`; faiz vergisi referans doldurma.
+- **UI:** liste ve hareket drawer'ında asgari ödeme; dashboard borç vadelerine nakit avans asgari dahil.
+- **AI bağlam:** nakit avans özetine `minPayment` alanı.
+- **AI bağlam (`AI_CONTEXT_VERSION` → 5):** `sections.cashAdvanceTransactions`; `schedules.cashAdvancePeriods` (ay sonu vadeleri — akdi/gecikme faizi, asgari, dönem sonu); hesap özetine anapara, faiz ayrımı, kullanılabilir limit; sohbet snapshot `derived.cashAdvancePeriods`; Markdown tabloları.
+- **AI bağlam (`AI_CONTEXT_VERSION` → 6):** geçmiş ödenmiş dönem/taksit satırları bağlamdan çıkarılır; taksitli kart işlemleri yalnızca `accruedThroughIndex` özeti + kalan taksitler; sohbet `derived.creditCardInstallments`; tamamen kapanmış taksitli işlem entity'leri snapshot'tan filtrelenir; Markdown export da aynı kırpmayı kullanır; nakit avans dönem tablosu yalnızca **güncel ay** vadesi.
+- **AI bağlam (`AI_CONTEXT_VERSION` → 7):** kredi ve taksitli avans amortisman tablolarında yalnızca **güncel ay ve sonrası** ödenmemiş taksit satırları; geçmiş ay vadeleri yok (kalan borç üst özette); sohbet `derived.loanSchedules` / `derived.installmentAdvanceSchedules`; geçmiş/ödenmiş taksit ödeme entity'leri snapshot'tan filtrelenir; taksit tutarları analiz/rapor ile aynı gecikme rollup modelini kullanır.
+- **AI bağlam (`AI_CONTEXT_VERSION` → 8):** kalan borcu sıfır olan borçlar (kredi, taksitli avans, sıfır bakiyeli kart/nakit avans) ve ilişkili ödeme/hareket kayıtları bağlamdan çıkarılır; export `omitted.settledDebtCount`.
+- **Düzeltme:** nakit avans ay sonu vadesinde akdi/gecikme faizi — ay içi tahakkuklar dönem satırında toplanır (devam eden ay dahil); birikmiş gecikme güncel ay satırına yansıtılır.
+- **Düzeltme:** nakit avans borcu kapanınca (bakiye sıfır) kapama ödemesi borç analizi grafiği ve taksit listesinde görünmezdi; ödeme yapılan ay satırı üretilir.
+- **Nakit avans hareketleri:** kullanım (draw) tutarı kullanılabilir limiti aşamaz; tarihe göre kapasite kontrolü formda uygulanır.
+- **Borç analizi — kredi/taksitli avans:** seçili tarih aralığı yalnızca hangi borçların listeleneceğini belirler; plan aralıkla kesişiyorsa **tüm taksitler** gösterilir (son vadeler aralık dışında kalsa bile).
+- **Kredi / taksitli avans gecikmesi:** ödenmemiş taksit + gecikme faizi bir sonraki vade satırına taşınır; sonraki vadeler yalnızca kendi plan tutarını gösterir (taksit planı, borç analizi grafik ve tablo). Ödeme drawer'ında önerilen/ödenen tutar yalnızca ilgili taksitin plan + gecikme faizini içerir.
+- **Kredi / taksitli avans ödeme drawer'ı:** üst tutar kartları 2×2 ızgara (`KpStatRow :columns="2"`).
+- **Borç analizi taksit listesi:** kredi ve taksitli avans satırlarında **Tutar** sütunu plan taksit; **Ödenen** faiz/ücret dahil gerçek ödeme tutarı (grafik bekleyen rollup `dueAmount` ile).
+
 ## [0.1.28]
 
 ### Added — kredi kartı faiz modeli (TCMB referans uyumu)

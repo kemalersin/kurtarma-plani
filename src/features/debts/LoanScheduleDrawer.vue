@@ -16,11 +16,11 @@ import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { Loan, LoanPayment } from '@/core/types/entities'
 import type { ScheduleRow } from '@/finance/loan'
 import { D } from '@/finance/decimal'
-import { buildScheduleForLoan, indexPayments, paidThroughIndex, payoffForLoan, remainingDebtForLoan } from './loanHelpers'
+import { buildScheduleForLoan, indexPayments, loanLateFeeRates, paidThroughIndex, payoffForLoan, remainingDebtForLoan } from './loanHelpers'
 import { buildScheduleDrawerColumns } from './schedule-table-columns'
 import type { KpTableColumn } from '@/core/util/table-columns'
 import { payoffStatTooltip } from './payoffStatTooltip'
-import { displayInstallmentAmount } from './installmentDisplay'
+import { projectInstallmentRowDueAmount } from './installmentDisplay'
 import PaymentMarkDrawer from './PaymentMarkDrawer.vue'
 import SchedulePayoffDrawer from './SchedulePayoffDrawer.vue'
 
@@ -76,7 +76,17 @@ function formatMoney(value: string | number): string {
 
 function installmentDisplay(row: ScheduleRow): string {
   const payment = paymentMap.value.get(row.index)
-  return formatMoney(displayInstallmentAmount(row.installment, payment))
+  if (!props.loan || !schedule.value) return formatMoney(row.installment)
+  return formatMoney(
+    projectInstallmentRowDueAmount(
+      row,
+      schedule.value.rows,
+      paidIndex.value,
+      new Date().toISOString(),
+      loanLateFeeRates(props.loan),
+      paymentMap.value,
+    ),
+  )
 }
 
 const canEarlyPayoff = computed(() => {

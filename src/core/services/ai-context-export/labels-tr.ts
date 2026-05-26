@@ -22,6 +22,8 @@ export const AI_CONTEXT_GLOSSARY: Record<string, string> = {
   historicalLatePaymentCount: 'Geç ödenmiş taksit sayısı (tarihsel)',
   carriedIn: 'Önceki dönemden taşınan ödenmemiş bakiye',
   lateInterest: 'Vade sonrası gecikme faizi (asgari altı ödeme)',
+  contractualInterest: 'Tahakkuk eden akdi (anapara) faizi',
+  principal: 'Anapara borcu (faiz hariç)',
   purchaseInterest: 'Vade sonrası alışveriş (akdi) faizi',
   cashAdvanceInterest: 'Vade sonrası nakit avans faizi',
   periodAccruals: 'Dönem içi yeni tahakkuk (alışveriş/avans/taksit)',
@@ -63,10 +65,12 @@ export const AI_CONTEXT_PURPOSE =
 
 export const AI_CONTEXT_INSTRUCTIONS_JSON = `Bu dosya JSON biçimindedir; finans analizi, borç ödeme planı, nakit akışı ve bütçe önerileri için kullan.
 - summary bölümünden genel pozisyonu oku.
-- schedules altında kredi / taksitli avans amortisman tabloları, kart taksit tahakkuk planları (schedules.creditCards) ve kart dönem vadeleri (schedules.creditCardPeriods) vardır.
-- schedules.creditCardPeriods: hesap kesim dönemleri; taşınan borç (carriedIn), gecikme faizi (lateInterest), akdi faiz (purchaseInterest), nakit avans faizi (cashAdvanceInterest), dönem sonu (endingBalance), asgari (minPayment), dönem içi ödeme (paidInPeriod). Asgari ödendiyse gecikme yok; kalan bakiyeye akdi faiz yansır.
+- schedules altında kredi / taksitli avans amortisman tabloları, kart dönem vadeleri (schedules.creditCardPeriods) ve nakit avans ay sonu vadeleri (schedules.cashAdvancePeriods) vardır. **Ödenmiş geçmiş dönem/taksit satırları bağlamda yer almaz** — yalnızca güncel özet + kalan vadeler.
+- schedules.loans / schedules.installmentAdvances: kalan borç özeti + **güncel ay ve sonrası** ödenmemiş taksit satırları; geçmiş ay vadeleri yok. **Kalan borcu sıfır olan borçlar dahil edilmez.**
+- schedules.creditCardPeriods: hesap kesim dönemleri; taşınan borç (carriedIn), gecikme faizi (lateInterest), akdi faiz (purchaseInterest), nakit avans faizi (cashAdvanceInterest), **dönem tahakkuku (periodAccruals — taksitler dahil toplam)**, dönem sonu (endingBalance), asgari (minPayment), dönem içi ödeme (paidInPeriod). **Yalnızca güncel ay ve sonrası** ödenmemiş vade satırları; geçmiş ay vadeleri yok — toplam durum sections.creditCards altında. Asgari ödendiyse gecikme yok; kalan bakiyeye akdi faiz yansır.
+- schedules.cashAdvancePeriods: revolving nakit avans **güncel ay** vadesi (endingBalance, minPayment, faiz); geçmiş ay satırları yok — toplam durum sections.cashAdvanceAccounts altında.
 - Kredi kartı borcu için sections.creditCards.totalCommitted kullan (gelecek taksitler dahil); güncel dönem için currentPeriodEndingBalance ve minPayment projeksiyonludur.
-- sections.creditCardTransactions: ham kart hareketleri (installmentCount, repaymentTotal); taksit dağılımı schedules.creditCards altındadır.
+- Revolving nakit avans için sections.cashAdvanceAccounts.totalDebt (anapara + faiz); güncel dönem için currentPeriodEndingBalance ve minPayment; ham hareketler sections.cashAdvanceTransactions altındadır.
 - Tutarlarda formatted alanları kullanıcıya gösterirken tercih et; value ham sayıdır.
 - Eksik veya belirsiz alan varsa varsayım yapma, kullanıcıya sor.
 - API anahtarı veya gizli kimlik bilgisi bu dosyada bulunmamalıdır.`
@@ -77,8 +81,9 @@ export const AI_CONTEXT_INSTRUCTIONS_MARKDOWN = `Bu belge Markdown biçimindedir
 - **Krediler** tablosu ve **Kredi taksit planı** alt başlıklarından kredi vadelerini oku.
 - **Taksitli nakit avans** ve **Taksitli avans planı** bölümlerinden avans vadelerini oku.
 - **Kredi kartları** tablosu: Toplam yükümlülük (gelecek taksitler dahil), Güncel dönem (projeksiyonlu dönem sonu bakiyesi), Ekstre, Gelecek taksit, Asgari, Kullanılabilir, Limit.
-- **Kart dönem vadeleri** tabloları: Taşınan, Gecikme faizi, Tahakkuk, Dönem sonu, Asgari, Ödenen sütunları — ödenmemiş bakiye sonraki döneme faizle taşınır (kısmi ödemeler Ödenen sütununda).
-- **Kart taksit planı**: taksitli işlemlerin aylık tahakkuku; ham kayıtlar **Kart hareketleri** tablosunda (Taksit / Geri ödenecek sütunları).
+- **Kart dönem vadeleri** tabloları: Taşınan, Gecikme faizi, **Tahakkuk (taksitler dahil toplam)**, Dönem sonu, Asgari, Ödenen — borç analizi taksit listesi ile aynı motor.
+- **Nakit avans (kredili mevduat)** tablosu: Toplam borç, Anapara, Faiz, Asgari, Güncel dönem, Kullanılabilir, Limit; ham kayıtlar **Nakit avans hareketleri** tablosunda.
+- **Nakit avans ay sonu vadeleri** tabloları: Akdi faiz, Gecikme, Dönem sonu, Asgari, Ödenen — borç analizi ile aynı motor.
 - Tutarlar tablolarda biçimlendirilmiş (para birimi) gösterilir; kullanıcıya aynı biçimde aktar.
 - **Sözlük** bölümü teknik alan adlarını açıklar; tablo başlıkları Türkçedir.
 - Eksik veya belirsiz alan varsa varsayım yapma, kullanıcıya sor.

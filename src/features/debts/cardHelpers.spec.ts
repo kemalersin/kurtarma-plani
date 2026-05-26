@@ -5,6 +5,7 @@ import {
   buildCardPeriods,
   cardCommittedTotal,
   cardOutstandingBalance,
+  defaultCardStatementPeriodCutoff,
   expandInstallments,
   projectCardPeriodDebts,
 } from './cardHelpers'
@@ -78,6 +79,83 @@ describe('buildCardPeriods', () => {
 
     expect(last.transactions.map((t) => t.originalTxnId)).toEqual(['new'])
     expect(prev.transactions.map((t) => t.originalTxnId)).toEqual(['old'])
+  })
+
+  it('açılış tarihinden önceki hareketler dönem hesabına dahil edilmez', () => {
+    const asOf = new Date('2026-05-22T12:00:00.000Z')
+    const card: CreditCard = {
+      ...baseCard,
+      openingBalance: 1_000,
+      openingDate: '2026-05-15T00:00:00.000Z',
+    }
+    const transactions = [
+      txn({
+        id: 'before',
+        date: '2026-05-10T10:00:00.000Z',
+        amount: 500,
+        type: 'purchase',
+      }),
+      txn({
+        id: 'after',
+        date: '2026-05-20T10:00:00.000Z',
+        amount: 200,
+        type: 'purchase',
+      }),
+    ]
+
+    const periods = buildCardPeriods(card, transactions, { periods: 3, asOf })
+    const last = periods[periods.length - 1]!
+    const allTxnIds = periods.flatMap((p) => p.transactions.map((t) => t.originalTxnId))
+
+    expect(allTxnIds).toEqual(['after'])
+    expect(last.openingBalance).toBe(1_000)
+    expect(Number(last.statement.endingBalance)).toBe(1_200)
+  })
+
+  it('açılış tarihinden önce dönemlerde devreden bakiye projeksiyona yansımaz', () => {
+    const asOf = new Date('2026-05-22T12:00:00.000Z')
+    const card: CreditCard = {
+      ...baseCard,
+      openingBalance: 6_200,
+      openingDate: '2026-05-15T00:00:00.000Z',
+    }
+    const periods = buildCardPeriods(card, [], { periods: 4, asOf })
+    const projections = projectCardPeriodDebts(card, [], { periods, asOf })
+    const beforeOpening = projections.filter(
+      (p, i) => periods[i]!.openingBalance === 0,
+    )
+    const afterOpening = projections.find((_, i) => periods[i]!.openingBalance > 0)
+
+    expect(beforeOpening.every((p) => p.carriedIn === 0)).toBe(true)
+    expect(afterOpening?.carriedIn).toBe(6_200)
+  })
+
+  it('extendForFutureInstallments: gelecek taksit dönemleri üretilir', () => {
+    const asOf = new Date('2026-05-22T12:00:00.000Z')
+    const transactions = [
+      txn({
+        id: 'taksit',
+        date: '2026-05-20T10:00:00.000Z',
+        amount: 12_000,
+        type: 'purchase',
+        installmentCount: 12,
+        repaymentTotal: 12_000,
+      }),
+    ]
+    const base = buildCardPeriods(baseCard, transactions, { periods: 6, asOf })
+    const extended = buildCardPeriods(baseCard, transactions, {
+      periods: 6,
+      asOf,
+      extendForFutureInstallments: true,
+    })
+    expect(extended.length).toBeGreaterThan(base.length)
+    const futureInstallments = extended.filter((p) =>
+      p.transactions.some((t) => (t.installmentIndex ?? 0) > 1),
+    )
+    expect(futureInstallments.length).toBeGreaterThan(0)
+    expect(defaultCardStatementPeriodCutoff(extended, asOf)).toBe(
+      base[base.length - 1]!.cutoffDate,
+    )
   })
 
   it('taksitli alışveriş aylık aylık tahakkuk eder', () => {
@@ -255,6 +333,26 @@ describe('cardCommittedTotal', () => {
     expect(Number(totals.committed)).toBe(11_500)
   })
 
+  it('açılış bakiyesi yalnızca açılış tarihinden itibaren borca dahil edilir', () => {
+    const asOf = new Date('2026-05-22T12:00:00.000Z')
+    const card: CreditCard = {
+      ...baseCard,
+      openingBalance: 6_200,
+      openingDate: '2026-05-15T00:00:00.000Z',
+    }
+    const totals = cardCommittedTotal(card, [], asOf)
+    expect(Number(totals.ending)).toBe(6_200)
+    expect(Number(totals.committed)).toBe(6_200)
+
+    const beforeOpening = cardCommittedTotal(
+      card,
+      [],
+      new Date('2026-05-10T12:00:00.000Z'),
+    )
+    expect(Number(beforeOpening.ending)).toBe(0)
+    expect(Number(beforeOpening.committed)).toBe(0)
+  })
+
   it('geç ödemede kalan borç + faiz ekstre borcuna yansır', () => {
     const card: CreditCard = {
       ...baseCard,
@@ -415,6 +513,64 @@ describe('projectCardPeriodDebts', () => {
     expect(withPurchase!.paymentsInWindow).toBe('400')
     const next = projections[projections.indexOf(withPurchase!) + 1]
     expect(next!.carriedIn).toBe(600)
+  })
+
+  it('kesim sonrası ödeme yalnızca ilgili dönemin ödeme toplamına yazılır', () => {
+    const card: CreditCard = {
+      ...baseCard,
+      openingBalance: 25_000,
+      openingDate: '2026-01-15T00:00:00.000Z',
+      purchaseAprMonthly: 0.0375,
+      lateAprMonthly: 0.0355,
+    }
+    const txns = [
+      txn({
+        id: 'pay',
+        date: '2026-04-24T19:25:41.055Z',
+        amount: 10_000,
+        type: 'payment',
+      }),
+    ]
+    const asOf = new Date('2026-05-26T12:00:00.000Z')
+    const periods = buildCardPeriods(card, txns, { periods: 8, asOf })
+    const projections = projectCardPeriodDebts(card, txns, { periods, asOf })
+    const aprilDue = projections.find((p) => p.dueDate.startsWith('2026-04'))
+    const mayDue = projections.find((p) => p.dueDate.startsWith('2026-05'))
+
+    expect(Number(aprilDue?.paymentsInWindow)).toBe(10_000)
+    expect(mayDue?.paymentsInWindow).toBeUndefined()
+  })
+
+  it('kesim sonrası ödeme sonraki dönem taşınan borçtan tekrar düşülmez', () => {
+    const card: CreditCard = {
+      ...baseCard,
+      openingBalance: 25_000,
+      openingDate: '2026-01-15T00:00:00.000Z',
+      purchaseAprMonthly: 0.0375,
+      lateAprMonthly: 0.0355,
+      taxRateMonthly: 0.25,
+      rateMode: 'balanceTier',
+    }
+    const txns = [
+      txn({
+        id: 'pay',
+        date: '2026-04-24T19:25:41.055Z',
+        amount: 10_000,
+        type: 'payment',
+      }),
+    ]
+    const asOf = new Date('2026-05-26T12:00:00.000Z')
+    const periods = buildCardPeriods(card, txns, { periods: 12, asOf })
+    const projections = projectCardPeriodDebts(card, txns, { periods, asOf })
+    const april = projections.find((p) => p.dueDate.startsWith('2026-04'))
+    const may = projections.find((p) => p.dueDate.startsWith('2026-05'))
+
+    expect(april).toBeDefined()
+    expect(may).toBeDefined()
+    expect(Number(april!.paymentsInWindow)).toBe(10_000)
+    expect(may!.carriedIn).toBeGreaterThan(15_000)
+    expect(may!.endingBalance).toBeGreaterThan(15_000)
+    expect(may!.endingBalance).toBeGreaterThan(may!.carriedIn * 0.9)
   })
 })
 

@@ -220,7 +220,7 @@ function selectFormat(format: AiContextExportFormat): void {
     v-model:open="previewOpen"
     :title="previewTitle"
     centered
-    width="min(920px, calc(100vw - 32px))"
+    width="min(1100px, calc(100vw - 32px))"
     :destroy-on-close="true"
   >
     <Typography.Paragraph type="secondary" class="kp-ai-export-preview-hint">
@@ -246,7 +246,7 @@ function selectFormat(format: AiContextExportFormat): void {
     <JsonCodeBlock
       v-if="previewFormat === 'json'"
       :code="previewText"
-      max-height="min(60vh, 480px)"
+      max-height="min(65vh, 560px)"
     />
     <div
       v-else
@@ -278,7 +278,7 @@ function selectFormat(format: AiContextExportFormat): void {
 }
 
 .kp-ai-export-markdown-wrap {
-  max-height: min(60vh, 480px);
+  max-height: min(65vh, 560px);
   overflow: auto;
   padding: 12px 14px;
   border: 1px solid rgba(0, 0, 0, 0.08);

@@ -4,10 +4,24 @@
  */
 import type { EntityType } from '@/core/db/profile-db'
 import { AI_CONTEXT_VERSION } from '@/core/constants'
-import type { Bank, CreditCard, CreditCardTransaction } from '@/core/types/entities'
+import type { Bank, CashAdvanceAccount, CashAdvanceTransaction, CreditCard, CreditCardTransaction, InstallmentCashAdvance, InstallmentCashAdvancePayment, Loan, LoanPayment } from '@/core/types/entities'
 import type { LocaleSettings } from '@/core/types/profile'
 import { buildCreditCardPeriodSchedulesFromRows } from '@/core/services/ai-context-export/credit-card-period-schedules'
-import type { CreditCardPeriodScheduleExport } from '@/core/services/ai-context-export/types'
+import { buildCashAdvancePeriodSchedulesFromRows } from '@/core/services/ai-context-export/cash-advance-period-schedules'
+import {
+  buildInstallmentAdvanceSchedulesFromRows,
+  buildLoanSchedulesFromRows,
+} from '@/core/services/ai-context-export/loan-schedules'
+import type {
+  CashAdvancePeriodScheduleExport,
+  CreditCardPeriodScheduleExport,
+  InstallmentAdvanceScheduleExport,
+  LoanScheduleExport,
+} from '@/core/services/ai-context-export/types'
+import {
+  computeSettledDebtIndexFromSnapshotRows,
+  isSettledDebtSnapshotRow,
+} from '@/core/services/ai-context-export/settled-debts'
 import { AI_PROPOSAL_GUIDE } from '@/features/ai/proposals/prompt'
 
 /** AI bağlamına hiç dahil edilmeyen entity tipleri */
@@ -34,6 +48,11 @@ export interface AiSnapshotEntity {
 export interface AiFinanceDerivedContext {
   contextVersion: number
   creditCardPeriods: CreditCardPeriodScheduleExport[]
+  cashAdvancePeriods: CashAdvancePeriodScheduleExport[]
+  /** Kredi amortisman — güncel ay ve sonrası ödenmemiş taksit satırları + kalan borç özeti. */
+  loanSchedules: LoanScheduleExport[]
+  /** Taksitli avans amortisman — aynı kırpma kuralı. */
+  installmentAdvanceSchedules: InstallmentAdvanceScheduleExport[]
 }
 
 export interface AiFinanceSnapshot {
@@ -68,10 +87,16 @@ export interface AiSnapshotSourceRow {
   data: unknown
 }
 
+/** AI snapshot entity listesine dahil edilmeyen tipler (türetilmiş özet yeterli). */
+const SNAPSHOT_OMITTED_ENTITY_TYPES: ReadonlySet<EntityType> = new Set([
+  'creditCardTransaction',
+])
+
 export function filterRowsForAiSnapshot(rows: AiSnapshotSourceRow[]): AiSnapshotEntity[] {
   const entities: AiSnapshotEntity[] = []
   for (const row of rows) {
     if (EXCLUDED_TYPES.has(row.type)) continue
+    if (SNAPSHOT_OMITTED_ENTITY_TYPES.has(row.type)) continue
     if (row.sensitive) continue
     entities.push({
       id: row.id,
@@ -88,8 +113,10 @@ Türkiye bankacılık bağlamına aşinasın; hesaplamalar bilgilendirme amaçl�
 Yanıtları Türkçe ver; tutarları profil para birimiyle ifade et.
 Eksik veri varsa varsayım yapma, kullanıcıya sor.
 Kullanıcı ekran görüntüsü veya belge fotoğrafı yükleyebilir (ör. banka ödeme planı, ekstre, taksit tablosu). Veriyi okuyup kayıt önerisi üret; eksik alan varsa sor.
-Finans verisi sohbet bağlamında [kp:snapshot] ile işaretli mesajlarda verilir; güncelleme olduğunda yeni bir bağlam mesajı eklenir. Snapshot \`entities\` dizisinde tüm finans kayıtları (\`creditCard\`, \`creditCardTransaction\`, \`cashAdvanceTransaction\` vb.) \`type\` + \`id\` + \`data\` biçiminde gelir — mevcut kayıtlara bağlanırken bu \`id\` veya kayıt adını (\`*Name\`) kullan.
-\`derived.creditCardPeriods\`: kart hesap kesim dönemleri — taşınan borç, gecikme faizi, dönem sonu bakiyesi, asgari ödeme ve dönem içi ödemeler (analiz borç grafiği / hesap özeti ile aynı \`projectCardPeriodDebts\` motoru).
+Finans verisi sohbet bağlamında [kp:snapshot] ile işaretli mesajlarda verilir; güncelleme olduğunda yeni bir bağlam mesajı eklenir. Snapshot \`entities\` dizisinde finans kayıtları (\`creditCard\`, \`cashAdvanceTransaction\` vb.) \`type\` + \`id\` + \`data\` biçiminde gelir — mevcut kayıtlara bağlanırken bu \`id\` veya kayıt adını (\`*Name\`) kullan. **Kart hareketleri (\`creditCardTransaction\`) bağlamda yok** — kart borcu \`creditCard\` özeti ve \`derived.creditCardPeriods\` dönem vadelerinden okunur.
+\`derived.creditCardPeriods\`: kart hesap kesim dönemleri — taşınan borç, gecikme faizi, **dönem tahakkuku (periodAccruals, taksitler dahil toplam)**, dönem sonu, asgari ve dönem içi ödemeler; yalnızca **güncel ay ve sonrası** ödenmemiş vade satırları (borç analizi taksit listesi ile aynı motor).
+\`derived.cashAdvancePeriods\`: revolving nakit avans **güncel ay** vadesi (dönem sonu, asgari, faiz); geçmiş ay satırları yok — kümülatif durum \`cashAdvanceAccount\` entity / export hesap özetinde.
+\`derived.loanSchedules\` / \`derived.installmentAdvanceSchedules\`: kredi ve taksitli avans — kalan borç özeti + **güncel ay ve sonrası** ödenmemiş taksit satırları; geçmiş ay vadeleri yok. **Kalan borcu sıfır olan borçlar bağlamda yer almaz.**
 Veri eklerken \`kp-proposals\` JSON bloğu zorunludur; kart/kredi hareketleri ana kayıttan **ayrı item** olarak yazılır.
 
 ${AI_PROPOSAL_GUIDE}`
@@ -203,14 +230,36 @@ function buildDerivedContext(
   localeSettings: LocaleSettings,
   asOf: string,
 ): AiFinanceDerivedContext {
+  const settled = computeSettledDebtIndexFromSnapshotRows(rows, { asOf })
   const creditCards: CreditCard[] = []
   const creditCardTxns: CreditCardTransaction[] = []
+  const cashAdvanceAccounts: CashAdvanceAccount[] = []
+  const cashAdvanceTxns: CashAdvanceTransaction[] = []
+  const loans: Loan[] = []
+  const loanPayments: LoanPayment[] = []
+  const installmentAdvances: InstallmentCashAdvance[] = []
+  const installmentPayments: InstallmentCashAdvancePayment[] = []
   const banks: Bank[] = []
   for (const row of rows) {
     if (EXCLUDED_TYPES.has(row.type) || row.sensitive || isArchivedEntity(row.data)) continue
+    if (isSettledDebtSnapshotRow(row, settled)) continue
     if (row.type === 'creditCard') creditCards.push(row.data as CreditCard)
     if (row.type === 'creditCardTransaction') {
       creditCardTxns.push(row.data as CreditCardTransaction)
+    }
+    if (row.type === 'cashAdvanceAccount') {
+      cashAdvanceAccounts.push(row.data as CashAdvanceAccount)
+    }
+    if (row.type === 'cashAdvanceTransaction') {
+      cashAdvanceTxns.push(row.data as CashAdvanceTransaction)
+    }
+    if (row.type === 'loan') loans.push(row.data as Loan)
+    if (row.type === 'loanPayment') loanPayments.push(row.data as LoanPayment)
+    if (row.type === 'installmentCashAdvance') {
+      installmentAdvances.push(row.data as InstallmentCashAdvance)
+    }
+    if (row.type === 'installmentCashAdvancePayment') {
+      installmentPayments.push(row.data as InstallmentCashAdvancePayment)
     }
     if (row.type === 'bank') banks.push(row.data as Bank)
   }
@@ -223,7 +272,43 @@ function buildDerivedContext(
       localeSettings,
       asOf,
     ),
+    cashAdvancePeriods: buildCashAdvancePeriodSchedulesFromRows(
+      cashAdvanceAccounts,
+      cashAdvanceTxns,
+      banks,
+      localeSettings,
+      asOf,
+    ),
+    loanSchedules: buildLoanSchedulesFromRows(
+      loans,
+      loanPayments,
+      banks,
+      localeSettings,
+      asOf,
+    ),
+    installmentAdvanceSchedules: buildInstallmentAdvanceSchedulesFromRows(
+      installmentAdvances,
+      installmentPayments,
+      banks,
+      localeSettings,
+      asOf,
+    ),
   }
+}
+
+/** Geçmiş / ödenmiş taksit ödeme kayıtlarını snapshot'tan çıkarır (derived plan yeterli). */
+function filterHistoricalInstallmentPayments(
+  entities: AiSnapshotEntity[],
+  asOf: string,
+): AiSnapshotEntity[] {
+  const asOfMonth = asOf.slice(0, 7)
+  return entities.filter((e) => {
+    if (e.type !== 'loanPayment' && e.type !== 'installmentCashAdvancePayment') return true
+    const d = e.data as { dueDate?: string; paidDate?: string }
+    if (d.paidDate) return false
+    if (!d.dueDate) return true
+    return d.dueDate.slice(0, 7) >= asOfMonth
+  })
 }
 
 export function buildAiFinanceSnapshot(
@@ -232,13 +317,18 @@ export function buildAiFinanceSnapshot(
   localeSettings?: LocaleSettings,
 ): AiFinanceSnapshot {
   const generatedAt = new Date().toISOString()
+  const settled = computeSettledDebtIndexFromSnapshotRows(rows, { asOf: generatedAt })
+  const entities = filterRowsForAiSnapshot(rows).filter(
+    (e) => !isSettledDebtSnapshotRow(e, settled),
+  )
   const snapshot: AiFinanceSnapshot = {
     generatedAt,
     profile,
-    entities: filterRowsForAiSnapshot(rows),
+    entities,
   }
   if (localeSettings) {
     snapshot.derived = buildDerivedContext(rows, localeSettings, generatedAt)
+    snapshot.entities = filterHistoricalInstallmentPayments(entities, generatedAt)
   }
   return snapshot
 }

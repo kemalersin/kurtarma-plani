@@ -46,7 +46,7 @@ const emit = defineEmits<{
 const entities = useEntitiesStore()
 const profileStore = useProfileStore()
 const presetStore = useBankingPresetStore()
-const { formatCurrency, formatNumber } = useLocaleFormatters()
+const { formatCurrency, formatNumber, formatPercentFromFraction } = useLocaleFormatters()
 
 const banks = entities.list<Bank>('bank')
 
@@ -184,7 +184,7 @@ function applyReferenceRate(): void {
   if (tax > 0) {
     draft.taxRateMonthly = tax * 100
     message.success(
-      `KKDF + BSMV (${(tax * 100).toFixed(0)}%) referanstan dolduruldu.`,
+      `KKDF + BSMV (${formatPercentFromFraction(tax)}) referanstan dolduruldu.`,
     )
   } else {
     message.info('Referans vergi oranı tanımlı değil.')

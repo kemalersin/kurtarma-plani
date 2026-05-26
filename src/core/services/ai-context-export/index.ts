@@ -1,6 +1,6 @@
 import type { AiContextExportFormat } from '@/core/services/ai-context-export/types'
 import { buildAiContextDocument, type BuildAiContextDocumentParams } from '@/core/services/ai-context-export/build-document'
-import { formatAiContextJson } from '@/core/services/ai-context-export/format-json'
+import { prunePaidInstallments } from '@/core/services/ai-context-export/prune-structured'
 import { formatAiContextMarkdown } from '@/core/services/ai-context-export/format-markdown'
 import type { AiContextDocument } from '@/core/services/ai-context-export/types'
 
@@ -19,11 +19,12 @@ export function formatAiContextText(
   document: AiContextDocument,
   format: AiContextExportFormat,
 ): string {
+  const pruned = prunePaidInstallments(document)
   switch (format) {
     case 'json':
-      return formatAiContextJson(document)
+      return JSON.stringify(pruned, null, 2)
     case 'markdown':
-      return formatAiContextMarkdown(document)
+      return formatAiContextMarkdown(pruned)
   }
 }
 

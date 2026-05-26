@@ -10,6 +10,7 @@ import {
   message,
   Select,
 } from 'ant-design-vue'
+import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
 import SensitiveRecordSwitch from '@/components/SensitiveRecordSwitch.vue'
 import {
@@ -19,6 +20,7 @@ import {
 } from '@/composables/useSensitiveEntityForm'
 import KpFormLabel from '@/components/KpFormLabel.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
+import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
 import SelectWithCreate from '@/components/SelectWithCreate.vue'
 import BankFormDrawer from '@/features/admin/BankFormDrawer.vue'
 import { creditCardTaxRateFromPreset } from '@/core/util/banking-preset-credit-card'
@@ -26,6 +28,7 @@ import { pickCreditCardBalanceTier } from '@/finance/credit-card'
 import { useEntitiesStore } from '@/stores/entities'
 import { useProfileStore } from '@/stores/profile'
 import { useBankingPresetStore } from '@/stores/banking-preset'
+import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { Bank, CreditCard, CreditCardRateMode } from '@/core/types/entities'
 
 interface Props {
@@ -41,6 +44,7 @@ const emit = defineEmits<{
 const entities = useEntitiesStore()
 const profileStore = useProfileStore()
 const presetStore = useBankingPresetStore()
+const { formatCurrency, formatPercentFromFraction } = useLocaleFormatters()
 
 const banks = entities.list<Bank>('bank')
 
@@ -54,6 +58,7 @@ interface Form {
   bankId: string | undefined
   limit: number
   openingBalance: number
+  openingDate: Dayjs
   statementCutoffDay: number
   paymentDueDay: number
   rateMode: CreditCardRateMode
@@ -83,6 +88,7 @@ function emptyForm(): Form {
     bankId: undefined,
     limit: 30_000,
     openingBalance: 0,
+    openingDate: dayjs(),
     statementCutoffDay: 15,
     paymentDueDay: 25,
     rateMode: 'balanceTier',
@@ -114,6 +120,7 @@ watch(
         bankId: props.card.bankId,
         limit: props.card.limit,
         openingBalance: props.card.openingBalance ?? 0,
+        openingDate: dayjs(props.card.openingDate ?? props.card.createdAt),
         statementCutoffDay: props.card.statementCutoffDay,
         paymentDueDay: props.card.paymentDueDay,
         rateMode: props.card.rateMode ?? 'fixed',
@@ -141,7 +148,7 @@ function fillRefPurchase(): void {
   const tier = pickCreditCardBalanceTier(tiers, presetTierDebtHint())
   draft.purchaseAprMonthly = tier.purchaseAprMonthly * 100
   message.success(
-    `Alışveriş faizi referanstan dolduruldu (${(tier.purchaseAprMonthly * 100).toFixed(2)}% — ${presetTierDebtHint().toLocaleString('tr-TR')} TL dilimi).`,
+    `Alışveriş faizi referanstan dolduruldu (${formatPercentFromFraction(tier.purchaseAprMonthly)} — ${formatCurrency(presetTierDebtHint())} dilimi).`,
   )
 }
 
@@ -150,7 +157,7 @@ function fillRefLate(): void {
   const tier = pickCreditCardBalanceTier(tiers, presetTierDebtHint())
   draft.lateAprMonthly = tier.lateAprMonthly * 100
   message.success(
-    `Gecikme faizi referanstan dolduruldu (${(tier.lateAprMonthly * 100).toFixed(2)}%).`,
+    `Gecikme faizi referanstan dolduruldu (${formatPercentFromFraction(tier.lateAprMonthly)}).`,
   )
 }
 
@@ -158,7 +165,7 @@ function fillRefCashAdvance(): void {
   const cc = presetStore.active.preset.creditCard
   draft.cashAdvanceAprMonthly = cc.cashAdvanceAprMonthly * 100
   message.success(
-    `Nakit avans faizi referanstan dolduruldu (${(cc.cashAdvanceAprMonthly * 100).toFixed(2)}%).`,
+    `Nakit avans faizi referanstan dolduruldu (${formatPercentFromFraction(cc.cashAdvanceAprMonthly)}).`,
   )
 }
 
@@ -169,7 +176,9 @@ function fillRefTax(): void {
     return
   }
   draft.taxRateMonthly = tax * 100
-  message.success(`Faiz vergisi (KKDF+BSMV) referanstan dolduruldu (${(tax * 100).toFixed(2)}%).`)
+  message.success(
+    `Faiz vergisi (KKDF+BSMV) referanstan dolduruldu (${formatPercentFromFraction(tax)}).`,
+  )
 }
 
 function openBankDrawer(): void {
@@ -201,6 +210,7 @@ async function submit(): Promise<void> {
       currency: props.card?.currency ?? profileCurrency(),
       limit: Number(draft.limit),
       openingBalance: Number(draft.openingBalance) || 0,
+      openingDate: draft.openingDate.toISOString(),
       statementCutoffDay: Number(draft.statementCutoffDay),
       paymentDueDay: Number(draft.paymentDueDay),
       rateMode: draft.rateMode,
@@ -263,6 +273,9 @@ function close(): void {
       </FormItem>
       <FormItem label="Açılış bakiyesi (devreden)">
         <LocaleInputNumber v-model:value="draft.openingBalance" kind="currency" :min="0" />
+      </FormItem>
+      <FormItem label="Açılış tarihi" required>
+        <LocaleDatePicker v-model:value="draft.openingDate" style="width: 100%" />
       </FormItem>
       <div style="display: flex; gap: 12px; width: 100%; align-items: flex-start">
         <FormItem label="Hesap kesim günü" required style="flex: 1; min-width: 0">

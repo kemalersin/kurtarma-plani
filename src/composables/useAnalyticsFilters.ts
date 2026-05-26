@@ -86,8 +86,8 @@ export function useAnalyticsFilters(): AnalyticsFilterState {
   })
 
   const cardDueMode = computed<CardDebtDueMode>({
-    get: () => (readStr(route.query.cardDue) === 'statement' ? 'statement' : 'min'),
-    set: (v) => replaceQuery({ cardDue: v === 'min' ? undefined : v }),
+    get: () => (readStr(route.query.cardDue) === 'min' ? 'min' : 'statement'),
+    set: (v) => replaceQuery({ cardDue: v === 'statement' ? undefined : v }),
   })
 
   const filters = computed<AnalyticsFilters>(() => ({
@@ -117,7 +117,7 @@ export function useAnalyticsFilters(): AnalyticsFilterState {
     if ('endpoint' in p) next.endpoint = p.endpoint || undefined
     if ('category' in p) next.category = p.category || undefined
     if ('cardDue' in p) {
-      next.cardDue = !p.cardDue || p.cardDue === 'min' ? undefined : p.cardDue
+      next.cardDue = !p.cardDue || p.cardDue === 'statement' ? undefined : p.cardDue
     }
     if (Object.keys(next).length) replaceQuery(next)
   }

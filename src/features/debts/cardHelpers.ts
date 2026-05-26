@@ -108,6 +108,70 @@ export function expandInstallments(
   return out
 }
 
+/** AI bağlam / export için açılış tarihi (kayıtta yoksa createdAt). */
+export function creditCardOpeningDate(card: Pick<CreditCard, 'openingDate' | 'createdAt'>): string {
+  return card.openingDate ?? card.createdAt
+}
+
+function expandedFromOpeningDate(
+  card: CreditCard,
+  transactions: CreditCardTransaction[],
+): PeriodTxn[] {
+  const sorted = expandInstallments(card, transactions).sort((a, b) =>
+    a.date.localeCompare(b.date),
+  )
+  const openingKey = creditCardOpeningDate(card).slice(0, 10)
+  if (!card.openingDate) return sorted
+  return sorted.filter((t) => t.date.slice(0, 10) >= openingKey)
+}
+
+function isOnOrAfterCreditCardOpening(card: CreditCard, dateIso: string): boolean {
+  if (!card.openingDate) return true
+  return dateIso.slice(0, 10) >= card.openingDate.slice(0, 10)
+}
+
+function balanceBeforePeriodStart(
+  card: CreditCard,
+  expanded: PeriodTxn[],
+  periodStart: Date,
+): number {
+  const startKey = periodStart.toISOString().slice(0, 10)
+  if (card.openingDate) {
+    const openingKey = card.openingDate.slice(0, 10)
+    if (startKey < openingKey) return 0
+  }
+  let balance = card.openingBalance ?? 0
+  for (const t of expanded) {
+    const d = t.date.slice(0, 10)
+    if (d >= startKey) break
+    balance = t.type === 'payment' ? balance - t.amount : balance + t.amount
+  }
+  return balance < 0 ? 0 : balance
+}
+
+const MAX_CARD_PERIODS = 120
+
+/** İşlem tarihinin düştüğü hesap kesim günü (dönem sonu). */
+function statementCutoffForDate(card: CreditCard, dateIso: string): Date {
+  const d = new Date(dateIso)
+  let cutoff = safeDayInMonth(d, card.statementCutoffDay)
+  if (!isAfter(cutoff, d)) {
+    cutoff = addMonths(cutoff, 1)
+  }
+  return cutoff
+}
+
+/** Hesap özeti drawer varsayılan dönemi (içinde bulunulan / açık ekstre kesimi). */
+export function defaultCardStatementPeriodCutoff(
+  periods: CardPeriod[],
+  asOf: Date = new Date(),
+): string | undefined {
+  if (!periods.length) return undefined
+  const asOfKey = asOf.toISOString().slice(0, 10)
+  const open = periods.find((p) => p.cutoffDate.slice(0, 10) > asOfKey)
+  return (open ?? periods[periods.length - 1])!.cutoffDate
+}
+
 /**
  * Kart için son N dönem üretir (en eski → en yeni).
  * Dönem = [dönem başı kesim, sonraki kesim) — son dönem **açık** hesap dönemidir
@@ -119,34 +183,45 @@ export function expandInstallments(
 export function buildCardPeriods(
   card: CreditCard,
   transactions: CreditCardTransaction[],
-  options: { periods?: number; asOf?: Date } = {},
+  options: {
+    periods?: number
+    asOf?: Date
+    /** Gelecek taksit tahakkukları için ek dönemler üret (hesap özeti). */
+    extendForFutureInstallments?: boolean
+  } = {},
 ): CardPeriod[] {
-  const { periods = 6, asOf = new Date() } = options
-  const expanded = expandInstallments(card, transactions).sort((a, b) =>
-    a.date.localeCompare(b.date),
-  )
+  const { periods: minPeriods = 6, asOf = new Date(), extendForFutureInstallments = false } =
+    options
+  const expanded = expandedFromOpeningDate(card, transactions)
 
   /** asOf'a göre en son tamamlanmış / devam eden dönemin başlangıç kesimi */
-  let latestCutoff = safeDayInMonth(asOf, card.statementCutoffDay)
-  if (isAfter(latestCutoff, asOf)) {
-    latestCutoff = addMonths(latestCutoff, -1)
+  let anchorCutoff = safeDayInMonth(asOf, card.statementCutoffDay)
+  if (isAfter(anchorCutoff, asOf)) {
+    anchorCutoff = addMonths(anchorCutoff, -1)
+  }
+
+  let maxCutoff = anchorCutoff
+  if (extendForFutureInstallments) {
+    for (const t of expanded) {
+      const cutoff = statementCutoffForDate(card, t.date)
+      if (cutoff.getTime() > maxCutoff.getTime()) {
+        maxCutoff = cutoff
+      }
+    }
   }
 
   const result: CardPeriod[] = []
-  let opening = card.openingBalance ?? 0
 
-  const earliestStart = addMonths(latestCutoff, -(periods - 1))
-
-  const beforeEarliest = expanded.filter((t) => t.date < earliestStart.toISOString())
-  for (const t of beforeEarliest) {
-    opening = t.type === 'payment' ? opening - t.amount : opening + t.amount
-  }
-  if (opening < 0) opening = 0
+  const earliestStart = addMonths(anchorCutoff, -(minPeriods - 1))
 
   let periodStart = earliestStart
   let periodEnd = addMonths(periodStart, 1)
 
-  for (let i = 0; i < periods; i++) {
+  while (
+    (result.length < minPeriods || periodEnd.getTime() <= maxCutoff.getTime()) &&
+    result.length < MAX_CARD_PERIODS
+  ) {
+    const opening = balanceBeforePeriodStart(card, expanded, periodStart)
     const periodTxns = expanded.filter(
       (t) =>
         t.date >= periodStart.toISOString() && t.date < periodEnd.toISOString(),
@@ -179,7 +254,6 @@ export function buildCardPeriods(
       statement: stmt,
     })
 
-    opening = Number(stmt.endingBalance)
     periodStart = periodEnd
     periodEnd = addMonths(periodEnd, 1)
   }
@@ -267,9 +341,28 @@ function processPeriodTransactions(
       purchase = purchase.plus(t.amount)
     }
   }
-  if (purchase.lt(0)) purchase = D(0)
-  if (cash.lt(0)) cash = D(0)
   return { purchase, cashAdvance: cash }
+}
+
+/**
+ * Kesim sonrası ödemeler bir sonraki dönemin `transactions` listesine düşer;
+ * taşıma zincirinde bir önceki vadede zaten düşüldükleri için projeksiyonda
+ * tekrar sayılmaz.
+ */
+function periodTxnsForProjection(
+  period: CardPeriod,
+  periodIndex: number,
+  periods: CardPeriod[],
+): PeriodTxn[] {
+  if (periodIndex === 0) return period.transactions
+  const prev = periods[periodIndex - 1]!
+  const prevCutoffKey = prev.cutoffDate.slice(0, 10)
+  const prevDueKey = prev.dueDate.slice(0, 10)
+  return period.transactions.filter((t) => {
+    if (t.type !== 'payment') return true
+    const d = t.date.slice(0, 10)
+    return !(d > prevCutoffKey && d <= prevDueKey)
+  })
 }
 
 function daysBetweenIso(startIso: string, endIso: string): number {
@@ -280,7 +373,7 @@ function daysBetweenIso(startIso: string, endIso: string): number {
 }
 
 function sumCardPaymentsInWindow(
-  cardId: string,
+  card: CreditCard,
   transactions: CreditCardTransaction[],
   periodStartIso: string,
   dueDateIso: string,
@@ -290,11 +383,55 @@ function sumCardPaymentsInWindow(
   const startKey = periodStartIso.slice(0, 10)
   const dueKey = dueDateIso.slice(0, 10)
   for (const t of transactions) {
-    if (t.cardId !== cardId || t.type !== 'payment') continue
+    if (t.cardId !== card.id || t.type !== 'payment') continue
     const d = t.date.slice(0, 10)
+    if (!isOnOrAfterCreditCardOpening(card, t.date)) continue
     if (d < startKey || d > dueKey) continue
     sum = sum.plus(t.amount)
     if (!lastPaidDate || t.date > lastPaidDate) lastPaidDate = t.date
+  }
+  return { sum: Number(roundMoney(sum)), lastPaidDate }
+}
+
+/** Döneme özgü ödemeler — kesim sonrası ödeme yalnızca ilgili ekstre dönemine yazılır. */
+function sumPeriodPayments(
+  card: CreditCard,
+  transactions: CreditCardTransaction[],
+  periods: CardPeriod[],
+  periodIndex: number,
+): { sum: number; lastPaidDate?: string } {
+  const period = periods[periodIndex]!
+  const periodStartIso =
+    periodIndex > 0
+      ? periods[periodIndex - 1]!.cutoffDate
+      : addMonths(new Date(period.cutoffDate), -1).toISOString()
+  const startKey = periodStartIso.slice(0, 10)
+  const cutoffKey = period.cutoffDate.slice(0, 10)
+  const dueKey = period.dueDate.slice(0, 10)
+  const prev = periodIndex > 0 ? periods[periodIndex - 1] : undefined
+  const prevCutoffKey = prev?.cutoffDate.slice(0, 10)
+  const prevDueKey = prev?.dueDate.slice(0, 10)
+
+  let sum = D(0)
+  let lastPaidDate: string | undefined
+  for (const t of transactions) {
+    if (t.cardId !== card.id || t.type !== 'payment') continue
+    if (!isOnOrAfterCreditCardOpening(card, t.date)) continue
+    const d = t.date.slice(0, 10)
+
+    if (d >= cutoffKey && d <= dueKey) {
+      sum = sum.plus(t.amount)
+      if (!lastPaidDate || t.date > lastPaidDate) lastPaidDate = t.date
+      continue
+    }
+
+    if (d >= startKey && d < cutoffKey) {
+      if (prevCutoffKey && prevDueKey && d >= prevCutoffKey && d <= prevDueKey) {
+        continue
+      }
+      sum = sum.plus(t.amount)
+      if (!lastPaidDate || t.date > lastPaidDate) lastPaidDate = t.date
+    }
   }
   return { sum: Number(roundMoney(sum)), lastPaidDate }
 }
@@ -326,9 +463,13 @@ export function projectCardPeriodDebts(
 
   const out: CardPeriodDebtProjection[] = []
   let carry: BalanceSplit = {
-    purchase: D(card.openingBalance ?? 0),
+    purchase: D(
+      card.openingDate ? (periods[0]?.openingBalance ?? 0) : (card.openingBalance ?? 0),
+    ),
     cashAdvance: D(0),
   }
+  let appliedOpeningBalance =
+    card.openingDate != null && (periods[0]?.openingBalance ?? 0) > 0
   let pendingInterPeriod: ReturnType<typeof creditCardInterPeriodCharges> | null = null
 
   for (let i = 0; i < periods.length; i++) {
@@ -351,16 +492,29 @@ export function projectCardPeriodDebts(
         cashAdvance: carry.cashAdvance.plus(cashAdvanceInterest),
       }
       pendingInterPeriod = null
+    } else if (
+      card.openingDate &&
+      !appliedOpeningBalance &&
+      period.openingBalance > 0 &&
+      Number(roundMoney(totalSplit(carry))) === 0 &&
+      periodStartIso.slice(0, 10) >= card.openingDate.slice(0, 10)
+    ) {
+      carry = {
+        purchase: D(period.openingBalance),
+        cashAdvance: D(0),
+      }
+      appliedOpeningBalance = true
     }
 
     const carriedIn = Number(roundMoney(totalSplit(carry)))
 
-    const afterTx = processPeriodTransactions(carry, period.transactions)
+    const projectionTxns = periodTxnsForProjection(period, i, periods)
+    const afterTx = processPeriodTransactions(carry, projectionTxns)
     const endingBalance = Number(roundMoney(totalSplit(afterTx)))
 
     const stmt = creditCardStatement({
       openingBalance: carriedIn,
-      transactions: period.transactions.map((t) => ({
+      transactions: projectionTxns.map((t) => ({
         date: t.date,
         amount: t.amount,
         type: t.type,
@@ -369,14 +523,9 @@ export function projectCardPeriodDebts(
     })
     const minPayment = Number(stmt.minPayment)
 
-    const payment = sumCardPaymentsInWindow(
-      card.id,
-      transactions,
-      periodStartIso,
-      period.dueDate,
-    )
+    const payment = sumPeriodPayments(card, transactions, periods, i)
     const postCutoffPayment = sumCardPaymentsInWindow(
-      card.id,
+      card,
       transactions,
       period.cutoffDate,
       period.dueDate,
@@ -391,7 +540,7 @@ export function projectCardPeriodDebts(
     const paidInFull = endingBalance <= 0 || owedAtDue <= 0
     const dueIsPast = period.dueDate.slice(0, 10) < asOfKey
 
-    const accrualLines = period.transactions.filter((t) => t.type !== 'payment')
+    const accrualLines = projectionTxns.filter((t) => t.type !== 'payment')
     const periodAccruals = accrualLines.reduce((s, t) => s + t.amount, 0)
 
     const dueSplit = applyPaymentToSplit(afterTx, postCutoffPayment.sum)
@@ -500,13 +649,15 @@ function flatBalanceAsOf(
   transactions: CreditCardTransaction[],
   asOf: Date,
 ): ReturnType<typeof D> {
-  const expanded = expandInstallments(card, transactions)
-  const cutoffIso = asOf.toISOString()
-  const sorted = expanded
-    .filter((v) => v.date <= cutoffIso)
-    .sort((a, b) => a.date.localeCompare(b.date))
+  const openingKey = card.openingDate?.slice(0, 10)
+  const asOfKey = asOf.toISOString().slice(0, 10)
+  const expanded = expandedFromOpeningDate(card, transactions)
+  if (openingKey && asOfKey < openingKey) {
+    return D(0)
+  }
   let balance = D(card.openingBalance ?? 0)
-  for (const v of sorted) {
+  for (const v of expanded) {
+    if (v.date.slice(0, 10) > asOfKey) break
     if (v.type === 'payment') balance = balance.minus(v.amount)
     else balance = balance.plus(v.amount)
   }
@@ -652,7 +803,7 @@ export function cardCommittedTotal(
   asOf: Date = new Date(),
   rateContext: CardProjectionRateContext = {},
 ): CardCommittedTotals {
-  const expanded = expandInstallments(card, transactions)
+  const expanded = expandedFromOpeningDate(card, transactions)
   const cutoffIso = asOf.toISOString()
 
   let futureSum = D(0)

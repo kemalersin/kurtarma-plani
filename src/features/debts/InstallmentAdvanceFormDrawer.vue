@@ -52,7 +52,7 @@ const emit = defineEmits<{
 const entities = useEntitiesStore()
 const profileStore = useProfileStore()
 const presetStore = useBankingPresetStore()
-const { formatCurrency, formatNumber } = useLocaleFormatters()
+const { formatCurrency, formatNumber, formatPercentFromFraction } = useLocaleFormatters()
 
 const banks = entities.list<Bank>('bank')
 const cashAdvances = entities.list<CashAdvanceAccount>('cashAdvanceAccount')
@@ -196,7 +196,7 @@ function fillRefRate(): void {
     draft.interestRate = ceil * 100
     draft.interestPeriod = 'monthly'
     message.success(
-      `Aylık akdi faiz referanstan dolduruldu (${(ceil * 100).toFixed(2)}%).`,
+      `Aylık akdi faiz referanstan dolduruldu (${formatPercentFromFraction(ceil)}).`,
     )
   } else {
     message.info('Referansta nakit avans tavanı tanımlı değil.')
@@ -209,7 +209,7 @@ function fillRefLate(): void {
     draft.lateInterestRate = ceil * 100
     draft.lateInterestPeriod = 'monthly'
     message.success(
-      `Aylık gecikme faizi referanstan dolduruldu (${(ceil * 100).toFixed(2)}%).`,
+      `Aylık gecikme faizi referanstan dolduruldu (${formatPercentFromFraction(ceil)}).`,
     )
   } else {
     message.info('Referansta gecikme tavanı tanımlı değil.')
@@ -226,7 +226,7 @@ function fillRefTax(): void {
   if (tax > 0) {
     draft.taxRateMonthly = tax * 100
     message.success(
-      `KKDF + BSMV (${(tax * 100).toFixed(0)}%) referanstan dolduruldu.`,
+      `KKDF + BSMV (${formatPercentFromFraction(tax)}) referanstan dolduruldu.`,
     )
   } else {
     message.info('Referans vergi oranı tanımlı değil.')
