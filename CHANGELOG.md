@@ -21,6 +21,10 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 - `focusFirstFormField`: `≤768px` viewport'ta drawer açılışında otomatik focus atlanır; klavye hemen açılmaz.
 
+### Fixed — grafik tooltip (mobil)
+
+- `KpChart`: mobilde ECharts tooltip'leri artık gizlenmiyor; dokunmatik için `confine` + `click` tetikleme uygulanır. KpTooltip / AntDV mobil kısıtı yalnızca UI ipuçları için geçerli.
+
 ### Changed — AI kayıt önerisi (`kp-proposals`)
 
 - Sistem kılavuzu: tüm entity tipleri, kart/nakit avans hareketleri ayrı item, enum ve örnekler (`prompt.ts`, `snapshot.ts`).

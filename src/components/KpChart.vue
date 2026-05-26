@@ -7,8 +7,8 @@
  * - Responsive: `ResizeObserver` ile container boyut değişiminde `resize()`.
  * - Tema duyarlı: `data-theme="dark"` → `'dark'` ECharts teması; `useUiStore`
  *   reaktif olarak izlenir, tema değiştiğinde grafik dispose + yeniden init.
- * - Mobil viewport'ta tooltip default `axis` modunda; küçük ekranda fareüstü
- *   etkisi yerine dokunmalı (tap) ile tetiklenir (ECharts default davranış).
+ * - Mobil viewport'ta ECharts tooltip'leri açık kalır (`confine`, `click` tetikleme);
+ *   KpTooltip / AntDV kuralları grafiklere uygulanmaz.
  * - Veri akışı: `option` prop'u her değiştiğinde `setOption(..., { notMerge: false })`
  *   ile diff yapılır; container ref dispose'unda chart instance temizlenir.
  */
@@ -51,14 +51,18 @@ const heightStyle = computed(() =>
 function chartOption(option: EChartsOption): EChartsOption {
   if (!isMobileViewport.value) return option
   const tip = option.tooltip
-  if (tip == null) return { ...option, tooltip: { show: false } }
+  if (tip == null) return option
+  const mobileDefaults = {
+    confine: true,
+    triggerOn: 'mousemove|click',
+  }
   if (Array.isArray(tip)) {
     return {
       ...option,
-      tooltip: tip.map((t) => ({ ...t, show: false })),
+      tooltip: tip.map((t) => ({ ...mobileDefaults, ...t })),
     }
   }
-  return { ...option, tooltip: { ...tip, show: false } }
+  return { ...option, tooltip: { ...mobileDefaults, ...tip } }
 }
 
 function initChart(): void {
