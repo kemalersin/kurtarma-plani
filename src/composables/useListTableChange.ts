@@ -26,16 +26,24 @@ export function resolveListColumnSortDirections(column: {
     : ['ascend', 'descend']
 }
 
+function columnSortKey(column: { key?: unknown; dataIndex?: unknown }): string {
+  if (column.key != null && column.key !== '') return String(column.key)
+  const dataIndex = column.dataIndex
+  if (dataIndex == null || dataIndex === '') return ''
+  if (Array.isArray(dataIndex)) return dataIndex.map(String).join('.')
+  return String(dataIndex)
+}
+
 /** Sütun tanımından ilk `defaultSortOrder` değerini çözümler. */
 export function resolveDefaultColumnSort(
   columns: ReadonlyArray<{
-    key?: string | number
-    dataIndex?: string | number
+    key?: unknown
+    dataIndex?: unknown
     defaultSortOrder?: unknown
   }>,
 ): ListDefaultSort | null {
   for (const col of columns) {
-    const sortKey = String(col.key ?? col.dataIndex ?? '')
+    const sortKey = columnSortKey(col)
     const order = col.defaultSortOrder
     if (sortKey && (order === 'ascend' || order === 'descend')) {
       return { sortKey, sortOrder: order }
