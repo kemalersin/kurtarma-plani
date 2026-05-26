@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, h, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   Badge,
   Button,
@@ -17,7 +18,12 @@ import { textIncludesSearch } from '@/core/util/search'
 import { prepareListTableColumns, TABLE_SCROLL_X } from '@/core/util/table-columns'
 import { useListFilterPopoverProps } from '@/core/ui/list-filter-popover'
 import { useClosePopoverOnScroll } from '@/composables/useClosePopoverOnScroll'
-import { useListQuery, type SortOrder } from '@/composables/useListQuery'
+import { useListQuery } from '@/composables/useListQuery'
+import {
+  applyListTableChange,
+  listTablePaginationConfig,
+  resolveListColumnSortDirections,
+} from '@/composables/useListTableChange'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { ListFilter } from '@/components/EntityListPage.vue'
 import type { AnalyticsFilterState } from '@/composables/useAnalyticsFilters'
@@ -27,6 +33,10 @@ import {
   buildBankGroupedAccountOptions,
   filterBankGroupedAccountOption,
 } from '@/features/admin/accountSelectOptions'
+import {
+  analyticsRangeQueryActive,
+  clearAnalyticsListRouteQuery,
+} from '@/features/analytics/analyticsListQueryClear'
 
 const props = defineProps<{
   rows: MovementRow[]
@@ -36,7 +46,13 @@ const props = defineProps<{
 }>()
 
 const { formatCurrency, formatDate } = useLocaleFormatters()
-const query = useListQuery({ key: 'movements', defaultPageSize: 20 })
+const route = useRoute()
+const router = useRouter()
+const query = useListQuery({
+  key: 'movements',
+  defaultPageSize: 20,
+  resolveDefaultSort: () => ({ sortKey: 'date', sortOrder: 'descend' }),
+})
 
 const search = query.search
 const page = query.page
@@ -158,6 +174,7 @@ const activeFilterCount = computed(() => {
   let n = listFilters.filter(filterActiveFor).length
   if (props.filters.bankId.value) n++
   if (props.filters.endpointId.value) n++
+  if (analyticsRangeQueryActive(route)) n++
   return n
 })
 
@@ -257,9 +274,11 @@ const tableColumns = computed(() => {
   return prepareListTableColumns(baseColumns).map((col) => {
     const key = String(col.key ?? col.dataIndex ?? '')
     const sortOrderForCol = eff && eff.key === key ? eff.order : null
+    const sortDirections = resolveListColumnSortDirections(col)
     return {
       ...col,
       sortOrder: sortOrderForCol,
+      ...(sortDirections ? { sortDirections: [...sortDirections] } : {}),
     }
   })
 })
@@ -276,17 +295,15 @@ const sortedItems = computed(() => {
   return list
 })
 
-const pagination = computed<TablePaginationConfig>(() => ({
-  current: page.value,
-  pageSize: pageSize.value,
-  total: filtered.value.length,
-  showSizeChanger: true,
-  pageSizeOptions: ['10', '20', '50', '100'],
-  showTotal: (total) => `${total} kayıt`,
-  onChange: (nextPage, nextSize) => {
-    query.patch({ page: nextPage, size: nextSize ?? pageSize.value })
-  },
-}))
+const pagination = computed<TablePaginationConfig>(() =>
+  listTablePaginationConfig({
+    current: page.value,
+    pageSize: pageSize.value,
+    total: filtered.value.length,
+    pageSizeOptions: ['10', '20', '50', '100'],
+    showTotal: (total) => `${total} kayıt`,
+  }),
+)
 
 interface TableSorter {
   columnKey?: string | number
@@ -294,35 +311,24 @@ interface TableSorter {
 }
 
 function onTableChange(
-  _pagination: unknown,
+  pag: TablePaginationConfig,
   _filters: unknown,
   sorter: TableSorter | TableSorter[],
+  extra?: { action?: 'paginate' | 'sort' | 'filter' },
 ): void {
-  const single = Array.isArray(sorter) ? sorter[0] : sorter
-  const order = (single?.order || '') as SortOrder
-  const key = single?.columnKey != null ? String(single.columnKey) : ''
-  if (!key || !order) {
-    query.patch({ sortKey: '', sortOrder: '' })
-    return
-  }
-  query.patch({ sortKey: key, sortOrder: order })
+  applyListTableChange(query, pageSize.value, pag, sorter, extra, {
+    sortKey: 'date',
+    sortOrder: 'descend',
+  })
 }
 
 function clearFilters(): void {
-  const raw: Record<string, string | undefined> = { page: undefined }
-  for (const f of listFilters) {
-    if (f.kind === 'select') raw[f.key] = undefined
-    else {
-      raw[`${f.key}From`] = undefined
-      raw[`${f.key}To`] = undefined
-    }
-  }
-  query.rawPatch(raw)
-  props.filters.patch({
-    bank: undefined,
-    endpoint: undefined,
-    from: undefined,
-    to: undefined,
+  clearAnalyticsListRouteQuery({
+    route,
+    router,
+    stateKey: 'movements',
+    listFilters,
+    sharedQueryKeys: ['bank', 'endpoint', 'from', 'to'],
   })
 }
 </script>

@@ -51,7 +51,13 @@ import {
 } from '@/core/util/table-columns'
 import { textIncludesSearch } from '@/core/util/search'
 import { handleListItemClick } from '@/core/util/list-item-click'
-import { useListQuery, type SortOrder } from '@/composables/useListQuery'
+import { useListQuery } from '@/composables/useListQuery'
+import {
+  applyListTableChange,
+  listTablePaginationConfig,
+  resolveDefaultColumnSort,
+  resolveListColumnSortDirections,
+} from '@/composables/useListTableChange'
 import { KP_LIST_MOBILE_MQ, useMatchMedia } from '@/composables/useMatchMedia'
 import { useEntitiesStore } from '@/stores/entities'
 
@@ -175,7 +181,11 @@ function isRecordSensitive(record: T): boolean {
 
 const isMobile = useMatchMedia(KP_LIST_MOBILE_MQ)
 
-const query = useListQuery({ key: props.stateKey, defaultPageSize: 10 })
+const query = useListQuery({
+  key: props.stateKey,
+  defaultPageSize: 10,
+  resolveDefaultSort: () => resolveDefaultColumnSort(props.columns),
+})
 
 const search = query.search
 const archiveMode = query.archive
@@ -476,18 +486,7 @@ const allColumns = computed<TableColumnType<T>[]>(() => {
         ? ({ showTitle: false } as { showTitle: false })
         : col.ellipsis
     const sortOrderForCol = eff && eff.key === key ? eff.order : null
-    /**
-     * Cancel adımı (sıralamayı kaldırma) kapalı — yalnızca ascend ↔ descend toggle.
-     * `defaultSortOrder` 'descend' ise yön listesi 'descend' ile başlar; aksi
-     * halde AntDV mevcut yönün sonraki indeksini ararken liste dışına çıkıp
-     * tıklamayı yutar.
-     */
-    const sortDirections =
-      col.sorter
-        ? col.defaultSortOrder === 'descend'
-          ? (['descend', 'ascend'] as const)
-          : (['ascend', 'descend'] as const)
-        : undefined
+    const sortDirections = resolveListColumnSortDirections(col)
     return {
       ...col,
       ellipsis,
@@ -523,17 +522,16 @@ const tableBodyFillsViewport = computed(() => {
   return rows * tableRowHeight.value < minH
 })
 
-const pagination = computed<TablePaginationConfig>(() => ({
-  current: page.value,
-  pageSize: pageSize.value,
-  total: filtered.value.length,
-  showSizeChanger: !isMobile.value,
-  pageSizeOptions: ['10', '20', '50'],
-  showTotal: (total) => `${total} kayıt`,
-  onChange: (nextPage, nextSize) => {
-    query.patch({ page: nextPage, size: nextSize ?? pageSize.value })
-  },
-}))
+const pagination = computed<TablePaginationConfig>(() =>
+  listTablePaginationConfig({
+    current: page.value,
+    pageSize: pageSize.value,
+    total: filtered.value.length,
+    showSizeChanger: !isMobile.value,
+    pageSizeOptions: ['10', '20', '50'],
+    showTotal: (total) => `${total} kayıt`,
+  }),
+)
 
 /* ---------------------------------------------- table sizing & helpers */
 
@@ -574,18 +572,19 @@ interface TableSorter {
 }
 
 function onTableChange(
-  _pagination: unknown,
+  pag: TablePaginationConfig,
   _filters: unknown,
   sorter: TableSorter | TableSorter[],
+  extra?: { action?: 'paginate' | 'sort' | 'filter' },
 ): void {
-  const single = Array.isArray(sorter) ? sorter[0] : sorter
-  const order = (single?.order || '') as SortOrder
-  const key = single?.columnKey != null ? String(single.columnKey) : ''
-  if (!key || !order) {
-    query.patch({ sortKey: '', sortOrder: '' })
-    return
-  }
-  query.patch({ sortKey: key, sortOrder: order })
+  applyListTableChange(
+    query,
+    pageSize.value,
+    pag,
+    sorter,
+    extra,
+    resolveDefaultColumnSort(props.columns),
+  )
 }
 
 function onListItemClick(record: T, event: MouseEvent): void {

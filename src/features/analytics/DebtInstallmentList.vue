@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, h, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   Badge,
   Button,
@@ -18,11 +19,23 @@ import { textIncludesSearch } from '@/core/util/search'
 import { prepareListTableColumns, TABLE_SCROLL_X } from '@/core/util/table-columns'
 import { useListFilterPopoverProps } from '@/core/ui/list-filter-popover'
 import { useClosePopoverOnScroll } from '@/composables/useClosePopoverOnScroll'
-import { useListQuery, type SortOrder } from '@/composables/useListQuery'
+import { useListQuery } from '@/composables/useListQuery'
+import {
+  applyListTableChange,
+  listTablePaginationConfig,
+} from '@/composables/useListTableChange'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { ListFilter } from '@/components/EntityListPage.vue'
 import type { AnalyticsFilterState } from '@/composables/useAnalyticsFilters'
 import { debtInstallmentTypeLabel, debtInstallmentPaidDisplay, debtInstallmentStatusDisplay, type DebtInstallmentRow } from '@/features/analytics/reports'
+import {
+  analyticsRangeQueryActive,
+  clearAnalyticsListRouteQuery,
+} from '@/features/analytics/analyticsListQueryClear'
+import {
+  DEBT_INSTALLMENT_LIST_FILTERS,
+  filterDebtInstallmentRows,
+} from '@/features/analytics/debtInstallmentListFilters'
 
 const props = defineProps<{
   rows: DebtInstallmentRow[]
@@ -32,7 +45,13 @@ const props = defineProps<{
 }>()
 
 const { formatCurrency, formatDate } = useLocaleFormatters()
-const query = useListQuery({ key: 'debtInstallments', defaultPageSize: 15 })
+const route = useRoute()
+const router = useRouter()
+const query = useListQuery({
+  key: 'debtInstallments',
+  defaultPageSize: 15,
+  resolveDefaultSort: () => ({ sortKey: 'dueDate', sortOrder: 'ascend' }),
+})
 
 const search = query.search
 const page = query.page
@@ -63,47 +82,7 @@ const bankOptions = computed(() =>
   props.banks.map((b) => ({ value: b.id, label: b.name })),
 )
 
-const listFilters: ListFilter<DebtInstallmentRow>[] = [
-  {
-    kind: 'select',
-    key: 'status',
-    label: 'Durum',
-    placeholder: 'Tümü',
-    options: [
-      { value: 'paid', label: 'Ödendi' },
-      { value: 'partial', label: 'Kısmi ödendi' },
-      { value: 'overdue', label: 'Gecikmiş' },
-      { value: 'upcoming', label: 'Bekliyor' },
-    ],
-    getValue: (row) => {
-      if (row.status === 'paid') return 'paid'
-      if (debtInstallmentPaidDisplay(row) > 0) return 'partial'
-      return row.status
-    },
-  },
-  {
-    kind: 'select',
-    key: 'kind',
-    label: 'Tür',
-    placeholder: 'Tümü',
-    options: [
-      { value: 'loan', label: 'Kredi' },
-      { value: 'installmentAdvance', label: 'Taksitli avans' },
-      { value: 'cashAdvance', label: 'Nakit avans asgari' },
-      { value: 'cashAdvanceStatement', label: 'Nakit avans toplam' },
-      { value: 'creditCardMinPayment', label: 'Kart asgari ödeme' },
-      { value: 'creditCardStatement', label: 'Kart toplam ödeme' },
-    ],
-    getValue: (row) => row.debtKind,
-  },
-  {
-    kind: 'numberRange',
-    key: 'amount',
-    label: 'Tutar',
-    numberKind: 'currency',
-    getValue: (row) => Number(row.amount),
-  },
-]
+const listFilters = DEBT_INSTALLMENT_LIST_FILTERS
 
 function filterSelectOption(input: string, option: unknown): boolean {
   const opt = option as { label?: unknown }
@@ -149,41 +128,13 @@ function filterActiveFor(f: ListFilter<DebtInstallmentRow>): boolean {
 const activeFilterCount = computed(() => {
   let n = listFilters.filter(filterActiveFor).length
   if (props.filters.bankId.value) n++
+  if (analyticsRangeQueryActive(route)) n++
   return n
 })
 
-function passesItem(row: DebtInstallmentRow): boolean {
-  for (const f of listFilters) {
-    if (f.kind === 'select') {
-      const v = query.rawValue(f.key)
-      if (!v) continue
-      const itemValue = f.getValue(row)
-      if (itemValue == null || String(itemValue) !== v) return false
-    } else if (f.kind === 'numberRange') {
-      const { min, max } = getNumberRange(f.key)
-      if (min === undefined && max === undefined) continue
-      const itemValue = f.getValue(row)
-      if (itemValue == null) return false
-      if (min !== undefined && itemValue < min) return false
-      if (max !== undefined && itemValue > max) return false
-    }
-  }
-  return true
-}
-
-function matchesSearch(row: DebtInstallmentRow, q: string): boolean {
-  const kindLabel = debtInstallmentTypeLabel(row)
-  return [row.debtName, row.bankName, kindLabel].some((value) =>
-    textIncludesSearch(value, q),
-  )
-}
-
-const filtered = computed(() => {
-  let list = props.rows.filter(passesItem)
-  const q = search.value.trim()
-  if (q) list = list.filter((row) => matchesSearch(row, q))
-  return list
-})
+const filtered = computed(() =>
+  filterDebtInstallmentRows(props.rows, query, search.value),
+)
 
 const statusTag = (record: DebtInstallmentRow) => debtInstallmentStatusDisplay(record)
 
@@ -292,17 +243,15 @@ const sortedItems = computed(() => {
   return list
 })
 
-const pagination = computed<TablePaginationConfig>(() => ({
-  current: page.value,
-  pageSize: pageSize.value,
-  total: filtered.value.length,
-  showSizeChanger: true,
-  pageSizeOptions: ['10', '15', '25', '50'],
-  showTotal: (total) => `${total} kayıt`,
-  onChange: (nextPage, nextSize) => {
-    query.patch({ page: nextPage, size: nextSize ?? pageSize.value })
-  },
-}))
+const pagination = computed<TablePaginationConfig>(() =>
+  listTablePaginationConfig({
+    current: page.value,
+    pageSize: pageSize.value,
+    total: filtered.value.length,
+    pageSizeOptions: ['10', '15', '25', '50'],
+    showTotal: (total) => `${total} kayıt`,
+  }),
+)
 
 interface TableSorter {
   columnKey?: string | number
@@ -310,31 +259,25 @@ interface TableSorter {
 }
 
 function onTableChange(
-  _pagination: unknown,
+  pag: TablePaginationConfig,
   _filters: unknown,
   sorter: TableSorter | TableSorter[],
+  extra?: { action?: 'paginate' | 'sort' | 'filter' },
 ): void {
-  const single = Array.isArray(sorter) ? sorter[0] : sorter
-  const order = (single?.order || '') as SortOrder
-  const key = single?.columnKey != null ? String(single.columnKey) : ''
-  if (!key || !order) {
-    query.patch({ sortKey: '', sortOrder: '' })
-    return
-  }
-  query.patch({ sortKey: key, sortOrder: order })
+  applyListTableChange(query, pageSize.value, pag, sorter, extra, {
+    sortKey: 'dueDate',
+    sortOrder: 'ascend',
+  })
 }
 
 function clearFilters(): void {
-  const raw: Record<string, string | undefined> = { page: undefined }
-  for (const f of listFilters) {
-    if (f.kind === 'select') raw[f.key] = undefined
-    else {
-      raw[`${f.key}From`] = undefined
-      raw[`${f.key}To`] = undefined
-    }
-  }
-  query.rawPatch(raw)
-  props.filters.patch({ bank: undefined, from: undefined, to: undefined, cardDue: undefined })
+  clearAnalyticsListRouteQuery({
+    route,
+    router,
+    stateKey: 'debtInstallments',
+    listFilters,
+    sharedQueryKeys: ['bank', 'from', 'to'],
+  })
 }
 </script>
 

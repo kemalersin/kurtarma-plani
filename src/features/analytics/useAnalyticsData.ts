@@ -15,7 +15,6 @@ import {
 import {
   cashflowMonthRows,
   categoryOptions,
-  debtInstallmentMonthlySeries,
   debtInstallmentRows,
   filterCashflowRecords,
   movementRows,
@@ -44,7 +43,6 @@ import type {
 
 export interface AnalyticsData {
   debtRows: DebtInstallmentRow[]
-  debtSeries: ReturnType<typeof debtInstallmentMonthlySeries>
   cashflowRows: CashflowMonthRow[]
   cashflowSeries: ReturnType<typeof monthlyCashflowSeries>
   incomeCategories: ReturnType<typeof incomeByType>
@@ -181,7 +179,6 @@ export function useAnalyticsData(
 
     return {
       debtRows,
-      debtSeries: debtInstallmentMonthlySeries(debtRows, f.range),
       cashflowRows: cashflowMonthRows(
         incomes.value,
         expenses.value,

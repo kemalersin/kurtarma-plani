@@ -42,6 +42,8 @@ export interface UseListQueryOptions {
   key?: string
   /** Sayfa boyutu varsayılanı (URL'de yazılmaz) */
   defaultPageSize?: number
+  /** Varsayılan sıralama — URL'e yazılmaz (temiz URL). */
+  resolveDefaultSort?: () => { sortKey: string; sortOrder: Exclude<SortOrder, ''> } | null
 }
 
 function readStr(raw: unknown): string {
@@ -68,7 +70,7 @@ const PARAM_NAMES = {
  * Varsayılan değerler URL'e yazılmaz (temiz URL).
  */
 export function useListQuery(options: UseListQueryOptions = {}): ListQueryState {
-  const { key = '', defaultPageSize = 10 } = options
+  const { key = '', defaultPageSize = 10, resolveDefaultSort } = options
   const prefix = key ? `_${key}` : ''
   const route = useRoute()
   const router = useRouter()
@@ -100,14 +102,35 @@ export function useListQuery(options: UseListQueryOptions = {}): ListQueryState 
     void router.replace({ path: route.path, hash: route.hash, query })
   }
 
+  function normalizeSortForUrl(
+    key: string,
+    order: SortOrder,
+  ): { sortKey: string | undefined; sortOrder: SortOrder | undefined } {
+    if (!key || !order) return { sortKey: undefined, sortOrder: undefined }
+    const def = resolveDefaultSort?.()
+    if (def && key === def.sortKey && order === def.sortOrder) {
+      return { sortKey: undefined, sortOrder: undefined }
+    }
+    return { sortKey: key, sortOrder: order }
+  }
+
   function patch(p: Partial<RawListQueryPatch>): void {
     const raw: Record<string, string | undefined> = {}
     if (p.search !== undefined) raw[PARAM_NAMES.search] = p.search || undefined
     if (p.archive !== undefined)
       raw[PARAM_NAMES.archive] = p.archive === 'active' ? undefined : p.archive
     if (p.bank !== undefined) raw[PARAM_NAMES.bank] = p.bank || undefined
-    if (p.sortKey !== undefined) raw[PARAM_NAMES.sortKey] = p.sortKey || undefined
-    if (p.sortOrder !== undefined) raw[PARAM_NAMES.sortOrder] = p.sortOrder || undefined
+    if (p.sortKey !== undefined || p.sortOrder !== undefined) {
+      const keyIn =
+        p.sortKey !== undefined ? p.sortKey : rawValue(PARAM_NAMES.sortKey)
+      const orderIn =
+        p.sortOrder !== undefined
+          ? p.sortOrder
+          : (rawValue(PARAM_NAMES.sortOrder) as SortOrder)
+      const norm = normalizeSortForUrl(keyIn, orderIn)
+      raw[PARAM_NAMES.sortKey] = norm.sortKey
+      raw[PARAM_NAMES.sortOrder] = norm.sortOrder || undefined
+    }
     if (p.page !== undefined) raw[PARAM_NAMES.page] = p.page > 1 ? String(p.page) : undefined
     if (p.size !== undefined)
       raw[PARAM_NAMES.size] = p.size === defaultPageSize ? undefined : String(p.size)

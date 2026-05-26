@@ -6,6 +6,32 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.31]
+
+### Fixed — borç analizi aylık grafik filtreleri
+
+- Aylık borç vadeleri grafiği artık taksit listesindeki durum, tür, tutar ve arama filtrelerine göre güncellenir (liste ile ortak `filterDebtInstallmentRows`).
+
+### Fixed — hesap geçmişi hareket listesi sıralama
+
+- Tarih sütunu varsayılanı azalan (`descend`); Ant Design Vue sıralama döngüsü `['ascend','descend']` ile başlayınca ilk tıklama yutuluyordu. `EntityListPage` ile aynı `sortDirections: ['descend','ascend']` düzeltmesi `MovementList`'e eklendi.
+
+### Changed — liste URL sıralama
+
+- Varsayılan sütun sıralaması (`sort` / `order` query) artık URL'e yazılmaz; yalnızca varsayılandan farklı sıralama kalıcı olur (`useListQuery.resolveDefaultSort`).
+
+### Fixed — borç analizi taksit listesi sayfalama
+
+- Sayfa değiştirme tek `@change` handler üzerinden yapılır; sayfalama tıklamasında sıralama sıfırlama patch'i URL'deki `page` parametresini eziyordu.
+
+### Fixed — borç analizi taksit listesi filtre temizleme
+
+- **Filtreyi temizle** artık liste (prefiksli) ve paylaşılan analiz query anahtarlarını tek URL güncellemesinde siler; ardışık `router.replace` birbirini eziyordu.
+
+### Changed — borç analizi taksit listesi filtreleri
+
+- Tür filtresinden kart/nakit avans **asgari / toplam** ayrımı kaldırıldı (grafikteki **Asgari ödeme** toggle'ı aynı işi yapar); kredi kartı ve nakit avans tek seçenek olarak kalır.
+
 ## [0.1.30]
 
 ### Changed — kredi kartı formu faiz alanları

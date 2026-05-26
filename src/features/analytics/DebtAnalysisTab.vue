@@ -4,9 +4,12 @@ import { Card, Space, Switch } from 'ant-design-vue'
 import type { EChartsOption } from 'echarts/types/dist/echarts'
 import KpChart from '@/components/KpChart.vue'
 import DebtInstallmentList from '@/features/analytics/DebtInstallmentList.vue'
+import { useListQuery } from '@/composables/useListQuery'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { AnalyticsFilterState } from '@/composables/useAnalyticsFilters'
 import type { AnalyticsData } from '@/features/analytics/useAnalyticsData'
+import { debtInstallmentMonthlySeries } from '@/features/analytics/reports'
+import { filterDebtInstallmentRows } from '@/features/analytics/debtInstallmentListFilters'
 
 const props = defineProps<{
   data: AnalyticsData
@@ -23,6 +26,16 @@ const minPaymentDue = computed({
   },
 })
 
+const listQuery = useListQuery({ key: 'debtInstallments', defaultPageSize: 15 })
+
+const filteredDebtRows = computed(() =>
+  filterDebtInstallmentRows(props.data.debtRows, listQuery, listQuery.search.value),
+)
+
+const debtChartSeries = computed(() =>
+  debtInstallmentMonthlySeries(filteredDebtRows.value, props.filters.range.value),
+)
+
 function monthLabel(yyyymm: string): string {
   const [y, m] = yyyymm.split('-')
   return `${m}.${y!.slice(2)}`
@@ -36,7 +49,7 @@ function currencyAxisFormatter(value: number | string): string {
 }
 
 const chartOption = computed<EChartsOption>(() => {
-  const d = props.data.debtSeries
+  const d = debtChartSeries.value
   return {
     tooltip: {
       trigger: 'axis',
@@ -74,8 +87,8 @@ const chartOption = computed<EChartsOption>(() => {
 
 const isChartEmpty = computed(
   () =>
-    props.data.debtSeries.paid.every((v) => v === 0) &&
-    props.data.debtSeries.pending.every((v) => v === 0),
+    debtChartSeries.value.paid.every((v) => v === 0) &&
+    debtChartSeries.value.pending.every((v) => v === 0),
 )
 </script>
 
