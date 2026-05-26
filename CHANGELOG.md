@@ -17,6 +17,10 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 - `AiSettingsSection`: store zaten yüklüyse (ör. AI sohbet sayfasından) tam sayfa spinner atlanır; yalnızca ilk IndexedDB okumasında gösterilir.
 
+### Fixed — drawer mobil odak
+
+- `focusFirstFormField`: `≤768px` viewport'ta drawer açılışında otomatik focus atlanır; klavye hemen açılmaz.
+
 ### Changed — AI kayıt önerisi (`kp-proposals`)
 
 - Sistem kılavuzu: tüm entity tipleri, kart/nakit avans hareketleri ayrı item, enum ve örnekler (`prompt.ts`, `snapshot.ts`).
