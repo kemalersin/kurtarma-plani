@@ -2,9 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   cashflowMonthRows,
   debtInstallmentMonthlySeries,
-  debtInstallmentPaidDisplay,
   debtInstallmentRows,
-  debtInstallmentStatusDisplay,
   debtInstallmentTypeLabel,
   filterCashflowRecords,
   movementRows,
