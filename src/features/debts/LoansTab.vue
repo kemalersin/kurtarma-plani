@@ -258,6 +258,7 @@ const columns = computed<TableColumnType<Loan>[]>(() => [
   {
     key: 'status',
     title: 'Durum',
+    kpMinWidth: 128,
     kpDisplay: (loan) => statusLabel(loan),
     kpTag: (loan) => statusTag(loan),
     sorter: (a, b) => compareByDisplayLabel(a, b, statusLabel),

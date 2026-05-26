@@ -198,13 +198,16 @@ body {
   row-gap: 8px;
 }
 
-/** Liste / drawer / analiz tabloları: başlık tek satır, en az başlık+sıralayıcı genişliği; dar ekranda yatay kaydırma */
+/** Liste / drawer / analiz: başlık ve gövde tek satır; sağa hizalı sütunlarda başlık = gövde */
 .kp-list__table--desktop .ant-table-thead > tr > th,
+.kp-list__table--desktop .ant-table-tbody > tr > td,
 .kp-drawer-table .ant-table-thead > tr > th,
+.kp-drawer-table .ant-table-tbody > tr > td,
 .kp-analytics-tab__table-card .ant-table-thead > tr > th,
-.kp-analytics-debt-list .ant-table-thead > tr > th {
+.kp-analytics-tab__table-card .ant-table-tbody > tr > td,
+.kp-analytics-debt-list .ant-table-thead > tr > th,
+.kp-analytics-debt-list .ant-table-tbody > tr > td {
   white-space: nowrap;
-  min-width: max-content;
 }
 
 .kp-list__table--desktop .ant-table-thead > tr > th .ant-table-column-sorters,
@@ -214,39 +217,42 @@ body {
   flex-wrap: nowrap;
 }
 
-.kp-list__table--desktop .ant-table-thead > tr > th .ant-table-column-title,
-.kp-drawer-table .ant-table-thead > tr > th .ant-table-column-title,
-.kp-analytics-tab__table-card .ant-table-thead > tr > th .ant-table-column-title,
-.kp-analytics-debt-list .ant-table-thead > tr > th .ant-table-column-title {
-  flex: 0 1 auto;
+.kp-list__table--desktop .ant-table-thead > tr > th.ant-table-cell-align-right .ant-table-column-sorters,
+.kp-drawer-table .ant-table-thead > tr > th.ant-table-cell-align-right .ant-table-column-sorters,
+.kp-analytics-tab__table-card .ant-table-thead > tr > th.ant-table-cell-align-right .ant-table-column-sorters,
+.kp-analytics-debt-list .ant-table-thead > tr > th.ant-table-cell-align-right .ant-table-column-sorters {
+  justify-content: flex-end;
 }
 
-/** Tablo en az konteyner genişliği; sütunlar içeriğe göre büyür */
-.kp-list__table--desktop .ant-table-header,
-.kp-list__table--desktop .ant-table-body,
-.kp-drawer-table .ant-table-header,
-.kp-drawer-table .ant-table-body,
-.kp-analytics-tab__table-card .ant-table-header,
-.kp-analytics-tab__table-card .ant-table-body,
-.kp-analytics-debt-list .ant-table-header,
-.kp-analytics-debt-list .ant-table-body {
-  min-width: 100%;
+/** Tag / arşiv sütunları: yan yana, taşarsa yatay kaydırma */
+.kp-list__table--desktop .ant-table-tbody > tr > td .ant-space,
+.kp-drawer-table .ant-table-tbody > tr > td .ant-space {
+  flex-wrap: nowrap;
 }
 
-.kp-list__table--desktop .ant-table-header > table,
-.kp-list__table--desktop .ant-table-body > table,
-.kp-list__table--desktop .ant-table-content > table,
-.kp-drawer-table .ant-table-header > table,
-.kp-drawer-table .ant-table-body > table,
-.kp-drawer-table .ant-table-content > table,
-.kp-analytics-tab__table-card .ant-table-header > table,
-.kp-analytics-tab__table-card .ant-table-body > table,
-.kp-analytics-tab__table-card .ant-table-content > table,
-.kp-analytics-debt-list .ant-table-header > table,
-.kp-analytics-debt-list .ant-table-body > table,
-.kp-analytics-debt-list .ant-table-content > table {
-  width: max-content;
-  min-width: 100%;
+/** Scrollbar placeholder sütunu — header ve gövdede gizle (hizayı bozar) */
+.kp-list__table--desktop .ant-table-cell-scrollbar,
+.kp-list__table--desktop col.ant-table-cell-scrollbar,
+.kp-drawer-table .ant-table-cell-scrollbar,
+.kp-drawer-table col.ant-table-cell-scrollbar,
+.kp-analytics-tab__table-card .ant-table-cell-scrollbar,
+.kp-analytics-tab__table-card col.ant-table-cell-scrollbar,
+.kp-analytics-debt-list .ant-table-cell-scrollbar,
+.kp-analytics-debt-list col.ant-table-cell-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+}
+
+/** Sabit sütun yok; konteyner ping gölgesi kaydırma taşınınca ortada çizgi gibi görünür */
+.kp-list__table--desktop .ant-table-ping-left:not(.ant-table-has-fix-left) > .ant-table-container::before,
+.kp-list__table--desktop .ant-table-ping-right:not(.ant-table-has-fix-right) > .ant-table-container::after,
+.kp-drawer-table .ant-table-ping-left:not(.ant-table-has-fix-left) > .ant-table-container::before,
+.kp-drawer-table .ant-table-ping-right:not(.ant-table-has-fix-right) > .ant-table-container::after {
+  box-shadow: none !important;
 }
 
 /** EntityListPage / DrawerDataTable mobil kart listesi */

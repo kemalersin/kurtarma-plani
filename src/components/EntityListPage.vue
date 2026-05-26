@@ -500,27 +500,19 @@ const allColumns = computed<TableColumnType<T>[]>(() => {
 const tableRowHeight = ref(48)
 
 /**
- * Az satırda gövde en az kalan yüksekliği doldurur (yatay çubuk alanın dibinde).
- * Çok satırda `scroll.y` yok — gövde doğal yüksekliğe büyür, dikey kaydırma `.kp-content` ile.
+ * Dikey `scroll.y` kullanılmaz — AntDV başlık/gövdeyi ayırır ve sütun hizası bozulur.
+ * Az satırda gövde min-height ile doldurulur (`.kp-list__table--fill-body`).
  */
-const tableScrollY = computed(() => {
-  if (isMobile.value) return undefined
+const tableScroll = computed(() => ({ x: TABLE_SCROLL_X }))
+
+const tableBodyFillsViewport = computed(() => {
+  if (isMobile.value) return false
   const minH = tableBodyMinHeight.value
-  if (minH <= 0) return undefined
+  if (minH <= 0) return false
   const rows = sortedItems.value.length
-  if (rows === 0) return minH
-  const contentH = rows * tableRowHeight.value
-  return contentH < minH ? minH : undefined
+  if (rows === 0) return true
+  return rows * tableRowHeight.value < minH
 })
-
-const tableScroll = computed(() => {
-  const s: { x: typeof TABLE_SCROLL_X; y?: number } = { x: TABLE_SCROLL_X }
-  const y = tableScrollY.value
-  if (y != null) s.y = y
-  return s
-})
-
-const tableBodyFillsViewport = computed(() => tableScrollY.value != null)
 
 const pagination = computed<TablePaginationConfig>(() => ({
   current: page.value,
@@ -943,7 +935,7 @@ watch(
             <ColorSwatch :color="recordColor(record as T)" />
           </template>
           <template v-else-if="column.key === 'archived'">
-            <Space :size="4" wrap>
+            <Space :size="4" class="kp-list__status-tags">
               <Tag v-if="isRecordSensitive(record as T)" color="orange">Hassas</Tag>
               <Tag v-if="(record as T).archived" color="default">Arşivli</Tag>
               <Tag v-else color="green">Aktif</Tag>
@@ -1166,8 +1158,20 @@ watch(
   flex-shrink: 0;
 }
 
-/** Az satır: scroll.y ile gövde yüksekliği sabit; yatay çubuk alanın dibinde */
-.kp-list__table--fill-body :deep(.ant-table-body) {
+/**
+ * Az satır: yatay kaydırma `.ant-table-content` üzerinde (AntDV'nin scroll ref'i); flex ile alan doldurulur.
+ * Konteynere taşımayın — `ping-right` gölgesi ve çift scrollbar bozar.
+ */
+.kp-list__table--fill-body :deep(.ant-table-container) {
+  flex: 1 1 0;
+  height: 0;
+  min-height: var(--kp-table-body-min-h, 120px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden !important;
+}
+
+.kp-list__table--fill-body :deep(.ant-table-content) {
   flex: 1 1 0;
   height: 0;
   min-height: var(--kp-table-body-min-h, 120px);
@@ -1175,26 +1179,10 @@ watch(
   overflow-y: hidden !important;
 }
 
-/** Çok satır: dahili dikey scroll yok; gövde içerikle büyür, sayfa kayar */
+.kp-list__table--desktop:not(.kp-list__table--fill-body) :deep(.ant-table-content),
 .kp-list__table--desktop:not(.kp-list__table--fill-body) :deep(.ant-table-body) {
-  flex: 1 1 auto;
-  min-height: var(--kp-table-body-min-h, 120px);
   overflow-x: auto !important;
   overflow-y: visible !important;
-}
-
-/**
- * AntDV dikey scrollbar hizası için eklediği boş sütun — gereksiz sağ boşluk bırakır.
- * Gövde `overflow: auto` ile kendi scrollbar'ını yönetir.
- */
-.kp-list__table--desktop :deep(.ant-table-cell-scrollbar),
-.kp-list__table--desktop :deep(col.ant-table-cell-scrollbar) {
-  display: none !important;
-  width: 0 !important;
-  min-width: 0 !important;
-  max-width: 0 !important;
-  padding: 0 !important;
-  border: none !important;
 }
 
 .kp-list__table--desktop :deep(.ant-table-pagination) {

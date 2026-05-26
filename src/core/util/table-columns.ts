@@ -10,6 +10,8 @@ export type KpColumnTag = {
 export type KpTableColumn<T> = TableColumnType<T> & {
   kpDisplay?: (row: T) => string
   kpTag?: (row: T) => KpColumnTag | null | undefined
+  /** Başlık tahmininden büyükse sütun alt genişliği (örn. Tag sütunları). */
+  kpMinWidth?: number
 }
 
 /** Yatay kaydırma: tablo genişliği içeriğe göre (elle sütun px verilmez). */
@@ -26,6 +28,15 @@ export function listActionsColumnWidth(options?: { rowAction?: boolean }): numbe
   return options?.rowAction ? LIST_ACTIONS_COLUMN_WIDTH_WITH_ROW_ACTION : LIST_ACTIONS_COLUMN_WIDTH
 }
 
+function implicitColumnMinWidth<T>(col: TableColumnType<T>): number | undefined {
+  const kpCol = col as KpTableColumn<T>
+  if (kpCol.kpMinWidth != null) return kpCol.kpMinWidth
+  const key = String(col.key ?? '')
+  if (key === 'archived') return 108
+  if (kpCol.kpTag) return 96
+  return undefined
+}
+
 export function resolveKpColumnTag<T>(
   column: TableColumnType<T>,
   record: T,
@@ -37,14 +48,15 @@ export function resolveKpColumnTag<T>(
 
 /**
  * Liste tablosu sütunlarını hazırlar.
- * `width` / `minWidth` / `maxWidth` / `fixed` kaldırılır — genişlik tarayıcı + `table-layout: auto`.
+ * Elle `width` / `maxWidth` / `fixed` kaldırılır; yalnızca `kpMinWidth` (veya `archived` / `kpTag` için varsayılan) kalır.
  */
 export function prepareListTableColumns<T>(
   columns: TableColumnType<T>[],
 ): TableColumnType<T>[] {
   return columns.map((col) => {
     const { width: _w, minWidth: _min, maxWidth: _max, fixed: _fixed, ...rest } = col
-    return rest as TableColumnType<T>
+    const minWidth = implicitColumnMinWidth(col)
+    return (minWidth != null ? { ...rest, minWidth } : rest) as TableColumnType<T>
   })
 }
 
