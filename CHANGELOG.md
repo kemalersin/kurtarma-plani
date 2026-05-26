@@ -6,6 +6,12 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.30]
+
+### Changed — kredi kartı formu faiz alanları
+
+- Kademeli (referans) faiz modunda alışveriş / gecikme / nakit avans alanları gizlenir; yalnızca faiz vergisi (KKDF+BSMV) düzenlenebilir. Sabit sözleşme modunda tüm oran alanları ve referans doldurma düğmeleri gösterilir.
+
 ## [0.1.29]
 
 ### Added — kredi kartı açılış tarihi

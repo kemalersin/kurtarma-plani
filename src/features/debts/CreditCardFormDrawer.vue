@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import {
   Form,
   FormItem,
@@ -12,6 +12,7 @@ import {
 } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
+import DismissibleDrawerAlert from '@/components/DismissibleDrawerAlert.vue'
 import SensitiveRecordSwitch from '@/components/SensitiveRecordSwitch.vue'
 import {
   emptySensitiveFields,
@@ -105,6 +106,7 @@ function emptyForm(): Form {
 const draft = reactive<Form>(emptyForm())
 const saving = ref(false)
 const bankDrawerOpen = ref(false)
+const isFixedRateMode = computed(() => draft.rateMode === 'fixed')
 
 function profileCurrency(): string {
   return profileStore.activeProfile?.localeSettings.currency ?? 'TRY'
@@ -201,8 +203,34 @@ async function submit(): Promise<void> {
     message.error('Limit sıfırdan büyük olmalı.')
     return
   }
+  if (draft.rateMode === 'fixed' && draft.purchaseAprMonthly == null) {
+    message.error('Alışveriş aylık faizi gerekli.')
+    return
+  }
   saving.value = true
   try {
+    const preset = presetStore.active.preset
+    const tier = pickCreditCardBalanceTier(
+      preset.creditCard.maxRatesByBalanceTier,
+      presetTierDebtHint(),
+    )
+    const purchaseAprMonthly =
+      draft.rateMode === 'fixed'
+        ? Number(draft.purchaseAprMonthly) / 100
+        : tier.purchaseAprMonthly
+    const lateAprMonthly =
+      draft.rateMode === 'fixed'
+        ? draft.lateAprMonthly !== undefined
+          ? Number(draft.lateAprMonthly) / 100
+          : undefined
+        : tier.lateAprMonthly
+    const cashAdvanceAprMonthly =
+      draft.rateMode === 'fixed'
+        ? draft.cashAdvanceAprMonthly !== undefined
+          ? Number(draft.cashAdvanceAprMonthly) / 100
+          : undefined
+        : preset.creditCard.cashAdvanceAprMonthly
+
     const saved = await entities.save<CreditCard>('creditCard', {
       id: props.card?.id,
       name: draft.name.trim(),
@@ -214,15 +242,9 @@ async function submit(): Promise<void> {
       statementCutoffDay: Number(draft.statementCutoffDay),
       paymentDueDay: Number(draft.paymentDueDay),
       rateMode: draft.rateMode,
-      purchaseAprMonthly: Number(draft.purchaseAprMonthly) / 100,
-      lateAprMonthly:
-        draft.lateAprMonthly !== undefined
-          ? Number(draft.lateAprMonthly) / 100
-          : undefined,
-      cashAdvanceAprMonthly:
-        draft.cashAdvanceAprMonthly !== undefined
-          ? Number(draft.cashAdvanceAprMonthly) / 100
-          : undefined,
+      purchaseAprMonthly,
+      lateAprMonthly,
+      cashAdvanceAprMonthly,
       taxRateMonthly:
         draft.taxRateMonthly !== undefined
           ? Number(draft.taxRateMonthly) / 100
@@ -298,58 +320,66 @@ function close(): void {
       <FormItem>
         <template #label>
           <KpFormLabel
-            hint="Kademeli modda dönem borcuna göre TCMB referans tavanları uygulanır; sabit modda aşağıdaki oranlar kullanılır."
+            hint="Kademeli modda faizler dönem borcuna göre bankacılık referansından uygulanır. Sabit modda elle girilen sözleşme oranları kullanılır."
           >
             Faiz modu
           </KpFormLabel>
         </template>
         <Select v-model:value="draft.rateMode" :options="rateModeOptions" />
       </FormItem>
-      <FormItem label="Alışveriş aylık faizi (%)" required>
-        <Space.Compact style="width: 100%">
-          <LocaleInputNumber
-            v-model:value="draft.purchaseAprMonthly"
-            kind="percent"
-            :min="0"
-            style="flex: 1; min-width: 0"
-          />
-          <Button @click="fillRefPurchase">Referansla doldur</Button>
-        </Space.Compact>
-      </FormItem>
-      <FormItem>
-        <template #label>
-          <KpFormLabel hint="Boş bırakılırsa alışveriş × 1.087 (≈ +0,30 puan) varsayılır.">
-            Gecikme aylık faizi (%)
-          </KpFormLabel>
-        </template>
-        <Space.Compact style="width: 100%">
-          <LocaleInputNumber
-            v-model:value="draft.lateAprMonthly"
-            kind="percent"
-            :min="0"
-            placeholder="Boş bırakılabilir"
-            style="flex: 1; min-width: 0"
-          />
-          <Button @click="fillRefLate">Referansla doldur</Button>
-        </Space.Compact>
-      </FormItem>
-      <FormItem>
-        <template #label>
-          <KpFormLabel hint="Boş bırakılırsa alışveriş faizi kullanılır.">
-            Nakit avans aylık faizi (%)
-          </KpFormLabel>
-        </template>
-        <Space.Compact style="width: 100%">
-          <LocaleInputNumber
-            v-model:value="draft.cashAdvanceAprMonthly"
-            kind="percent"
-            :min="0"
-            placeholder="Boş bırakılabilir"
-            style="flex: 1; min-width: 0"
-          />
-          <Button @click="fillRefCashAdvance">Referansla doldur</Button>
-        </Space.Compact>
-      </FormItem>
+      <DismissibleDrawerAlert
+        v-if="!isFixedRateMode"
+        hint-key="credit-card-form.balance-tier-rates"
+        message="Referans faiz kademesi"
+        description="Akdi ve gecikme faizleri her dönemde borç tutarına göre Ayarlar'daki bankacılık referansından seçilir. Sözleşme oranınızı biliyorsanız faiz modu olarak sabit sözleşme oranı seçin."
+      />
+      <template v-if="isFixedRateMode">
+        <FormItem label="Alışveriş aylık faizi (%)" required>
+          <Space.Compact style="width: 100%">
+            <LocaleInputNumber
+              v-model:value="draft.purchaseAprMonthly"
+              kind="percent"
+              :min="0"
+              style="flex: 1; min-width: 0"
+            />
+            <Button @click="fillRefPurchase">Referansla doldur</Button>
+          </Space.Compact>
+        </FormItem>
+        <FormItem>
+          <template #label>
+            <KpFormLabel hint="Boş bırakılırsa alışveriş × 1.087 (≈ +0,30 puan) varsayılır.">
+              Gecikme aylık faizi (%)
+            </KpFormLabel>
+          </template>
+          <Space.Compact style="width: 100%">
+            <LocaleInputNumber
+              v-model:value="draft.lateAprMonthly"
+              kind="percent"
+              :min="0"
+              placeholder="Boş bırakılabilir"
+              style="flex: 1; min-width: 0"
+            />
+            <Button @click="fillRefLate">Referansla doldur</Button>
+          </Space.Compact>
+        </FormItem>
+        <FormItem>
+          <template #label>
+            <KpFormLabel hint="Boş bırakılırsa alışveriş faizi kullanılır.">
+              Nakit avans aylık faizi (%)
+            </KpFormLabel>
+          </template>
+          <Space.Compact style="width: 100%">
+            <LocaleInputNumber
+              v-model:value="draft.cashAdvanceAprMonthly"
+              kind="percent"
+              :min="0"
+              placeholder="Boş bırakılabilir"
+              style="flex: 1; min-width: 0"
+            />
+            <Button @click="fillRefCashAdvance">Referansla doldur</Button>
+          </Space.Compact>
+        </FormItem>
+      </template>
       <FormItem>
         <template #label>
           <KpFormLabel hint="KKDF + BSMV toplamı; faiz hesabına eklenir (örn. %25).">
