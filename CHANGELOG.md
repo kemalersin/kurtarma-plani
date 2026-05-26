@@ -6,10 +6,90 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.27]
+
+### Fixed — kart borcu toplamları (taşınan bakiye + faiz)
+
+- `cardOutstandingBalance`: güncel kart borcu artık `projectCardPeriodDebts` ile taşınan bakiye + gecikme faizini yansıtır; düz işlem toplamı (`12000 − 12382 = 0`) geç ödemede kalan borcu gizlemiyordu.
+- `cardCommittedTotal.ending` ve `committed` bu fonksiyonu kullanır → **Kart listesi** (ekstre borcu, toplam yükümlülük, kullanılabilir), **dashboard borç snapshot'ı** ve **AI dışa aktarım** güncellenir.
+- Taksit tahakkukları için düz işlem toplamı korunur; sonuç `max(düz tahakkuk, projeksiyon)` ile alınır.
+
+### Fixed — borç analizi grafik ve liste (kart ödemeleri)
+
+- Kart satırlarında `paidAmount` artık **ödeme penceresindeki toplam** (`paymentsInWindow`) ile doldurulur; taşıma hesabı için kullanılan kesim sonrası tutar (`paidAfterCutoff`) ayrı alanda kalır.
+- **Toplam ödeme** modunda penceredeki tüm ödemeler grafikte “ödenen” serisine yansır; kalan borç “bekleyen”de gösterilir.
+- **Asgari ödeme** modunda da asgari karşılanmış olsa bile grafikte gerçek ödeme penceresi toplamı gösterilir (yalnızca asgari satır tutarı değil).
+- Taksit listesi tablosuna **Ödenen** sütunu eklendi; kısmi ödemeler **Kısmi ödendi** etiketi ve filtre seçeneği ile gösterilir.
+- Grafik serisi: ödeme tutarı satır borcundan büyükse (geç ödeme senaryosu) bekleyen = satır tutarı (negatif kalmaz).
+
+### Fixed — kart geç ödeme sonrası borç taşıma
+
+- `projectCardPeriodDebts`: vadesi geçmiş dönemde sonraki vadeye taşınan bakiye artık **kesim sonrası ödemeler** düşülerek hesaplanır (`owedAtDue = endingBalance − postCutoffPayments`). Kesim öncesi ödemeler zaten ekstre bakiyesinde; pencere toplamının tekrar düşülmesi geç ödemede kalan gecikme faizini sıfırlıyordu.
+- `paidInFull` ve `paidAmount` aynı mantığa göre güncellendi; kesim sonrası ödeme yoksa kalan borç tam ödenmemiş sayılır.
+
+### Removed — kart "Nakit avans aylık faizi" alanı
+
+- `CreditCard.cashAdvanceAprMonthly` şemadan ve form drawer'ından (`CreditCardFormDrawer`) kaldırıldı; "Referansla doldur" düğmesi de gitti. Eski kayıtlardaki alan Zod parse'da sessizce düşer (geriye uyum).
+- `creditCardInstallmentApr` fonksiyonu (artık kullanılmıyordu) finans motorundan silindi; `resolveCreditCardRepaymentTotal`'ın `card` parametresi yalnızca `purchaseAprMonthly` bekler.
+- Sample data ve AI prompt karşılığı (`prompt.ts` kart opsiyonel alan listesi) güncellendi.
+- Banking preset şemasındaki `creditCard.cashAdvanceAprMonthly` (TCMB referans tavanı) yerinde kalır; `CashAdvanceFormDrawer`/`InstallmentAdvanceFormDrawer` "Referansla doldur" akışı için fallback olarak kullanılmaya devam eder.
+
+### Changed — kart hareketi "Geri ödenecek tutar" mantığı
+
+- "Geri ödenecek tutar" alanı artık **taksit sayısından bağımsız**: peşin (`installmentCount = 1`) işlemde de görünür, girilebilir ve **kart borcuna o tutar yansır** (`expandInstallments` peşin satırda da `resolveCreditCardRepaymentTotal` kullanıyor; eskiden `amount` ile sabitti).
+- Boş bırakılırsa **tutara eşit** alınır; eski davranıştaki **otomatik faiz/anüite hesabı kaldırıldı** (kart aylık faizi artık `repaymentTotal` boşken devreye girmez). Faiz/ek ücret eklemek istenirse alana açıkça yazılır.
+- `resolveCreditCardRepaymentTotal(txn, _card)`: `repaymentTotal` verilmemişse her zaman `amount` döner; `payment` türünde `repaymentTotal` yok sayılır. `card` parametresi geriye uyum için saklanıyor.
+- AI prompt güncellendi: `repaymentTotal` boşsa `amount`'a eşit (otomatik faiz hesabı yok); peşin işlemde de geçerli.
+
+### Added — kredi kartı taksitli hareket
+
+- `CreditCardTransaction.installmentCount` artık tüm hesaplamalarda etkin (önceden yalnız şemada tanımlıydı).
+- Form (`CreditCardTxnDrawer`): "Taksit sayısı" alanı (1–36); `purchase` ve `cashAdvance` için aktif, `payment` için gizli. Önizleme: `N taksit × tutar` ve yuvarlamada son taksit farkı.
+- Düzenleme kilidi: tahakkuk etmiş taksit sayısı kadar `installmentCount` ve toplam tutar geriye gidemez; tarih sabittir (`accruedInstallmentCount`).
+- Toplam tutar **işlem tutarı** (faiz hariç) olarak girilir; kart borcuna yansıyan tutar **Geri ödenecek tutar** alanından belirlenir (`repaymentTotal`). Boş bırakılırsa kartın alışveriş/nakit avans aylık faizi ile anüite toplamı hesaplanır (`creditCardInstallmentRepaymentTotal`, `resolveCreditCardRepaymentTotal`).
+- `expandInstallments(card, txns)` — taksit tahakkuku geri ödeme toplamına göre bölünür; nakit akışı (`amount`) ayrı kalır.
+- `buildCardPeriods` taksit-aware: her dönem yalnız o aya düşen taksiti içerir; `CardPeriod.transactions` artık `PeriodTxn[]` (sanal kayıt).
+- `cardCommittedTotal(card, txns, asOf)` — `{ ending, future, committed }`: bugüne kadar tahakkuk + henüz tahakkuk etmemiş gelecek taksitler.
+- `CreditCardsTab`: yeni **Toplam yükümlülük** sütunu/filtresi; **Kullanılabilir** = `limit − committed` (banka davranışıyla uyumlu).
+- `CreditCardStatementDrawer`: tahakkuk satırlarında "X/Y taksit" rozeti; gelecek taksitler varsa stat satırına "Toplam yükümlülük" eklenir; satır tıklaması ↦ orijinal kayıt drawer'ı; sil → orijinal işlem (uyarı: tüm taksitler kaldırılır).
+- `debtSnapshot.byType.creditCards` artık toplam yükümlülük (gelecek taksitler dahil); dashboard borç projeksiyonu da `buildCardPeriods` üzerinden taksit-aware.
+- AI prompt: `amount` = işlem tutarı; `repaymentTotal` = kart borcu toplamı (opsiyonel).
+- Test: `splitInstallmentAmount`, `creditCardInstallmentRepaymentTotal`, `resolveCreditCardRepaymentTotal`, `expandInstallments`, `cardCommittedTotal`, `accruedInstallmentCount`, taksitli `buildCardPeriods` çoklu dönem dağılımı, `debtSnapshot` taksitli kart.
+
+### Changed — AI kılavuz ve dışa aktarım (kart dönem projeksiyonu)
+
+- `AI_CONTEXT_VERSION` → 3: `schedules.creditCardPeriods` — hesap kesim dönemleri (taşınan borç, gecikme faizi, dönem sonu, asgari, dönem içi ödeme); analiz / hesap özeti ile aynı `projectCardPeriodDebts` motoru.
+- `sections.creditCards`: `currentPeriodEndingBalance` ve `minPayment` artık projeksiyondan.
+- Sohbet snapshot'ı: `derived.creditCardPeriods` (localeSettings verildiğinde); sistem kılavuzu güncellendi.
+
+### Changed — AI kılavuz ve dışa aktarım (kart taksitleri)
+
+- `prompt.ts`: kart taksit kuralları (tek kayıt, `installmentCount` yalnız purchase/cashAdvance, `amount` vs `repaymentTotal`); taksitli alışveriş ve nakit avans örnekleri.
+- AI dışa aktarım (`AI_CONTEXT_VERSION` → 2): kart özeti `cardCommittedTotal` ile (ekstre / gelecek taksit / toplam yükümlülük / kullanılabilir); `sections.creditCardTransactions`; `schedules.creditCards` taksit tahakkuk planı; Markdown tabloları güncellendi.
+- JSON dışa aktarımda kart taksit planında yalnız `future` satırlar kalır (tahakkuk etmişler budanır).
+
 ### Changed — sürüm / CHANGELOG
 
 - `npm version`: `version` script'i `[Unreleased]` içeriğini otomatik `## [X.Y.Z]` altına taşır (`scripts/promote-changelog-unreleased.ts`).
 - Kullanım: README § Sürüm ve CHANGELOG; `developer-ux.mdc` ve SKILL güncellendi.
+
+### Changed — borç analizi kart modu
+
+- **Kart borcu** seçeneği (URL `cardDue`): **Asgari ödeme** (varsayılan) veya **Toplam ödeme**; grafik ve taksit listesi birlikte güncellenir.
+- Toplam ödeme modu: kart vadelerinde **dönem sonu bakiyesi** (taşınan borç + faiz dahil) vade başına **tek satır**; taksitler ayrı satır olarak gösterilmez.
+- Asgari mod: dönemde borç varsa satır; tutar taşınan bakiye + faiz dahil **o vadenin asgari ödemesi**; taksitler bittikten sonra ödenmemiş bakiye faizle sonraki vadelerde sürer.
+- `projectCardPeriodDebts` — kart dönemleri arası taşınan borç + gecikme faizi projeksiyonu; analiz taksit listesi ve grafik bu fonksiyonu kullanır.
+- **Taşıma yalnızca geçmiş vadelerden:** vadesi geçmiş (`dueDate < bugün`) ve karşılanmamış dönemlerin kalan bakiyesi sonraki vadeye gecikme faiziyle yansır; vadesi gelmemiş gelecek dönemler bağımsız hesaplanır (henüz ödenip ödenmeyeceği bilinmediği için kendiliğinden sonraki aya eklenmez).
+
+### Fixed — analiz borç grafiği (kart çift sayım)
+
+- Kart taksit + asgari ödeme aynı grafiğe toplanıyordu; kart modu seçeneği ile ayrıldı (yukarıdaki **Changed — borç analizi kart modu**).
+
+### Fixed — analiz grafik kartları
+
+- Borç analizi sekmesindeki **Aylık borç vadeleri** kartının yüksekliği, Nakit akışı ve Hesap geçmişi sekmelerindeki üst grafik kartlarıyla hizalandı (sekme özel `padding-top` override kaldırıldı).
+- **Taksit listesi** boş durumu, Hareket listesi ile aynı AntDV yer tutucusunu kullanır (simge + 「Veri yok」).
+- **Hareket listesi:** Taksit listesi ile aynı araç çubuğu — arama kutusu + filtre düğmesi tablo üstünde; tarih aralığı, banka, hesap/kasa, kaynak ve tutar filtreleri popover'da. Arama/sıralama/sayfa URL'de (`q_movements`, `sort_movements` …).
 
 ### Fixed — mobil tarih seçici sheet
 

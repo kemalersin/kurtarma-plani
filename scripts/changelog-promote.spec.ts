@@ -41,6 +41,25 @@ describe('promoteUnreleasedChangelog', () => {
     expect(content).toBe(input)
   })
 
+  it('giriş paragrafındaki inline ## [Unreleased] metnini başlık sanmaz', () => {
+    const input = `# Changelog
+
+Yeni maddeler önce \`## [Unreleased]\` altına yazılır.
+
+## [Unreleased]
+
+### Fixed — örnek
+
+- madde 1
+
+## [0.1.25]
+`
+    const { content, promoted } = promoteUnreleasedChangelog(input, '0.1.26')
+    expect(promoted).toBe(true)
+    expect(content).toContain('`## [Unreleased]` altına yazılır.')
+    expect(content).toMatch(/## \[Unreleased\]\n\n## \[0\.1\.26\]\n\n### Fixed — örnek/)
+  })
+
   it('hedef sürüm zaten varsa hata verir', () => {
     const input = `${PREAMBLE}## [Unreleased]
 

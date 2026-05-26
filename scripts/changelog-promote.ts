@@ -1,13 +1,15 @@
 const UNRELEASED_HEADING = '## [Unreleased]'
+const UNRELEASED_HEADING_RE = /^## \[Unreleased\]$/m
 
 export function promoteUnreleasedChangelog(
   content: string,
   version: string,
 ): { content: string; promoted: boolean; body: string } {
-  const unreleasedIdx = content.indexOf(UNRELEASED_HEADING)
-  if (unreleasedIdx === -1) {
+  const headingMatch = content.match(UNRELEASED_HEADING_RE)
+  if (!headingMatch || headingMatch.index === undefined) {
     throw new Error('CHANGELOG.md: ## [Unreleased] bölümü bulunamadı.')
   }
+  const unreleasedIdx = headingMatch.index
 
   if (content.includes(`## [${version}]`)) {
     throw new Error(`CHANGELOG.md: ## [${version}] zaten var.`)
