@@ -16,7 +16,12 @@ import {
   updateAppMeta,
 } from '@/core/db/meta'
 import { closeProfileDb, deleteProfileDb } from '@/core/db/profile-db'
-import { profileHasPlainEntityRows, reencryptAll } from '@/core/db/encrypted-repo'
+import {
+  migratePasswordlessEncryptedRows,
+  profileHasPlainEntityRows,
+  reencryptAll,
+  repoEncryptionKey,
+} from '@/core/db/encrypted-repo'
 import { seedSampleProfileData } from '@/core/services/sample-data'
 import { DEFAULT_LOCALE_SETTINGS } from '@/core/locale/defaults'
 import type {
@@ -48,6 +53,11 @@ export const useProfileStore = defineStore('profile', () => {
     if (!activeProfileId.value) return null
     return profiles.value.find((p) => p.id === activeProfileId.value) ?? null
   })
+
+  /** Parolasız profillerde null — IndexedDB düz JSON; parolalı profillerde AES dataKey. */
+  const encryptionKey = computed<CryptoKey | null>(() =>
+    repoEncryptionKey(activeProfile.value?.password.enabled ?? false, dataKey.value),
+  )
 
   const hasAnyProfile = computed(() => profiles.value.length > 0)
 
@@ -87,6 +97,9 @@ export const useProfileStore = defineStore('profile', () => {
       profiles.value = await listProfiles()
     }
     dataKey.value = result.key
+    if (!profile.password.enabled) {
+      await migratePasswordlessEncryptedRows(profile.id, result.key)
+    }
     unlocked.value = true
     const { onProfileUnlocked } = await import('@/core/services/sync/sync-scheduler')
     void onProfileUnlocked()
@@ -132,6 +145,9 @@ export const useProfileStore = defineStore('profile', () => {
     profiles.value = await listProfiles()
 
     dataKey.value = result.key
+    if (!stored.password.enabled) {
+      await migratePasswordlessEncryptedRows(id, result.key)
+    }
     activeProfileId.value = id
     unlocked.value = true
     appMeta.value = await updateAppMeta({ activeProfileId: id })
@@ -177,7 +193,11 @@ export const useProfileStore = defineStore('profile', () => {
   async function seedActiveProfileSampleData(): Promise<number> {
     if (!activeProfileId.value) throw new Error('Aktif profil yok.')
     const currency = activeProfile.value?.localeSettings.currency ?? 'TRY'
-    const count = await seedSampleProfileData(activeProfileId.value, dataKey.value, currency)
+    const count = await seedSampleProfileData(
+      activeProfileId.value,
+      encryptionKey.value,
+      currency,
+    )
     const { useEntitiesStore } = await import('@/stores/entities')
     useEntitiesStore().reset()
     return count
@@ -274,6 +294,7 @@ export const useProfileStore = defineStore('profile', () => {
     loaded,
     hasAnyProfile,
     dataKey,
+    encryptionKey,
     load,
     createProfile,
     selectProfile,

@@ -29,6 +29,14 @@ export interface EntityRecord<TData> {
   sensitive?: boolean
 }
 
+/** IndexedDB yazımı/okuma: parolasız profillerde düz JSON, parolalı profillerde AES. */
+export function repoEncryptionKey(
+  passwordEnabled: boolean,
+  dataKey: CryptoKey | null,
+): CryptoKey | null {
+  return passwordEnabled ? dataKey : null
+}
+
 export class EncryptedRepo {
   private readonly key: CryptoKey | null
   private readonly profileId: string
@@ -139,6 +147,21 @@ export class EncryptedRepo {
       sensitive: row.sensitive,
     }
   }
+}
+
+/**
+ * Parolasız profilde yanlışlıkla şifrelenmiş kayıtları düz JSON'a çevirir.
+ * Eski sürümlerde meta dataKey ile AES yazılmış profiller için.
+ */
+export async function migratePasswordlessEncryptedRows(
+  profileId: string,
+  dataKey: CryptoKey,
+): Promise<boolean> {
+  const db = openProfileDb(profileId)
+  const rows = await db.entities.toArray()
+  if (!rows.some((row) => row.encrypted)) return false
+  await reencryptAll(profileId, dataKey, null)
+  return true
 }
 
 /** Profilde en az bir düz (encrypted: false) entity var mı. */

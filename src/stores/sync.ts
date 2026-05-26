@@ -343,7 +343,7 @@ export const useSyncStore = defineStore('sync', () => {
       const result = await runPushSync({
         handle: stored.handle,
         profile,
-        dataKey: profileStore.dataKey,
+        dataKey: profileStore.encryptionKey,
         deviceId: deviceId.value,
         config: config.value,
         filePassword: resolveAutoPushPassword(),
@@ -408,7 +408,7 @@ export const useSyncStore = defineStore('sync', () => {
       const pulled = await runPullSync({
         handle: stored.handle,
         profile,
-        dataKey: profileStore.dataKey,
+        dataKey: profileStore.encryptionKey,
         config: config.value,
         filePassword: resolveAutoPushPassword(),
       })
@@ -600,7 +600,7 @@ export const useSyncStore = defineStore('sync', () => {
         const fileName = syncFileNameForActiveProfile()
         const result = await runManualModeSync({
           profile,
-          dataKey: profileStore.dataKey,
+          dataKey: profileStore.encryptionKey,
           deviceId: deviceId.value,
           config: config.value,
           fileName,
@@ -644,7 +644,7 @@ export const useSyncStore = defineStore('sync', () => {
       const result = await runManualSync({
         handle: stored.handle,
         profile,
-        dataKey: profileStore.dataKey,
+        dataKey: profileStore.encryptionKey,
         deviceId: deviceId.value,
         config: config.value,
         filePassword: options.filePassword,
@@ -734,7 +734,7 @@ export const useSyncStore = defineStore('sync', () => {
       const pulled = await runManualModePull({
         envelope,
         profile,
-        dataKey: profileStore.dataKey,
+        dataKey: profileStore.encryptionKey,
         config: config.value,
         filePassword,
       })
@@ -782,7 +782,7 @@ export const useSyncStore = defineStore('sync', () => {
       const fileName = syncFileNameForActiveProfile()
       const result = await runManualModePush({
         profile,
-        dataKey: profileStore.dataKey,
+        dataKey: profileStore.encryptionKey,
         deviceId: deviceId.value,
         config: config.value,
         fileName,
@@ -821,7 +821,7 @@ export const useSyncStore = defineStore('sync', () => {
         await runPullFromEnvelope({
           envelope: remote,
           profile,
-          dataKey: profileStore.dataKey,
+          dataKey: profileStore.encryptionKey,
           filePassword,
           allowProfileAdopt: true,
         })
@@ -829,7 +829,7 @@ export const useSyncStore = defineStore('sync', () => {
         const fileName = syncFileNameForActiveProfile()
         const result = await runManualModePush({
           profile,
-          dataKey: profileStore.dataKey,
+          dataKey: profileStore.encryptionKey,
           deviceId: deviceId.value,
           config: config.value,
           fileName,
@@ -849,7 +849,7 @@ export const useSyncStore = defineStore('sync', () => {
       await runPullSync({
         handle: stored.handle,
         profile,
-        dataKey: profileStore.dataKey,
+        dataKey: profileStore.encryptionKey,
         config: config.value,
         filePassword,
         allowProfileAdopt: true,
@@ -858,7 +858,7 @@ export const useSyncStore = defineStore('sync', () => {
       const result = await runPushSync({
         handle: stored.handle,
         profile,
-        dataKey: profileStore.dataKey,
+        dataKey: profileStore.encryptionKey,
         deviceId: deviceId.value,
         config: config.value,
         filePassword,
@@ -901,7 +901,7 @@ export const useSyncStore = defineStore('sync', () => {
         await runPullFromEnvelope({
           envelope: remote,
           profile,
-          dataKey: profileStore.dataKey,
+          dataKey: profileStore.encryptionKey,
           filePassword,
         })
 
@@ -933,7 +933,7 @@ export const useSyncStore = defineStore('sync', () => {
       await runPullSync({
         handle: stored.handle,
         profile,
-        dataKey: profileStore.dataKey,
+        dataKey: profileStore.encryptionKey,
         config: config.value,
         filePassword,
       })
@@ -980,7 +980,7 @@ export const useSyncStore = defineStore('sync', () => {
         const fileName = syncFileNameForActiveProfile()
         const result = await runManualModePush({
           profile,
-          dataKey: profileStore.dataKey,
+          dataKey: profileStore.encryptionKey,
           deviceId: deviceId.value,
           config: config.value,
           fileName,
@@ -998,7 +998,7 @@ export const useSyncStore = defineStore('sync', () => {
       const result = await runPushSync({
         handle: stored.handle,
         profile,
-        dataKey: profileStore.dataKey,
+        dataKey: profileStore.encryptionKey,
         deviceId: deviceId.value,
         config: config.value,
         filePassword,

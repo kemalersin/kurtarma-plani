@@ -80,7 +80,7 @@ async function doExport(): Promise<void> {
         encryptFile: exportForm.encryptFile,
         password: exportForm.encryptFile ? exportForm.password : undefined,
       },
-      { profile: active, key: profileStore.dataKey },
+      { profile: active, key: profileStore.encryptionKey },
     )
     const text = await encodeSnapshotFile(snapshot, {
       encryptFile: exportForm.encryptFile,
@@ -139,7 +139,7 @@ async function applyDecoded(text: string, password?: string): Promise<boolean> {
       importOverwrite.value && profileStore.activeProfileId
         ? profileStore.activeProfileId
         : undefined,
-    dataKey: importOverwrite.value ? profileStore.dataKey : undefined,
+    dataKey: importOverwrite.value ? profileStore.encryptionKey : undefined,
   })
 
   const openId = summary.targetProfileId

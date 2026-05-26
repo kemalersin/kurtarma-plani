@@ -30,7 +30,7 @@ export const useEntitiesStore = defineStore('entities', () => {
     if (!profileStore.activeProfileId) {
       throw new Error('Aktif profil yok.')
     }
-    return new EncryptedRepo(profileStore.activeProfileId, profileStore.dataKey)
+    return new EncryptedRepo(profileStore.activeProfileId, profileStore.encryptionKey)
   }
 
   function ensure<T>(type: EntityType): CollectionState<T> {

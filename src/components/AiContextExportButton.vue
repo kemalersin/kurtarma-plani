@@ -80,7 +80,7 @@ async function buildExportText(format: AiContextExportFormat): Promise<string | 
 
   loading.value = true
   try {
-    const repo = new EncryptedRepo(profileId, profileStore.dataKey)
+    const repo = new EncryptedRepo(profileId, profileStore.encryptionKey)
     const rows = await repo.exportAllDecoded()
     const { document, text } = buildAndFormatAiContext(
       { profile, rows, includeSensitive: options.includeSensitive },
