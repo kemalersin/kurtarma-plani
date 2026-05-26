@@ -552,49 +552,51 @@ async function confirmPasswordAndSync(): Promise<void> {
 
       <Form layout="vertical" :colon="false" class="kp-sync-form">
         <FormItem label="Senkron dosyası">
-          <Space wrap>
-            <Typography.Text type="secondary">
+          <div class="kp-sync-file">
+            <Typography.Text type="secondary" class="kp-sync-file__name">
               {{ syncStore.activeFileName ?? 'Henüz seçilmedi' }}
             </Typography.Text>
-            <template v-if="syncStore.isManualMode">
-              <Button
-                size="small"
-                :disabled="!canConfigure || syncStore.syncing"
-                @click="chooseManualFile"
-              >
-                <template #icon><UploadOutlined /></template>
-                Güncel dosyayı seç
-              </Button>
-              <Button
-                size="small"
-                :disabled="!canConfigure || syncStore.syncing"
-                @click="onDownloadPush"
-              >
-                <template #icon><DownloadOutlined /></template>
-                Yerel sürümü indir
-              </Button>
-            </template>
-            <template v-else>
-              <Button
-                v-if="syncStore.filePickerSupported"
-                size="small"
-                :disabled="!canConfigure || syncStore.syncing"
-                @click="onPickFile"
-              >
-                <template #icon><FolderOpenOutlined /></template>
-                Dosya seç
-              </Button>
-              <Button
-                v-if="syncStore.filePickerSupported"
-                size="small"
-                :disabled="!canConfigure || syncStore.syncing"
-                @click="onCreateFile"
-              >
-                <template #icon><FileAddOutlined /></template>
-                Yeni dosya
-              </Button>
-            </template>
-          </Space>
+            <Space wrap size="small" class="kp-sync-file__actions">
+              <template v-if="syncStore.isManualMode">
+                <Button
+                  size="small"
+                  :disabled="!canConfigure || syncStore.syncing"
+                  @click="chooseManualFile"
+                >
+                  <template #icon><UploadOutlined /></template>
+                  Güncel dosyayı seç
+                </Button>
+                <Button
+                  size="small"
+                  :disabled="!canConfigure || syncStore.syncing"
+                  @click="onDownloadPush"
+                >
+                  <template #icon><DownloadOutlined /></template>
+                  Yerel sürümü indir
+                </Button>
+              </template>
+              <template v-else>
+                <Button
+                  v-if="syncStore.filePickerSupported"
+                  size="small"
+                  :disabled="!canConfigure || syncStore.syncing"
+                  @click="onPickFile"
+                >
+                  <template #icon><FolderOpenOutlined /></template>
+                  Dosya seç
+                </Button>
+                <Button
+                  v-if="syncStore.filePickerSupported"
+                  size="small"
+                  :disabled="!canConfigure || syncStore.syncing"
+                  @click="onCreateFile"
+                >
+                  <template #icon><FileAddOutlined /></template>
+                  Yeni dosya
+                </Button>
+              </template>
+            </Space>
+          </div>
         </FormItem>
 
         <FormItem v-if="syncStore.loaded" class="kp-sync-form__checks">
@@ -708,6 +710,13 @@ async function confirmPasswordAndSync(): Promise<void> {
   min-height: auto;
 }
 
+.kp-sync-file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
 .kp-sync-device {
   margin-top: 12px;
   margin-bottom: 0 !important;
@@ -723,6 +732,12 @@ async function confirmPasswordAndSync(): Promise<void> {
 }
 
 @media (max-width: 768px) {
+  .kp-sync-file {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
   .kp-sync-actions.ant-space {
     display: flex;
     flex-direction: column;

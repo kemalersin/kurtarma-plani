@@ -9,11 +9,11 @@ const archived = defineModel<boolean>('archived', { default: false })
   <FormItem class="kp-record-status">
     <div class="kp-record-status__row">
       <label class="kp-record-status__toggle">
-        <span class="kp-record-status__label">Hassas kayıt</span>
+        <Typography.Text>Hassas kayıt</Typography.Text>
         <Switch v-model:checked="sensitive" />
       </label>
       <label class="kp-record-status__toggle">
-        <span class="kp-record-status__label">Arşivli</span>
+        <Typography.Text>Arşivli</Typography.Text>
         <Switch v-model:checked="archived" />
       </label>
     </div>
@@ -41,11 +41,6 @@ const archived = defineModel<boolean>('archived', { default: false })
   gap: 8px;
   margin: 0;
   cursor: pointer;
-}
-
-.kp-record-status__label {
-  font-size: 14px;
-  color: var(--ant-color-text, rgba(0, 0, 0, 0.88));
   user-select: none;
 }
 

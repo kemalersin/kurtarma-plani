@@ -11,7 +11,7 @@ export const APP_GITHUB_PAGES_TREE_URL = `${APP_GITHUB_URL}/tree/${APP_GITHUB_PA
 export const APP_GITHUB_PAGES_RAW_INDEX_URL = `https://raw.githubusercontent.com/${APP_GITHUB_REPO}/${APP_GITHUB_PAGES_BRANCH}/index.html`
 export const APP_GITHUB_PACKAGE_JSON_URL = `https://raw.githubusercontent.com/${APP_GITHUB_REPO}/${APP_GITHUB_BRANCH}/package.json`
 export const APP_SUPPORT_URL =
-  'https://polar.sh/checkout/polar_c_haAJ3cBdBFOHt7slvqdZ7kiN3MVY9g3AKebj91C72HB'
+  'https://buy.polar.sh/polar_cl_usN4UjpXleT4nGn3r2j2CcADPtdBvlvhCV3Em2Zhrxc'
 
 export const EXPORT_FILE_TYPE = 'kurtarma-plani-export' as const
 export const AI_CONTEXT_FILE_TYPE = 'kurtarma-plani-ai-context' as const

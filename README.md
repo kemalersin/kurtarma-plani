@@ -1,10 +1,10 @@
 # Kurtarma Planı
 
-[![Sürüm](https://img.shields.io/badge/sürüm-0.1.18-blue)](package.json)
+[![Sürüm](https://img.shields.io/badge/sürüm-0.1.19-blue)](package.json)
 [![Vue 3](https://img.shields.io/badge/Vue-3-42b883)](https://vuejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)](https://www.typescriptlang.org/)
 [![Lisans](https://img.shields.io/badge/Lisans-Ozel-green)](LICENSE)
-[![Kahve Ismarla](https://img.shields.io/badge/☕-Kahve_Ismarla-FFDD00)](https://polar.sh/checkout/polar_c_haAJ3cBdBFOHt7slvqdZ7kiN3MVY9g3AKebj91C72HB)
+[![Kahve Ismarla](https://img.shields.io/badge/☕-Kahve_Ismarla-FFDD00)](https://buy.polar.sh/polar_cl_usN4UjpXleT4nGn3r2j2CcADPtdBvlvhCV3Em2Zhrxc)
 
 Borçları kayıt altına alan, gelir-gider dengesini izleyen ve analiz eden **tek dosyalık statik SPA**. Backend yok; tüm veriler tarayıcıda **IndexedDB** üzerinde tutulur. Production çıktısı tek bir HTML dosyasıdır (`file://` ile açılabilir, çevrimdışı çalışır). Kurulum veya dosya indirme gerekmeden GitHub Pages üzerinde deneyebilirsiniz.
 
@@ -17,7 +17,7 @@ Borçları kayıt altına alan, gelir-gider dengesini izleyen ve analiz eden **t
 **Depo:** [github.com/kemalersin/kurtarma-plani](https://github.com/kemalersin/kurtarma-plani)  
 **Canlı sürüm:** [kurtar.co](https://kurtar.co/) (`pages` dalı, CI ile otomatik; yedek: [github.io/kurtarma-plani](https://kemalersin.github.io/kurtarma-plani/))  
 **İndir:** [pages/index.html](https://raw.githubusercontent.com/kemalersin/kurtarma-plani/pages/index.html) (Raw → kaydet, `file://`)  
-**Kahve Ismarla:** [polar.sh](https://polar.sh/checkout/polar_c_haAJ3cBdBFOHt7slvqdZ7kiN3MVY9g3AKebj91C72HB)
+**Kahve Ismarla:** [polar.sh](https://buy.polar.sh/polar_cl_usN4UjpXleT4nGn3r2j2CcADPtdBvlvhCV3Em2Zhrxc)
 
 ---
 
@@ -213,7 +213,7 @@ docs/               Wiki, mimari, senkron tasarımı
 | M9 | Birim testleri; E2E / bundle optimizasyonu bekliyor |
 | M10 | Otomatik senkron S1–S5 tamam; WebDAV (S6) opsiyonel |
 
-**Sürüm:** [`0.1.18`](package.json) (`package.json`; canlı derlemede **Hakkında** ekranında görünür).
+**Sürüm:** [`0.1.19`](package.json) (`package.json`; canlı derlemede **Hakkında** ekranında görünür).
 
 ---
 
@@ -227,4 +227,4 @@ Kaynak kod [LICENSE](LICENSE) dosyasındaki koşullara tabidir.
 
 ## Katkı & destek
 
-Hata bildirimi ve öneriler [GitHub Issues](https://github.com/kemalersin/kurtarma-plani/issues) üzerinden yapılabilir. Projeyi beğendiyseniz [Kahve Ismarla](https://polar.sh/checkout/polar_c_haAJ3cBdBFOHt7slvqdZ7kiN3MVY9g3AKebj91C72HB) ile destekleyebilirsiniz (uygulama içi: **Hakkında**).
+Hata bildirimi ve öneriler [GitHub Issues](https://github.com/kemalersin/kurtarma-plani/issues) üzerinden yapılabilir. Projeyi beğendiyseniz [Kahve Ismarla](https://buy.polar.sh/polar_cl_usN4UjpXleT4nGn3r2j2CcADPtdBvlvhCV3Em2Zhrxc) ile destekleyebilirsiniz (uygulama içi: **Hakkında**).

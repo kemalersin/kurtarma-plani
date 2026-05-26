@@ -417,6 +417,11 @@ body {
     width: 100%;
   }
 
+  /** Taksit planı: son kart / tablo ile footer arasında nefes payı */
+  .kp-form-drawer--mobile-footer.ant-drawer:has(.kp-drawer-table-page) .kp-form-drawer__body {
+    padding-bottom: 20px;
+  }
+
   /** Sekmeli sayfalar (mobilde PageHeader gizli): tab satırı üst boşluğu */
   .kp-content .ant-tabs-tab {
     padding-top: 2px;
