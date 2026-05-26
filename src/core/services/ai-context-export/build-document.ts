@@ -539,7 +539,7 @@ export function buildAiContextDocument(params: BuildAiContextDocumentParams): Ai
           accruedBalance: moneyField(committed.ending, card.currency, fmt),
           futureInstallments: moneyField(committed.future, card.currency, fmt),
           totalCommitted: moneyField(totalCommitted, card.currency, fmt),
-          availableCredit: moneyField(availableCredit, card.currency, fmt),
+          availableCredit: moneyField(availableCredit.toString(), card.currency, fmt),
           currentPeriodEndingBalance:
             latestPeriod?.endingBalance ??
             moneyField(0, card.currency, fmt),

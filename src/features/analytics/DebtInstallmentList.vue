@@ -377,7 +377,7 @@ function clearFilters(): void {
                     { value: 'min', label: 'Asgari ödeme' },
                     { value: 'statement', label: 'Toplam ödeme' },
                   ]"
-                  @update:value="(v: unknown) => filters.patch({ cardDue: String(v ?? 'min') })"
+                  @update:value="(v: unknown) => filters.patch({ cardDue: v === 'statement' ? 'statement' : 'min' })"
                 />
               </div>
 

@@ -345,7 +345,7 @@ describe('debtInstallmentRows', () => {
     expect(minRows.length).toBeGreaterThan(0)
     expect(minRows.some((r) => r.paid)).toBe(true)
     expect(minRows.some((r) => r.paid && Number(r.paidAmount) === 500)).toBe(true)
-    expect(rows.every((r) => r.debtKind !== 'creditCardInstallment')).toBe(true)
+    expect(rows.every((r) => r.debtKind !== 'creditCardStatement')).toBe(true)
   })
 
   it('asgari ödeme modunda pencere toplamı ödenen tutar olarak yansır', () => {
