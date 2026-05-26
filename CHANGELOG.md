@@ -4,6 +4,11 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 ## [Unreleased]
 
+### Changed — sayfa geçişi cache
+
+- Panel ve liste route'ları (`home`, `admin`, `debts`, `cashflow`, `analytics`) `<KeepAlive>` ile cache'lenir; scroll ve tablo durumu korunur. Senkron pull sonrası `pullRevision` ile yeniden mount edilir.
+- `EntityListPage`: veri hazırken layout spinner atlanır; KeepAlive geri dönüşünde yükseklik yeniden ölçülür.
+
 ### Fixed — AI dışa aktar (iPad / dokunmatik)
 
 - Dropdown tetikleyicisinden `KpTooltip` kaldırıldı (iPad’de menü açılmıyordu); dokunmatikte kompakt ikon, menü seçimi yedek `@click` ile.

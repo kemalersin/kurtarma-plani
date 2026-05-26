@@ -12,7 +12,17 @@ declare module 'vue-router' {
      * - `wide-fill`: tam genişlik + viewport doldurma (liste sekmeli sayfalar)
      */
     pageLayout?: PageLayout
+    /** Sayfa geçişlerinde `<KeepAlive>` ile bileşen durumu korunur (liste / panel). */
+    keepAlive?: boolean
   }
+}
+
+/** En derin eşleşmeden keepAlive okur. */
+export function shouldKeepAliveRoute(route: RouteLocationNormalized): boolean {
+  for (let i = route.matched.length - 1; i >= 0; i--) {
+    if (route.matched[i]?.meta.keepAlive) return true
+  }
+  return false
 }
 
 /** En derin eşleşmeden pageLayout okur; yoksa narrow. */

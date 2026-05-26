@@ -2,6 +2,7 @@
 import {
   computed,
   nextTick,
+  onActivated,
   onMounted,
   onUnmounted,
   ref,
@@ -416,6 +417,14 @@ async function scheduleTableReveal(): Promise<void> {
   tableLayoutReady.value = false
   if (props.loading || isMobile.value || showEmptyOverlay.value) return
 
+  /** Veri hazırsa tabloyu hemen göster; yükseklik ölçümü arka planda. */
+  if (filtered.value.length > 0) {
+    tableLayoutReady.value = true
+    await nextTick()
+    void measureTableScroll()
+    return
+  }
+
   tableMeasurePending.value = true
   await nextTick()
   await measureTableScroll()
@@ -652,6 +661,12 @@ function clearFilters(): void {
   }
   query.rawPatch(raw)
 }
+
+onActivated(() => {
+  if (!props.loading && !isMobile.value && !showEmptyOverlay.value) {
+    void measureTableScroll()
+  }
+})
 
 onMounted(() => {
   resizeObserver = new ResizeObserver(() => {

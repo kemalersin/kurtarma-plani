@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, type RouteLocationNormalized } from 'vue-router'
 import {
   Layout,
   LayoutHeader,
@@ -39,7 +39,7 @@ import { KP_HOVER_CAPABLE_MQ, KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/com
 import BrandMark from '@/components/icons/BrandMark.vue'
 import { APP_NAME, APP_VERSION } from '@/core/constants'
 import { buildBreadcrumb } from '@/router/breadcrumb'
-import { resolvePageLayout, isWidePageLayout } from '@/router/meta'
+import { resolvePageLayout, isWidePageLayout, shouldKeepAliveRoute } from '@/router/meta'
 
 const ui = useUiStore()
 const profileStore = useProfileStore()
@@ -78,8 +78,15 @@ const pageLayoutClasses = computed(() => {
   }
 })
 
-/** Uzak pull sonrası aktif sayfayı yeniden mount eder (entity cache temizlenir). */
-const pageViewKey = computed(() => `${route.fullPath}::${syncStore.pullRevision}`)
+/** Uzak pull sonrası sayfayı yeniden mount eder (entity cache temizlenir). */
+function pageViewKey(viewRoute: RouteLocationNormalized): string {
+  return `${viewRoute.fullPath}::${syncStore.pullRevision}`
+}
+
+/** KeepAlive slot anahtarı — route adı + pull revizyonu. */
+function keepAliveViewKey(viewRoute: RouteLocationNormalized): string {
+  return `${String(viewRoute.name ?? viewRoute.path)}::${syncStore.pullRevision}`
+}
 
 function navigate(info: MenuInfo): void {
   router.push({ name: String(info.key) })
@@ -293,7 +300,20 @@ function gotoCrumb(name?: string): void {
 
       <LayoutContent class="kp-content">
         <div class="kp-page" :class="pageLayoutClasses">
-          <router-view :key="pageViewKey" />
+          <router-view v-slot="{ Component, route: viewRoute }">
+            <keep-alive :max="5">
+              <component
+                :is="Component"
+                v-if="Component && shouldKeepAliveRoute(viewRoute)"
+                :key="keepAliveViewKey(viewRoute)"
+              />
+            </keep-alive>
+            <component
+              :is="Component"
+              v-if="Component && !shouldKeepAliveRoute(viewRoute)"
+              :key="pageViewKey(viewRoute)"
+            />
+          </router-view>
         </div>
       </LayoutContent>
     </Layout>
