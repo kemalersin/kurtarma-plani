@@ -2,7 +2,9 @@
 
 Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
-## [Unreleased]
+Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version` alanındadır (`0.1.x`). Aşağıdaki **Milestone M1–M5** bölümleri erken geliştirme döneminin arşividir; semver sürümü değildir ve `0.1.x` ile karıştırılmamalıdır.
+
+## [0.1.24]
 
 ### Changed — sayfa geçişi cache
 
@@ -24,6 +26,14 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 ### Fixed — grafik tooltip (mobil)
 
 - `KpChart`: mobilde ECharts tooltip'leri artık gizlenmiyor; dokunmatik için `confine` + `click` tetikleme uygulanır. KpTooltip / AntDV mobil kısıtı yalnızca UI ipuçları için geçerli.
+
+### Changed — README sürüm badge
+
+- Sürüm rozeti GitHub `package.json` üzerinden dinamik; README'de sabit sürüm numarası kaldırıldı.
+
+### Changed — CHANGELOG sürüm etiketleri
+
+- Milestone M1–M5 başlıklarından semver numaraları (`0.2.0` … `0.5.0`) kaldırıldı; yayın sürümü yalnızca `package.json` (`0.1.x`).
 
 ### Changed — AI kayıt önerisi (`kp-proposals`)
 
@@ -436,7 +446,7 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 - `InstallmentAdvanceFormDrawer` etkin aylık oran istatistiği: `formatNumber` ile profil locale'i (örn. `4,12 %`).
 - `<a-form-item>` etiketlerinde **`required`** attribute'u doğrudan kullanılarak görsel zorunluluk göstergesi (yıldız) tüm M5 formlarına yayıldı.
 
-## [0.5.0] — M5 Kart & avans
+## Milestone M5 — Kart & avans
 
 ### Added
 
@@ -495,7 +505,7 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
   - `LoanScheduleDrawer` tarih/para `useLocaleFormatters` (hardcoded `tr-TR` kaldırıldı); tablo scroll `100dvh` (mobil viewport güvenli); başlıklar `nowrap`.
   - `PaymentMarkDrawer` tarih `useLocaleFormatters.formatDate`.
 
-## [0.4.0] — M4 Kredi
+## Milestone M4 — Kredi
 
 ### Added
 
@@ -545,7 +555,7 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 - `stripColumnWidths` (`src/core/util/table-columns.ts`).
 - `useDrawerFormFocus`, `useDrawerStack` genişletildi (`contentWrapperStyle`, `DRAWER_STACK_OFFSET_PX`).
 
-## [0.3.0] — M3 yönetimsel veriler
+## Milestone M3 — yönetimsel veriler
 
 ### Added
 
@@ -564,7 +574,7 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 - Para birimi formatlaması `Intl.NumberFormat(profile.locale, { style: 'currency', currency })` — hesap/kasa para birimine göre
 - Tarihler `dayjs` ile DatePicker'da, depoda ISO string olarak saklanır
 
-## [0.2.0] — M2 veri katmanı
+## Milestone M2 — veri katmanı
 
 ### Added
 
@@ -618,7 +628,7 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 - UI kit kararı PrimeVue/Tailwind → **Ant Design Vue 4**; `package.json` Tailwind paketleri kaldırıldı; tüm belgeler ve kurallar güncellendi
 
-## [0.1.0] — M1 iskelet
+## Milestone M1 — iskelet
 
 ### Added
 
