@@ -63,7 +63,7 @@ Detay: `.cursor/rules/developer-ux.mdc` (alwaysApply).
 | Entity şeması | `entities.ts` / migration → aynı PR: `ai-context-export` (+ `AI_CONTEXT_VERSION`); gerekirse yedek/senkron (`export.ts`, `snapshot.ts`, `SCHEMA_VERSION` / `SYNC_SCHEMA_VERSION`) |
 | TCMB preset | Build embed + IndexedDB; çevrimiçi feed/import ile DB ezme; offline'da DB/embed |
 | Çevrimiçi | Finans offline-first; AI + preset feed yalnızca online |
-| AI | models.dev embed; stream; usage kalıcı; offline'da devre dışı |
+| AI | models.dev embed; stream; usage kalıcı; offline'da devre dışı; kayıt önerisi `kp-proposals` (`src/features/ai/proposals/prompt.ts`) |
 | Rapor | Excel/PDF UI export only |
 
 ## Build

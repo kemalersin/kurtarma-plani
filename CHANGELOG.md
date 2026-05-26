@@ -9,6 +9,15 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 - Panel ve liste route'ları (`home`, `admin`, `debts`, `cashflow`, `analytics`) `<KeepAlive>` ile cache'lenir; scroll ve tablo durumu korunur. Senkron pull sonrası `pullRevision` ile yeniden mount edilir.
 - `EntityListPage`: veri hazırken layout spinner atlanır; KeepAlive geri dönüşünde yükseklik yeniden ölçülür.
 
+### Fixed — KeepAlive sonrası sekme geçişi
+
+- `useRoutedTabs`: `routeName` ile URL senkronu yalnızca ilgili sayfadayken; cache'lenmiş diğer sekme sayfaları `?tab=` değerini artık sıfırlamaz.
+
+### Changed — AI kayıt önerisi (`kp-proposals`)
+
+- Sistem kılavuzu: tüm entity tipleri, kart/nakit avans hareketleri ayrı item, enum ve örnekler (`prompt.ts`, `snapshot.ts`).
+- Çözümleme: `cardName`, `cashAdvanceAccountName` / `accountRef` → `accountId` (`resolve.ts`).
+
 ### Fixed — AI dışa aktar (iPad / dokunmatik)
 
 - Dropdown tetikleyicisinden `KpTooltip` kaldırıldı (iPad’de menü açılmıyordu); dokunmatikte kompakt ikon, menü seçimi yedek `@click` ile.

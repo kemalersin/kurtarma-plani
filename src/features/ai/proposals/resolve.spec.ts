@@ -69,4 +69,62 @@ describe('resolveProposalData', () => {
 
     expect(resolved.bankId).toBe('bank-garanti')
   })
+
+  it('resolves cardName for creditCardTransaction', () => {
+    const lookup = {
+      banksByName: new Map(),
+      accountsByName: new Map(),
+      cashRegistersByName: new Map(),
+      incomeTypesByName: new Map(),
+      expenseTypesByName: new Map(),
+      loansByName: new Map(),
+      cardsByName: new Map([['bonus kart', 'card-bonus']]),
+      cashAdvanceAccountsByName: new Map(),
+      installmentAdvancesByName: new Map(),
+      refToId: new Map(),
+    }
+
+    const resolved = resolveProposalData(
+      'creditCardTransaction',
+      {
+        cardName: 'Bonus Kart',
+        date: '2025-03-15',
+        type: 'purchase',
+        amount: 890,
+      },
+      lookup,
+    )
+
+    expect(resolved.cardId).toBe('card-bonus')
+    expect(resolved.type).toBe('purchase')
+    expect(resolved.date).toContain('2025-03-15')
+  })
+
+  it('resolves cashAdvanceAccountName for cashAdvanceTransaction', () => {
+    const lookup = {
+      banksByName: new Map(),
+      accountsByName: new Map(),
+      cashRegistersByName: new Map(),
+      incomeTypesByName: new Map(),
+      expenseTypesByName: new Map(),
+      loansByName: new Map(),
+      cardsByName: new Map(),
+      cashAdvanceAccountsByName: new Map([['nakit avans', 'ca-1']]),
+      installmentAdvancesByName: new Map(),
+      refToId: new Map(),
+    }
+
+    const resolved = resolveProposalData(
+      'cashAdvanceTransaction',
+      {
+        cashAdvanceAccountName: 'Nakit avans',
+        date: '2025-04-01',
+        type: 'draw',
+        amount: 5000,
+      },
+      lookup,
+    )
+
+    expect(resolved.accountId).toBe('ca-1')
+  })
 })

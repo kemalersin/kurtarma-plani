@@ -9,7 +9,7 @@ import { useAnalyticsFilters } from '@/composables/useAnalyticsFilters'
 import { useAnalyticsData } from '@/features/analytics/useAnalyticsData'
 
 const ANALYTICS_TABS = ['debts', 'cashflow', 'accounts'] as const
-const { activeTab } = useRoutedTabs(ANALYTICS_TABS, 'debts')
+const { activeTab } = useRoutedTabs(ANALYTICS_TABS, 'debts', { routeName: 'analytics' })
 
 const filterState = useAnalyticsFilters()
 const { data, loading } = useAnalyticsData(filterState.filters)

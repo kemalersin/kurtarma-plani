@@ -122,7 +122,8 @@ Ayrıntı: [BANKING-TR.md](./BANKING-TR.md).
 - Model listesi: build’de `models.dev` embed; Ollama/vLLM için `baseUrl` + manuel model veya `/api/tags`
 - Stream: SSE/fetch reader; anlık token + maliyet (models.dev `cost` alanları, 1M token USD)
 - Kalıcılık: `chatSessions`, `usageLedger` (sohbet silinse bile usage kalır)
-- Sistem prompt: finans snapshot (hassas + secrets hariç) + kısa domain açıklamaları
+- Sistem prompt: finans snapshot (hassas + secrets hariç) + domain kılavuzu (`AI_DOMAIN_GUIDE` + `AI_PROPOSAL_GUIDE` — `src/features/ai/snapshot.ts`, `src/features/ai/proposals/prompt.ts`)
+- **Kayıt önerisi (`kp-proposals`):** Asistan yanıtındaki fenced JSON blokları parse → resolve (`*Ref`/`*Name` → id) → apply (IndexedDB). Tüm finans entity tipleri desteklenir; kart/nakit avans **hareketleri** ana kayıttan ayrı `creditCardTransaction` / `cashAdvanceTransaction` item olarak gelir. Kılavuz `entities.ts` şeması ve `resolve.ts` zorunlu alanlarıyla senkron tutulur.
 
 ## UI kalıpları
 

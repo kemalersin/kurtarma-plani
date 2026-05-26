@@ -8,7 +8,7 @@ import InstallmentAdvancesTab from '@/features/debts/InstallmentAdvancesTab.vue'
 import { useRoutedTabs } from '@/composables/useRoutedTabs'
 
 const DEBTS_TABS = ['loans', 'creditCards', 'cashAdvance', 'installmentAdvance'] as const
-const { activeTab } = useRoutedTabs(DEBTS_TABS, 'loans')
+const { activeTab } = useRoutedTabs(DEBTS_TABS, 'loans', { routeName: 'debts' })
 </script>
 
 <template>

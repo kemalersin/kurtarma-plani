@@ -44,7 +44,7 @@ const savingLocale = ref(false)
 const deletingProfile = ref(false)
 const deleteConfirmTitle = ref('')
 const SETTINGS_TABS = ['profile', 'locale', 'security', 'banking', 'ai', 'data', 'sync', 'updates'] as const
-const { activeTab } = useRoutedTabs(SETTINGS_TABS, 'profile')
+const { activeTab } = useRoutedTabs(SETTINGS_TABS, 'profile', { routeName: 'settings' })
 
 watch(
   profile,

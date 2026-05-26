@@ -16,7 +16,7 @@ const ADMIN_TABS = [
   'expenseTypes',
 ] as const
 
-const { activeTab } = useRoutedTabs(ADMIN_TABS, 'banks')
+const { activeTab } = useRoutedTabs(ADMIN_TABS, 'banks', { routeName: 'admin' })
 </script>
 
 <template>

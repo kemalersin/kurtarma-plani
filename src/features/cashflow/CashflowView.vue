@@ -11,7 +11,7 @@ import { cashflowStatus } from '@/finance/cashflow'
 import type { Expense, Income } from '@/core/types/entities'
 
 const CASHFLOW_TABS = ['incomes', 'expenses', 'transfers'] as const
-const { activeTab } = useRoutedTabs(CASHFLOW_TABS, 'incomes')
+const { activeTab } = useRoutedTabs(CASHFLOW_TABS, 'incomes', { routeName: 'cashflow' })
 
 const entities = useEntitiesStore()
 

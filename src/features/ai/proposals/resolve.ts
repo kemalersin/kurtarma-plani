@@ -106,7 +106,30 @@ const STRIP_FIELDS = new Set([
   ...Object.keys(REF_FIELD_MAP),
   ...Object.keys(NAME_FIELD_MAP),
   'ref',
+  'accountRef',
 ])
+
+/** Nakit avans işlemi hesabı `accountId` alanında tutulur; ref/ad çözümlemesi buna yönlendirilir. */
+function resolveRefTargetField(
+  type: ProposableEntityType,
+  refField: string,
+  defaultField: string,
+): string {
+  if (type !== 'cashAdvanceTransaction') return defaultField
+  if (refField === 'cashAdvanceAccountRef' || refField === 'accountRef') return 'accountId'
+  return defaultField
+}
+
+function resolveNameTargetField(
+  type: ProposableEntityType,
+  nameField: string,
+  defaultField: string,
+): string {
+  if (type === 'cashAdvanceTransaction' && nameField === 'cashAdvanceAccountName') {
+    return 'accountId'
+  }
+  return defaultField
+}
 
 function lookupName(
   lookup: ResolveLookup,
@@ -153,15 +176,27 @@ export function resolveProposalData(
     const ref = String(data[refField]).trim()
     const id = lookup.refToId.get(ref)
     if (!id) throw new Error(`${refField} çözümlenemedi: ${ref}`)
-    out[idField] = id
+    out[resolveRefTargetField(type, refField, idField)] = id
+  }
+
+  if (type === 'cashAdvanceTransaction' && data.accountRef != null && !out.accountId) {
+    const ref = String(data.accountRef).trim()
+    const id = lookup.refToId.get(ref)
+    if (!id) throw new Error(`accountRef çözümlenemedi: ${ref}`)
+    out.accountId = id
   }
 
   for (const [nameField, idField] of Object.entries(NAME_TO_ID_FIELD)) {
-    if (data[nameField] == null || out[idField]) continue
+    if (data[nameField] == null || out[resolveNameTargetField(type, nameField, idField)]) continue
     const name = String(data[nameField])
     const lookupField = NAME_FIELD_MAP[nameField]
     if (!lookupField) continue
-    out[idField] = lookupName(lookup, lookupField, name, nameField)
+    out[resolveNameTargetField(type, nameField, idField)] = lookupName(
+      lookup,
+      lookupField,
+      name,
+      nameField,
+    )
   }
 
   for (const [key, value] of Object.entries(data)) {
@@ -177,6 +212,11 @@ export function resolveProposalData(
 
   if (!out.currency && options?.currency) {
     out.currency = options.currency
+  }
+
+  if (type === 'cashAdvanceTransaction' && !out.accountId && out.cashAdvanceAccountId) {
+    out.accountId = out.cashAdvanceAccountId
+    delete out.cashAdvanceAccountId
   }
 
   validateRequired(type, out)
