@@ -122,7 +122,7 @@ describe('buildCardPeriods', () => {
     const periods = buildCardPeriods(card, [], { periods: 4, asOf })
     const projections = projectCardPeriodDebts(card, [], { periods, asOf })
     const beforeOpening = projections.filter(
-      (p, i) => periods[i]!.openingBalance === 0,
+      (_, i) => periods[i]!.openingBalance === 0,
     )
     const afterOpening = projections.find((_, i) => periods[i]!.openingBalance > 0)
 

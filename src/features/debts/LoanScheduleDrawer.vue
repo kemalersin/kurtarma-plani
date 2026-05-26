@@ -75,7 +75,6 @@ function formatMoney(value: string | number): string {
 }
 
 function installmentDisplay(row: ScheduleRow): string {
-  const payment = paymentMap.value.get(row.index)
   if (!props.loan || !schedule.value) return formatMoney(row.installment)
   return formatMoney(
     projectInstallmentRowDueAmount(

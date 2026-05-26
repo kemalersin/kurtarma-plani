@@ -31,6 +31,13 @@ export interface SettledDebtIndex {
   cashAdvanceAccountIds: ReadonlySet<string>
 }
 
+type MutableSettledDebtIndex = {
+  loanIds: Set<string>
+  installmentAdvanceIds: Set<string>
+  creditCardIds: Set<string>
+  cashAdvanceAccountIds: Set<string>
+}
+
 export interface SettledDebtInput {
   loans: Loan[]
   loanPayments: LoanPayment[]
@@ -52,7 +59,7 @@ function isZeroDebt(value: string | number): boolean {
   return D(value).lte(0)
 }
 
-function emptySettledDebtIndex(): SettledDebtIndex {
+function emptySettledDebtIndex(): MutableSettledDebtIndex {
   return {
     loanIds: new Set(),
     installmentAdvanceIds: new Set(),

@@ -5,7 +5,6 @@ import {
   trimCreditCardPeriodSchedulesForAi,
   trimInstallmentAdvanceSchedulesForAi,
   trimLoanSchedulesForAi,
-  trimPeriodRowsForAi,
 } from '@/core/services/ai-context-export/schedule-prune'
 
 /** JSON / Markdown dışa aktarımda geçmiş ödenmiş / geçmiş ay satırlarını çıkarır. */

@@ -1,5 +1,5 @@
 import { describe, it } from 'vitest'
-import { buildCardPeriods, projectCardPeriodDebts } from './src/features/debts/cardHelpers'
+import { buildCardPeriods, projectCardPeriodDebts } from './cardHelpers'
 import type { CreditCard, CreditCardTransaction } from '@/core/types/entities'
 
 const baseCard: CreditCard = {
@@ -22,7 +22,9 @@ describe('log', () => {
       const p = periods[i]!
       const proj = projections[i]!
       if (proj.accrualLines.length) {
-        const inPeriod = p.transactions.filter(t => t.type !== 'payment').reduce((s,t)=>s+t.amount,0)
+        const inPeriod = p.transactions
+          .filter((t) => t.type !== 'payment')
+          .reduce((sum, t) => sum + t.amount, 0)
         console.log('inst', p.label, { opening: p.openingBalance, inPeriod, carriedIn: proj.carriedIn, ending: proj.endingBalance })
       }
     }
@@ -35,7 +37,9 @@ describe('log', () => {
     for (let i = 0; i < periods.length; i++) {
       const p = periods[i]!
       const proj = projections[i]!
-      const inPeriod = p.transactions.filter(t => t.type !== 'payment').reduce((s,t)=>s+t.amount,0)
+      const inPeriod = p.transactions
+        .filter((t) => t.type !== 'payment')
+        .reduce((sum, t) => sum + t.amount, 0)
       if (p.openingBalance > 0 || proj.carriedIn > 0 || inPeriod > 0)
         console.log('rev', p.label, { opening: p.openingBalance, inPeriod, carriedIn: proj.carriedIn, ending: proj.endingBalance, duePast: p.dueDate.slice(0,10) < asOf.toISOString().slice(0,10) })
     }
