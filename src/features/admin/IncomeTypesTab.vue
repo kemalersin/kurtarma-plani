@@ -12,7 +12,10 @@ import { compareOptionalString } from '@/features/admin/adminListSorters'
 const entities = useEntitiesStore()
 const items = entities.list<IncomeType>('incomeType')
 const incomes = entities.list<Income>('income')
-const loading = entities.loading('incomeType')
+const loading = computed(
+  () =>
+    entities.loading('incomeType').value || entities.loading('income').value,
+)
 
 const drawerOpen = ref(false)
 const editing = ref<IncomeType | null>(null)

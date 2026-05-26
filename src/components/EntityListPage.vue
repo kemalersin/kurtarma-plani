@@ -388,15 +388,19 @@ const showEmptyCards = computed(
   () => isMobile.value && !props.loading && filtered.value.length === 0,
 )
 
-/** Masaüstü tablo: veri çizilene kadar sütun başlıkları gösterilmez (auto-layout sıçraması önlenir). */
-const tableRevealReady = ref(false)
+/**
+ * Masaüstü tablo: `table-layout: auto` ile gövde hücreleri çizilmeden sütun genişliği
+ * oturmaz. Tablo önce görünmez mount edilir, ölçüm sonrası gösterilir.
+ */
+const tableMeasurePending = ref(false)
+const tableLayoutReady = ref(false)
 
 const showDesktopTable = computed(
   () =>
     !isMobile.value &&
     !props.loading &&
     !showEmptyOverlay.value &&
-    tableRevealReady.value,
+    (tableMeasurePending.value || tableLayoutReady.value),
 )
 
 const showDesktopTablePending = computed(
@@ -404,18 +408,26 @@ const showDesktopTablePending = computed(
     !isMobile.value &&
     !props.loading &&
     !showEmptyOverlay.value &&
-    !tableRevealReady.value,
+    !tableLayoutReady.value,
 )
 
 async function scheduleTableReveal(): Promise<void> {
-  tableRevealReady.value = false
+  tableMeasurePending.value = false
+  tableLayoutReady.value = false
   if (props.loading || isMobile.value || showEmptyOverlay.value) return
+
+  tableMeasurePending.value = true
   await nextTick()
+  await measureTableScroll()
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      if (props.loading || isMobile.value || showEmptyOverlay.value) return
-      tableRevealReady.value = true
-      void measureTableScroll()
+    requestAnimationFrame(async () => {
+      if (props.loading || isMobile.value || showEmptyOverlay.value) {
+        tableMeasurePending.value = false
+        return
+      }
+      await measureTableScroll()
+      tableMeasurePending.value = false
+      tableLayoutReady.value = true
     })
   })
 }
@@ -689,15 +701,23 @@ watch(
 watch(
   () => props.loading,
   (loading) => {
-    if (loading) tableRevealReady.value = false
-    else void scheduleTableReveal()
+    if (loading) {
+      tableMeasurePending.value = false
+      tableLayoutReady.value = false
+    } else {
+      void scheduleTableReveal()
+    }
   },
   { immediate: true },
 )
 
 watch(isMobile, (mobile) => {
-  if (mobile) tableRevealReady.value = false
-  else if (!props.loading) void scheduleTableReveal()
+  if (mobile) {
+    tableMeasurePending.value = false
+    tableLayoutReady.value = false
+  } else if (!props.loading) {
+    void scheduleTableReveal()
+  }
 })
 watch(
   () => [sortedItems.value.length, filtered.value.length, isMobile.value] as const,
@@ -863,6 +883,7 @@ watch(
       <Table
         v-else-if="showDesktopTable"
         class="kp-list__table-inner"
+        :class="{ 'kp-list__table-inner--measuring': tableMeasurePending }"
         :data-source="sortedItems"
         :columns="allColumns"
         :locale="tableLocale"
@@ -1112,6 +1133,12 @@ watch(
   width: 100%;
 }
 
+/** İlk layout ölçümü bitene kadar görünmez; auto sütun genişlikleri otursun. */
+.kp-list__table-inner--measuring {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .kp-list__cards--mobile {
   display: none;
 }
@@ -1154,12 +1181,6 @@ watch(
   min-height: var(--kp-table-body-min-h, 120px);
   overflow-x: auto !important;
   overflow-y: visible !important;
-}
-
-/** Başlık ve gövde aynı genişlikte kalsın. */
-.kp-list__table--desktop :deep(.ant-table-header),
-.kp-list__table--desktop :deep(.ant-table-body) {
-  width: 100% !important;
 }
 
 /**

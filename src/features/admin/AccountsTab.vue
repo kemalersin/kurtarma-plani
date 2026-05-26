@@ -21,8 +21,13 @@ const entities = useEntitiesStore()
 const { formatCurrency, formatDate } = useLocaleFormatters()
 const accounts = entities.list<Account>('account')
 const banks = entities.list<Bank>('bank')
-const loading = entities.loading('account')
-const { balancesByAccount } = useAccountBalances()
+const { balancesByAccount, balanceMovementLoading } = useAccountBalances()
+const loading = computed(
+  () =>
+    entities.loading('account').value ||
+    entities.loading('bank').value ||
+    balanceMovementLoading.value,
+)
 
 function currentBalance(account: Account): number {
   const raw = balancesByAccount.value[account.id]

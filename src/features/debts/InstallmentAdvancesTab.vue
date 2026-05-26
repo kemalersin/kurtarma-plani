@@ -41,7 +41,12 @@ const payments = entities.list<InstallmentCashAdvancePayment>(
   'installmentCashAdvancePayment',
 )
 const banks = entities.list<Bank>('bank')
-const loading = entities.loading('installmentCashAdvance')
+const loading = computed(
+  () =>
+    entities.loading('installmentCashAdvance').value ||
+    entities.loading('installmentCashAdvancePayment').value ||
+    entities.loading('bank').value,
+)
 
 const formOpen = ref(false)
 const scheduleOpen = ref(false)

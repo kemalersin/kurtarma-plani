@@ -31,7 +31,12 @@ const { formatCurrency, formatDate } = useLocaleFormatters()
 const loans = entities.list<Loan>('loan')
 const payments = entities.list<LoanPayment>('loanPayment')
 const banks = entities.list<Bank>('bank')
-const loading = entities.loading('loan')
+const loading = computed(
+  () =>
+    entities.loading('loan').value ||
+    entities.loading('loanPayment').value ||
+    entities.loading('bank').value,
+)
 
 const formOpen = ref(false)
 const scheduleOpen = ref(false)

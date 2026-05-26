@@ -18,8 +18,11 @@ import {
 const entities = useEntitiesStore()
 const { formatCurrency, formatDate } = useLocaleFormatters()
 const registers = entities.list<CashRegister>('cashRegister')
-const loading = entities.loading('cashRegister')
-const { balancesByCashRegister } = useAccountBalances()
+const { balancesByCashRegister, balanceMovementLoading } = useAccountBalances()
+const loading = computed(
+  () =>
+    entities.loading('cashRegister').value || balanceMovementLoading.value,
+)
 
 function currentBalance(register: CashRegister): number {
   const raw = balancesByCashRegister.value[register.id]

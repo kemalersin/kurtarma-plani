@@ -34,7 +34,13 @@ const expenses = entities.list<Expense>('expense')
 const types = entities.list<ExpenseType>('expenseType')
 const accounts = entities.list<Account>('account')
 const registers = entities.list<CashRegister>('cashRegister')
-const loading = entities.loading('expense')
+const loading = computed(
+  () =>
+    entities.loading('expense').value ||
+    entities.loading('expenseType').value ||
+    entities.loading('account').value ||
+    entities.loading('cashRegister').value,
+)
 
 const formOpen = ref(false)
 const editing = ref<Expense | null>(null)

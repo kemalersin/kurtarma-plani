@@ -34,7 +34,13 @@ const incomes = entities.list<Income>('income')
 const types = entities.list<IncomeType>('incomeType')
 const accounts = entities.list<Account>('account')
 const registers = entities.list<CashRegister>('cashRegister')
-const loading = entities.loading('income')
+const loading = computed(
+  () =>
+    entities.loading('income').value ||
+    entities.loading('incomeType').value ||
+    entities.loading('account').value ||
+    entities.loading('cashRegister').value,
+)
 
 const formOpen = ref(false)
 const editing = ref<Income | null>(null)

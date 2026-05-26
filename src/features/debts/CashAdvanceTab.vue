@@ -23,7 +23,12 @@ const { formatCurrency } = useLocaleFormatters()
 const accounts = entities.list<CashAdvanceAccount>('cashAdvanceAccount')
 const txns = entities.list<CashAdvanceTransaction>('cashAdvanceTransaction')
 const banks = entities.list<Bank>('bank')
-const loading = entities.loading('cashAdvanceAccount')
+const loading = computed(
+  () =>
+    entities.loading('cashAdvanceAccount').value ||
+    entities.loading('cashAdvanceTransaction').value ||
+    entities.loading('bank').value,
+)
 
 const formOpen = ref(false)
 const ledgerOpen = ref(false)

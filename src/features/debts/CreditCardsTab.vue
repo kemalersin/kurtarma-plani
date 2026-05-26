@@ -19,7 +19,12 @@ const { formatCurrency } = useLocaleFormatters()
 const cards = entities.list<CreditCard>('creditCard')
 const txns = entities.list<CreditCardTransaction>('creditCardTransaction')
 const banks = entities.list<Bank>('bank')
-const loading = entities.loading('creditCard')
+const loading = computed(
+  () =>
+    entities.loading('creditCard').value ||
+    entities.loading('creditCardTransaction').value ||
+    entities.loading('bank').value,
+)
 
 const formOpen = ref(false)
 const statementOpen = ref(false)

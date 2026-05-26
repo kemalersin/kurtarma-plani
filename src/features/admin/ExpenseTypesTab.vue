@@ -12,7 +12,10 @@ import { compareOptionalString } from '@/features/admin/adminListSorters'
 const entities = useEntitiesStore()
 const items = entities.list<ExpenseType>('expenseType')
 const expenses = entities.list<Expense>('expense')
-const loading = entities.loading('expenseType')
+const loading = computed(
+  () =>
+    entities.loading('expenseType').value || entities.loading('expense').value,
+)
 
 const drawerOpen = ref(false)
 const editing = ref<ExpenseType | null>(null)

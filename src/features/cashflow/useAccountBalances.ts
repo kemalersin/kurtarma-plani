@@ -19,6 +19,18 @@ import type {
   LoanPayment,
   Transfer,
 } from '@/core/types/entities'
+import type { EntityType } from '@/core/db/profile-db'
+
+/** Bakiye hesabında kullanılan hareket store'ları. */
+export const BALANCE_MOVEMENT_ENTITY_TYPES = [
+  'income',
+  'expense',
+  'transfer',
+  'loanPayment',
+  'creditCardTransaction',
+  'cashAdvanceTransaction',
+  'installmentCashAdvancePayment',
+] as const satisfies readonly EntityType[]
 
 /**
  * Tüm gerçekleşmiş finansal hareketleri (gelir / gider / transfer / borç ödemeleri /
@@ -37,6 +49,8 @@ export interface AccountBalancesApi {
   balancesByCashRegister: ComputedRef<Record<string, string>>
   /** Saf hareket listesi — drill-through tabloları için. */
   movements: ComputedRef<AccountMovement[]>
+  /** Bakiye hareket store'larından biri yükleniyorsa true. */
+  balanceMovementLoading: ComputedRef<boolean>
 }
 
 /**
@@ -63,21 +77,17 @@ export function useAccountBalances(): AccountBalancesApi {
 
   onMounted(async () => {
     const tasks: Promise<unknown>[] = []
-    for (const type of [
-      'income',
-      'expense',
-      'transfer',
-      'loanPayment',
-      'creditCardTransaction',
-      'cashAdvanceTransaction',
-      'installmentCashAdvancePayment',
-    ] as const) {
+    for (const type of BALANCE_MOVEMENT_ENTITY_TYPES) {
       if (!entities.loaded(type).value) {
         tasks.push(entities.load(type).catch(() => undefined))
       }
     }
     if (tasks.length) await Promise.all(tasks)
   })
+
+  const balanceMovementLoading = computed(() =>
+    BALANCE_MOVEMENT_ENTITY_TYPES.some((type) => entities.loading(type).value),
+  )
 
   const movements = computed<AccountMovement[]>(() =>
     collectMovements({
@@ -112,5 +122,5 @@ export function useAccountBalances(): AccountBalancesApi {
     return map
   })
 
-  return { balancesByAccount, balancesByCashRegister, movements }
+  return { balancesByAccount, balancesByCashRegister, movements, balanceMovementLoading }
 }

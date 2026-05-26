@@ -27,6 +27,19 @@ import {
   compareOptionalString,
 } from '@/features/admin/adminListSorters'
 
+const BANK_LIST_ENTITY_TYPES = [
+  'bank',
+  'account',
+  'loan',
+  'loanPayment',
+  'creditCard',
+  'creditCardTransaction',
+  'cashAdvanceAccount',
+  'cashAdvanceTransaction',
+  'installmentCashAdvance',
+  'installmentCashAdvancePayment',
+] as const satisfies readonly EntityType[]
+
 const entities = useEntitiesStore()
 const profileStore = useProfileStore()
 const { formatCurrency } = useLocaleFormatters()
@@ -42,7 +55,9 @@ const installAdv = entities.list<InstallmentCashAdvance>('installmentCashAdvance
 const installAdvPayments = entities.list<InstallmentCashAdvancePayment>(
   'installmentCashAdvancePayment',
 )
-const loading = entities.loading('bank')
+const loading = computed(() =>
+  BANK_LIST_ENTITY_TYPES.some((type) => entities.loading(type).value),
+)
 
 const localCurrency = computed(
   () => profileStore.activeProfile?.localeSettings.currency ?? 'TRY',
@@ -53,26 +68,12 @@ const editing = ref<Bank | null>(null)
 
 onMounted(async () => {
   const tasks: Promise<unknown>[] = []
-  const loads: Array<[EntityType, () => Promise<unknown>]> = [
-    ['bank', () => entities.load<Bank>('bank')],
-    ['account', () => entities.load<Account>('account')],
-    ['loan', () => entities.load<Loan>('loan')],
-    ['loanPayment', () => entities.load<LoanPayment>('loanPayment')],
-    ['creditCard', () => entities.load<CreditCard>('creditCard')],
-    ['creditCardTransaction', () => entities.load<CreditCardTransaction>('creditCardTransaction')],
-    ['cashAdvanceAccount', () => entities.load<CashAdvanceAccount>('cashAdvanceAccount')],
-    ['cashAdvanceTransaction', () => entities.load<CashAdvanceTransaction>('cashAdvanceTransaction')],
-    [
-      'installmentCashAdvance',
-      () => entities.load<InstallmentCashAdvance>('installmentCashAdvance'),
-    ],
-    [
-      'installmentCashAdvancePayment',
-      () => entities.load<InstallmentCashAdvancePayment>('installmentCashAdvancePayment'),
-    ],
-  ]
-  for (const [key, load] of loads) {
-    if (!entities.loaded(key).value) tasks.push(load().catch(() => undefined))
+  for (const key of BANK_LIST_ENTITY_TYPES) {
+    if (!entities.loaded(key).value) {
+      tasks.push(
+        entities.load(key).catch(() => undefined),
+      )
+    }
   }
   if (tasks.length) await Promise.all(tasks)
 })

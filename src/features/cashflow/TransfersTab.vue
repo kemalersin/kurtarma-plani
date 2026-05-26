@@ -15,7 +15,12 @@ const { formatCurrency, formatDate } = useLocaleFormatters()
 const transfers = entities.list<Transfer>('transfer')
 const accounts = entities.list<Account>('account')
 const registers = entities.list<CashRegister>('cashRegister')
-const loading = entities.loading('transfer')
+const loading = computed(
+  () =>
+    entities.loading('transfer').value ||
+    entities.loading('account').value ||
+    entities.loading('cashRegister').value,
+)
 
 const formOpen = ref(false)
 const editing = ref<Transfer | null>(null)
