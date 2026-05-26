@@ -13,6 +13,10 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 - `useRoutedTabs`: `routeName` ile URL senkronu yalnızca ilgili sayfadayken; cache'lenmiş diğer sekme sayfaları `?tab=` değerini artık sıfırlamaz.
 
+### Fixed — Ayarlar AI sekmesi spinner
+
+- `AiSettingsSection`: store zaten yüklüyse (ör. AI sohbet sayfasından) tam sayfa spinner atlanır; yalnızca ilk IndexedDB okumasında gösterilir.
+
 ### Changed — AI kayıt önerisi (`kp-proposals`)
 
 - Sistem kılavuzu: tüm entity tipleri, kart/nakit avans hareketleri ayrı item, enum ve örnekler (`prompt.ts`, `snapshot.ts`).

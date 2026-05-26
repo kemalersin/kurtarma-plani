@@ -67,22 +67,21 @@ const remoteModels = ref<{ value: string; label: string }[]>([])
 const loadingRemote = ref(false)
 const saving = ref(false)
 const addProviderType = ref<AiProviderId | undefined>()
-const pageLoading = ref(true)
 const customPromptDraft = ref('')
 const savingCustomPrompt = ref(false)
+
+const pageLoading = computed(() => !ai.loaded || !catalogStore.loaded)
 
 function syncCustomPromptDraft(): void {
   customPromptDraft.value = ai.settings?.customSystemPrompt ?? ''
 }
 
 async function ensureLoaded(): Promise<void> {
-  pageLoading.value = true
-  try {
-    await Promise.all([catalogStore.load(), ai.load()])
-    syncCustomPromptDraft()
-  } finally {
-    pageLoading.value = false
-  }
+  await Promise.all([
+    catalogStore.loaded ? Promise.resolve() : catalogStore.load(),
+    ai.loaded ? Promise.resolve() : ai.load(),
+  ])
+  syncCustomPromptDraft()
 }
 
 async function saveCustomPrompt(): Promise<void> {
