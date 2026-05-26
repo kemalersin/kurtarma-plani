@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { FormItem, Select, Space, Switch, Typography } from 'ant-design-vue'
+import { FormItem, Space, Switch, Typography } from 'ant-design-vue'
+import KpSelect from '@/components/KpSelect.vue'
 import {
   RECURRENCE_LABELS,
   RecurrenceIntervals,
@@ -34,7 +35,7 @@ const intervalOptions = computed(() =>
   </FormItem>
 
   <FormItem v-if="recurring" label="Yinelenme aralığı" required>
-    <Select
+    <KpSelect
       v-model:value="interval"
       :options="intervalOptions"
       placeholder="Aralık seçin"

@@ -7,11 +7,11 @@ import {
   Input,
   message,
   Popconfirm,
-  Select,
   Space,
   Spin,
   Typography,
 } from 'ant-design-vue'
+import KpSelect from '@/components/KpSelect.vue'
 import {
   PaperClipOutlined,
   SendOutlined,
@@ -306,7 +306,7 @@ function onKeydown(event: KeyboardEvent): void {
       <div class="kp-ai-chat__toolbar">
         <Typography.Text strong>{{ chatExpanded ? 'AI Asistan' : 'Sohbet' }}</Typography.Text>
         <div class="kp-ai-chat__toolbar-actions">
-          <Select
+          <KpSelect
             v-if="ai.showProviderPicker"
             v-model:value="chatProviderId"
             :options="ai.chatProviderOptions"

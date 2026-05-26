@@ -1,7 +1,8 @@
 <script setup lang="ts" generic="T extends { id: string; name: string; archived?: boolean }">
-import { computed } from 'vue'
-import { Select, Button, Divider } from 'ant-design-vue'
+import { computed, useTemplateRef } from 'vue'
+import { Button } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
+import KpSelect from '@/components/KpSelect.vue'
 
 interface Props {
   value?: string
@@ -26,8 +27,14 @@ const emit = defineEmits<{
   (e: 'create'): void
 }>()
 
+const kpSelectRef = useTemplateRef<InstanceType<typeof KpSelect>>('kpSelectRef')
+
 const visibleOptions = computed<T[]>(() =>
   props.showArchived ? props.options : props.options.filter((opt) => !opt.archived),
+)
+
+const selectOptions = computed(() =>
+  visibleOptions.value.map((opt) => ({ value: opt.id, label: opt.name })),
 )
 
 function filterOption(input: string, option: unknown): boolean {
@@ -39,34 +46,38 @@ function filterOption(input: string, option: unknown): boolean {
 function update(value: unknown): void {
   emit('update:value', value == null ? undefined : String(value))
 }
+
+function onCreate(): void {
+  kpSelectRef.value?.closeSheet()
+  emit('create')
+}
 </script>
 
 <template>
-  <Select
+  <KpSelect
+    ref="kpSelectRef"
     :value="value"
     :placeholder="placeholder"
     :disabled="disabled"
     show-search
-    :filter-option="filterOption"
-    :options="visibleOptions.map((opt) => ({ value: opt.id, label: opt.name }))"
     allow-clear
+    :filter-option="filterOption"
+    :options="selectOptions"
     @update:value="update"
   >
-    <template v-if="allowCreate" #dropdownRender="{ menuNode }">
-      <component :is="menuNode" />
-      <Divider style="margin: 4px 0" />
-      <div class="kp-select-create" @mousedown.prevent>
-        <Button type="link" block @click="emit('create')">
+    <template v-if="allowCreate" #footer>
+      <div class="kp-select-create">
+        <Button type="link" block @click="onCreate">
           <template #icon><PlusOutlined /></template>
           {{ createLabel }}
         </Button>
       </div>
     </template>
-  </Select>
+  </KpSelect>
 </template>
 
 <style scoped>
 .kp-select-create {
-  padding: 4px 8px;
+  padding: 0;
 }
 </style>

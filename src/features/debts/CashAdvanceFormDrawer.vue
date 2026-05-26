@@ -4,7 +4,6 @@ import {
   Form,
   FormItem,
   Input,
-  Select,
   Space,
   Button,
   Textarea,
@@ -12,6 +11,7 @@ import {
 } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
+import KpSelect from '@/components/KpSelect.vue'
 import SensitiveRecordSwitch from '@/components/SensitiveRecordSwitch.vue'
 import {
   emptySensitiveFields,
@@ -241,7 +241,7 @@ function close(): void {
             :min="0"
             style="flex: 1; min-width: 0"
           />
-          <Select v-model:value="draft.interestPeriod" :options="PERIOD_OPTIONS" style="width: 110px" />
+          <KpSelect v-model:value="draft.interestPeriod" :options="PERIOD_OPTIONS" style="width: 110px" />
           <Button @click="fillRefRate">Referansla doldur</Button>
         </Space.Compact>
       </FormItem>
@@ -259,7 +259,7 @@ function close(): void {
             placeholder="Boş bırakılabilir"
             style="flex: 1; min-width: 0"
           />
-          <Select v-model:value="draft.lateInterestPeriod" :options="PERIOD_OPTIONS" style="width: 110px" />
+          <KpSelect v-model:value="draft.lateInterestPeriod" :options="PERIOD_OPTIONS" style="width: 110px" />
           <Button @click="fillRefLate">Referansla doldur</Button>
         </Space.Compact>
       </FormItem>

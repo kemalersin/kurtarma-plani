@@ -21,10 +21,12 @@ export const listFilterPopoverEndProps = {
   placement: 'bottomRight' as const,
 }
 
-/** Mobil araç çubuğunda filtre sağda; masaüstünde solda. */
-export function useListFilterPopoverProps(): ComputedRef<
-  typeof listFilterPopoverProps | typeof listFilterPopoverEndProps
-> {
+export type ListFilterPopoverProps =
+  | typeof listFilterPopoverProps
+  | typeof listFilterPopoverEndProps
+
+/** Masaüstü popover ayarları; mobilde `KpListFilterOverlay` → `FormDrawer`. */
+export function useListFilterPopoverProps(): ComputedRef<ListFilterPopoverProps> {
   const isMobile = useMatchMedia(KP_LIST_MOBILE_MQ)
   return computed(() =>
     isMobile.value ? listFilterPopoverEndProps : listFilterPopoverProps,

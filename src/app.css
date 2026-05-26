@@ -447,6 +447,30 @@ body {
     overflow: auto;
   }
 
+  /* Üstte drawer / modal / popover / sheet varken alttaki drawer çubuğu gizli */
+  .kp-form-drawer--hide-body-scrollbar .kp-form-drawer__body,
+  .kp-form-drawer--hide-body-scrollbar.ant-drawer .ant-drawer-body {
+    scrollbar-width: none;
+    scrollbar-color: transparent transparent;
+  }
+
+  .kp-form-drawer--hide-body-scrollbar .kp-form-drawer__body::-webkit-scrollbar,
+  .kp-form-drawer--hide-body-scrollbar.ant-drawer .ant-drawer-body::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .kp-form-drawer--hide-body-scrollbar .kp-form-drawer__body.kp-scrolling,
+  .kp-form-drawer--hide-body-scrollbar.ant-drawer .ant-drawer-body.kp-scrolling {
+    scrollbar-color: transparent transparent;
+  }
+
+  .kp-form-drawer--hide-body-scrollbar .kp-form-drawer__body.kp-scrolling::-webkit-scrollbar-thumb,
+  .kp-form-drawer--hide-body-scrollbar.ant-drawer .ant-drawer-body.kp-scrolling::-webkit-scrollbar-thumb {
+    background-color: transparent;
+  }
+
   .kp-form-drawer.ant-drawer:has(.kp-drawer-table-page) .kp-form-drawer__body {
     overflow: hidden;
   }
@@ -958,6 +982,68 @@ body {
   padding-top: 10px;
 }
 
+.kp-list-filter--drawer {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.kp-list-filter--drawer .kp-list-filter__head {
+  display: none;
+}
+
+/** Filtre drawer: tam genişlik kontroller, kapat sağda (padding = diğer FormDrawer) */
+@media (max-width: 768px) {
+  .kp-form-drawer--list-filter.ant-drawer .ant-drawer-header-title {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .kp-form-drawer--list-filter.ant-drawer .ant-drawer-title {
+    flex: 1;
+    min-width: 0;
+    order: 1;
+  }
+
+  .kp-form-drawer--list-filter.ant-drawer .ant-drawer-close {
+    order: 2;
+    flex-shrink: 0;
+    margin-inline-start: auto;
+    margin-inline-end: 0;
+    position: static;
+    inset: auto;
+  }
+
+  .kp-form-drawer--list-filter .kp-list-filter__control,
+  .kp-form-drawer--list-filter .kp-list-filter__control.ant-select,
+  .kp-form-drawer--list-filter .kp-list-filter__control.ant-picker,
+  .kp-form-drawer--list-filter .kp-picker-trigger,
+  .kp-form-drawer--list-filter .kp-select-trigger,
+  .kp-form-drawer--list-filter .kp-list-filter__range,
+  .kp-form-drawer--list-filter .kp-list-filter__range-input {
+    width: 100%;
+    max-width: none;
+  }
+
+  .kp-form-drawer--list-filter .kp-list-filter__range-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .kp-form-drawer--list-filter .kp-form-drawer__footer-actions {
+    width: 100%;
+  }
+
+  .kp-form-drawer--list-filter .kp-form-drawer__footer-actions .ant-btn {
+    width: 100%;
+  }
+}
+
 [data-theme='dark'] .kp-list-filter__foot {
   border-top-color: rgba(255, 255, 255, 0.08);
 }
@@ -982,7 +1068,7 @@ body {
     box-sizing: border-box;
   }
 
-  .kp-list-filter {
+  .kp-list-filter:not(.kp-list-filter--drawer) {
     width: min(320px, calc(100vw - 24px));
     min-width: 0;
     max-width: none;

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Form, FormItem, Select, SelectOption } from 'ant-design-vue'
+import { Form, FormItem } from 'ant-design-vue'
+import KpSelect from '@/components/KpSelect.vue'
 import {
   SUPPORTED_CURRENCIES,
   SUPPORTED_DATE_FORMATS,
@@ -8,6 +9,7 @@ import {
   SUPPORTED_TIMEZONES,
 } from '@/core/locale/defaults'
 import type { LocaleSettings } from '@/core/types/profile'
+import { defaultFilterSelectOption } from '@/core/util/select-options'
 
 const props = defineProps<{ modelValue: LocaleSettings }>()
 const emit = defineEmits<{ 'update:modelValue': [value: LocaleSettings] }>()
@@ -19,12 +21,6 @@ const value = computed({
 
 function patch<K extends keyof LocaleSettings>(key: K, next: LocaleSettings[K]): void {
   value.value = { ...value.value, [key]: next }
-}
-
-function filterOption(input: string, option: unknown): boolean {
-  const opt = option as { children?: unknown }
-  const text = String(opt.children ?? '').toLowerCase()
-  return text.includes(input.toLowerCase())
 }
 
 function updateLocale(v: unknown): void {
@@ -47,45 +43,35 @@ function updateDateFormat(v: unknown): void {
 <template>
   <Form layout="vertical" :colon="false">
     <FormItem label="Dil / bölge">
-      <Select
+      <KpSelect
         :value="value.locale"
         show-search
-        :filter-option="filterOption"
+        :filter-option="defaultFilterSelectOption"
+        :options="SUPPORTED_LOCALES"
         @update:value="updateLocale"
-      >
-        <SelectOption v-for="opt in SUPPORTED_LOCALES" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </SelectOption>
-      </Select>
+      />
     </FormItem>
 
     <FormItem label="Para birimi">
-      <Select :value="value.currency" @update:value="updateCurrency">
-        <SelectOption v-for="opt in SUPPORTED_CURRENCIES" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </SelectOption>
-      </Select>
+      <KpSelect :value="value.currency" :options="SUPPORTED_CURRENCIES" @update:value="updateCurrency" />
     </FormItem>
 
     <FormItem label="Saat dilimi">
-      <Select
+      <KpSelect
         :value="value.timeZone"
         show-search
-        :filter-option="filterOption"
+        :filter-option="defaultFilterSelectOption"
+        :options="SUPPORTED_TIMEZONES"
         @update:value="updateTimeZone"
-      >
-        <SelectOption v-for="opt in SUPPORTED_TIMEZONES" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </SelectOption>
-      </Select>
+      />
     </FormItem>
 
     <FormItem label="Tarih formatı">
-      <Select :value="value.dateFormat" @update:value="updateDateFormat">
-        <SelectOption v-for="opt in SUPPORTED_DATE_FORMATS" :key="opt.value" :value="opt.value">
-          {{ opt.label }}
-        </SelectOption>
-      </Select>
+      <KpSelect
+        :value="value.dateFormat"
+        :options="SUPPORTED_DATE_FORMATS"
+        @update:value="updateDateFormat"
+      />
     </FormItem>
   </Form>
 </template>

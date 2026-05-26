@@ -13,7 +13,6 @@ import {
   InputPassword,
   Modal,
   Popconfirm,
-  Select,
   Space,
   Spin,
   Table,
@@ -34,6 +33,7 @@ import { formatCostUsd } from '@/features/ai/cost'
 import { normalizeApiKey } from '@/features/ai/provider-auth'
 import { useConnectivity } from '@/composables/useConnectivity'
 import KpTooltip from '@/components/KpTooltip.vue'
+import KpSelect from '@/components/KpSelect.vue'
 import { TABLE_SCROLL_X } from '@/core/util/table-columns'
 import { useProfileStore } from '@/stores/profile'
 
@@ -166,6 +166,11 @@ const modelSelectOptions = computed(() => {
   }
   return remoteModels.value
 })
+
+function filterModelSelectOption(input: string, option: unknown): boolean {
+  const opt = option as { label?: string }
+  return String(opt.label ?? '').toLowerCase().includes(input.toLowerCase())
+}
 
 watch(
   () => draft.value?.provider,
@@ -339,7 +344,7 @@ async function resetCatalog(): Promise<void> {
 
     <Card title="Sağlayıcılar" size="small" class="kp-ai-settings__card">
       <Space wrap class="kp-ai-settings__add">
-        <Select
+        <KpSelect
           v-model:value="addProviderType"
           placeholder="Yeni sağlayıcı türü"
           :options="providerTypeOptions"
@@ -466,12 +471,12 @@ async function resetCatalog(): Promise<void> {
       </FormItem>
       <FormItem label="Varsayılan model" required>
         <Space direction="vertical" style="width: 100%">
-          <Select
+          <KpSelect
             v-model:value="draft.defaultModelId"
             show-search
             :options="modelSelectOptions"
             placeholder="Model seçin"
-            :filter-option="(input, opt) => String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())"
+            :filter-option="filterModelSelectOption"
           />
           <Button
             v-if="draft.provider === 'ollama' || draft.provider === 'vllm'"

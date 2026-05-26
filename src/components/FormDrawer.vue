@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Drawer } from 'ant-design-vue'
 import { computed, nextTick, useSlots, useTemplateRef, watch } from 'vue'
+import { mobileChildOverlayDepth } from '@/composables/mobileChildOverlay'
 import { KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/composables/useMatchMedia'
 import { useDrawerStack } from '@/composables/useDrawerStack'
 import { focusFirstFormField } from '@/composables/useDrawerFormFocus'
@@ -15,6 +16,8 @@ interface Props {
   layout?: 'default' | 'table'
   /** Mobilde #actions footer'da; masaüstünde header. Taksit planı erken kapama için. */
   mobileActionsInFooter?: boolean
+  /** Ek kök sınıfları (`kp-form-drawer--list-filter` vb.). */
+  drawerClass?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -31,10 +34,18 @@ const emit = defineEmits<{
 
 const isMobileViewport = useMatchMedia(KP_MOBILE_VIEWPORT_MQ)
 const slots = useSlots()
-const { push, pop, zIndex, contentWrapperStyle } = useDrawerStack(props.stackId)
+const { push, pop, zIndex, stackOffset, contentWrapperStyle } = useDrawerStack(props.stackId)
 const formRoot = useTemplateRef<HTMLElement>('formRoot')
 
 const drawerWidth = computed(() => (isMobileViewport.value ? '100%' : props.width))
+
+/** Üstte başka drawer veya child overlay varken alttaki drawer kaydırma çubuğu gizlenir. */
+const hideBodyScrollbar = computed(
+  () =>
+    isMobileViewport.value &&
+    props.open &&
+    (stackOffset.value !== 0 || mobileChildOverlayDepth.value > 0),
+)
 
 const showActionsInHeader = computed(
   () => !!slots.actions && !(props.mobileActionsInFooter && isMobileViewport.value),
@@ -47,8 +58,10 @@ const showActionsInFooter = computed(
 const drawerRootClass = computed(() =>
   [
     'kp-form-drawer',
+    props.drawerClass,
     props.layout === 'table' ? 'kp-form-drawer--table-layout' : '',
     showActionsInFooter.value ? 'kp-form-drawer--mobile-footer' : '',
+    hideBodyScrollbar.value ? 'kp-form-drawer--hide-body-scrollbar' : '',
   ]
     .filter(Boolean)
     .join(' '),

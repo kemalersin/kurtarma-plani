@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { Select, Button, Divider } from 'ant-design-vue'
+import { computed, onMounted, useTemplateRef } from 'vue'
+import { Button } from 'ant-design-vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
+import KpSelect from '@/components/KpSelect.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import type { Account, Bank } from '@/core/types/entities'
 import {
@@ -32,6 +33,7 @@ const emit = defineEmits<{
   (e: 'create'): void
 }>()
 
+const kpSelectRef = useTemplateRef<InstanceType<typeof KpSelect>>('kpSelectRef')
 const entities = useEntitiesStore()
 const banks = entities.list<Bank>('bank')
 
@@ -48,34 +50,38 @@ const groupedOptions = computed(() =>
 function update(value: unknown): void {
   emit('update:value', value == null ? undefined : String(value))
 }
+
+function onCreate(): void {
+  kpSelectRef.value?.closeSheet()
+  emit('create')
+}
 </script>
 
 <template>
-  <Select
+  <KpSelect
+    ref="kpSelectRef"
     :value="value"
     :placeholder="placeholder"
     :disabled="disabled"
     show-search
+    allow-clear
     :filter-option="filterBankGroupedAccountOption"
     :options="groupedOptions"
-    allow-clear
     @update:value="update"
   >
-    <template v-if="allowCreate" #dropdownRender="{ menuNode }">
-      <component :is="menuNode" />
-      <Divider style="margin: 4px 0" />
-      <div class="kp-select-create" @mousedown.prevent>
-        <Button type="link" block @click="emit('create')">
+    <template v-if="allowCreate" #footer>
+      <div class="kp-select-create">
+        <Button type="link" block @click="onCreate">
           <template #icon><PlusOutlined /></template>
           {{ createLabel }}
         </Button>
       </div>
     </template>
-  </Select>
+  </KpSelect>
 </template>
 
 <style scoped>
 .kp-select-create {
-  padding: 4px 8px;
+  padding: 0;
 }
 </style>

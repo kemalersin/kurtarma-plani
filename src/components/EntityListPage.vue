@@ -16,9 +16,7 @@ import {
   Input,
   Pagination,
   Popconfirm,
-  Popover,
   Segmented,
-  Select,
   Space,
   Spin,
   Table,
@@ -35,12 +33,14 @@ import {
 import type { TableColumnType, TablePaginationConfig } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import LocaleRangePicker from '@/components/LocaleRangePicker.vue'
+import KpSelect from '@/components/KpSelect.vue'
 import KpTooltip from '@/components/KpTooltip.vue'
 import KpColumnTagCell from '@/components/KpColumnTagCell.vue'
 import KpListCellContent from '@/components/KpListCellContent.vue'
 import ListCard from '@/components/ListCard.vue'
 import ColorSwatch from '@/components/ColorSwatch.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
+import KpListFilterOverlay from '@/components/KpListFilterOverlay.vue'
 import { formatListCellValue } from '@/core/util/list-cell'
 import { useListFilterPopoverProps } from '@/core/ui/list-filter-popover'
 import { useClosePopoverOnScroll } from '@/composables/useClosePopoverOnScroll'
@@ -766,18 +766,17 @@ watch(
           <template #prefix><SearchOutlined /></template>
         </Input>
 
-        <Popover
+        <KpListFilterOverlay
           v-if="hasAnyFilter"
           v-model:open="filtersOpen"
-          v-bind="filterPopoverProps"
+          :stack-id="`list-filter-${stateKey || 'default'}`"
+          :popover-props="filterPopoverProps"
         >
-          <template #content>
-            <div class="kp-list-filter">
-              <header class="kp-list-filter__head">Filtreler</header>
+          <header class="kp-list-filter__head">Filtreler</header>
 
-              <div v-if="bankFilter" class="kp-list-filter__field">
+          <div v-if="bankFilter" class="kp-list-filter__field">
                 <label class="kp-list-filter__label">Banka</label>
-                <Select
+                <KpSelect
                   :value="bankFilterId || undefined"
                   class="kp-list-filter__control"
                   placeholder="Tüm bankalar"
@@ -796,7 +795,7 @@ watch(
               >
                 <label class="kp-list-filter__label">{{ f.label }}</label>
 
-                <Select
+                <KpSelect
                   v-if="f.kind === 'select'"
                   :value="getSelectValue(f.key) || undefined"
                   class="kp-list-filter__control"
@@ -835,33 +834,33 @@ watch(
                 />
               </div>
 
-              <footer class="kp-list-filter__foot">
-                <Button
-                  block
-                  :disabled="activeFilterCount === 0"
-                  @click="clearFilters"
-                >
-                  Filtreyi temizle
-                </Button>
-              </footer>
-            </div>
-          </template>
-          <Badge
-            :count="activeFilterCount"
-            :show-zero="false"
-            :offset="[-2, 2]"
-            size="small"
-          >
+          <template #footer>
             <Button
-              class="kp-list__filter-trigger"
-              :type="activeFilterCount > 0 ? 'primary' : 'default'"
-              :ghost="activeFilterCount > 0"
-              aria-label="Filtreler"
+              block
+              :disabled="activeFilterCount === 0"
+              @click="clearFilters"
             >
-              <template #icon><FilterOutlined /></template>
+              Filtreyi temizle
             </Button>
-          </Badge>
-        </Popover>
+          </template>
+          <template #trigger>
+            <Badge
+              :count="activeFilterCount"
+              :show-zero="false"
+              :offset="[-2, 2]"
+              size="small"
+            >
+              <Button
+                class="kp-list__filter-trigger"
+                :type="activeFilterCount > 0 ? 'primary' : 'default'"
+                :ghost="activeFilterCount > 0"
+                aria-label="Filtreler"
+              >
+                <template #icon><FilterOutlined /></template>
+              </Button>
+            </Badge>
+          </template>
+        </KpListFilterOverlay>
       </div>
 
       <Button type="primary" class="kp-list__create" @click="emit('create')">

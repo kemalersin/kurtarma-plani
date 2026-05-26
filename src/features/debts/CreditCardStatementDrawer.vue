@@ -4,10 +4,9 @@ import {
   Button,
   Space,
   Empty,
-  Select,
-  SelectOption,
   message,
 } from 'ant-design-vue'
+import KpSelect from '@/components/KpSelect.vue'
 import DismissibleDrawerAlert from '@/components/DismissibleDrawerAlert.vue'
 import DrawerDataTable from '@/components/DrawerDataTable.vue'
 import KpStatRow, { type KpStat } from '@/components/KpStatRow.vue'
@@ -215,15 +214,12 @@ const periodStats = computed<KpStat[]>(() => {
       />
 
       <Space :size="12" wrap>
-        <Select
+        <KpSelect
           v-model:value="selectedCutoff"
           style="min-width: 220px"
           placeholder="Dönem seçin"
-        >
-          <SelectOption v-for="opt in periodOptions" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </SelectOption>
-        </Select>
+          :options="periodOptions"
+        />
         <Button type="primary" @click="openCreate">Yeni hareket</Button>
       </Space>
 

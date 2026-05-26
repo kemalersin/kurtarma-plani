@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import dayjs, { type Dayjs } from 'dayjs'
-import { Popover, Badge, Button, Select } from 'ant-design-vue'
+import { Badge, Button } from 'ant-design-vue'
+import KpSelect from '@/components/KpSelect.vue'
 import LocaleRangePicker from '@/components/LocaleRangePicker.vue'
+import KpListFilterOverlay from '@/components/KpListFilterOverlay.vue'
 import { FilterOutlined } from '@ant-design/icons-vue'
 import type { AnalyticsFilterState } from '@/composables/useAnalyticsFilters'
 import type { AnalyticsData } from '@/features/analytics/useAnalyticsData'
@@ -93,83 +95,85 @@ function clearFilters(): void {
 </script>
 
 <template>
-  <Popover v-model:open="open" v-bind="listFilterPopoverEndProps">
-    <template #content>
-      <div class="kp-list-filter">
-        <header class="kp-list-filter__head">Filtreler</header>
+  <KpListFilterOverlay
+    v-model:open="open"
+    stack-id="analytics-filter-bar"
+    :popover-props="listFilterPopoverEndProps"
+  >
+    <header class="kp-list-filter__head">Filtreler</header>
 
-        <div class="kp-list-filter__field">
-          <label class="kp-list-filter__label">Tarih aralığı</label>
-          <LocaleRangePicker
-            :value="rangeValue"
-            class="kp-list-filter__control"
-            :allow-clear="false"
-            @update:value="(v: unknown) => onRangeChange(v as [Dayjs, Dayjs] | null)"
-          />
-        </div>
-
-        <div class="kp-list-filter__field">
-          <label class="kp-list-filter__label">Banka</label>
-          <Select
-            :value="filters.bankId.value || undefined"
-            class="kp-list-filter__control"
-            placeholder="Tüm bankalar"
-            allow-clear
-            show-search
-            option-filter-prop="label"
-            :options="bankOptions"
-            @update:value="(v) => (filters.bankId.value = String(v ?? ''))"
-          />
-        </div>
-
-        <div v-if="showEndpoint !== false" class="kp-list-filter__field">
-          <label class="kp-list-filter__label">Hesap / kasa</label>
-          <Select
-            :value="filters.endpointId.value || undefined"
-            class="kp-list-filter__control"
-            placeholder="Tümü"
-            allow-clear
-            show-search
-            :filter-option="filterBankGroupedAccountOption"
-            :options="endpointOptions"
-            @update:value="(v) => (filters.endpointId.value = String(v ?? ''))"
-          />
-        </div>
-
-        <div v-if="showCategory" class="kp-list-filter__field">
-          <label class="kp-list-filter__label">Kategori</label>
-          <Select
-            :value="filters.categoryId.value || undefined"
-            class="kp-list-filter__control"
-            placeholder="Tümü"
-            allow-clear
-            show-search
-            option-filter-prop="label"
-            :options="categoryOptions"
-            @update:value="(v) => (filters.categoryId.value = String(v ?? ''))"
-          />
-        </div>
-
-        <footer class="kp-list-filter__foot">
-          <Button block :disabled="activeFilterCount === 0" @click="clearFilters">
-            Filtreyi temizle
-          </Button>
-        </footer>
+    <div class="kp-list-filter__field">
+        <label class="kp-list-filter__label">Tarih aralığı</label>
+        <LocaleRangePicker
+          :value="rangeValue"
+          class="kp-list-filter__control"
+          :allow-clear="false"
+          @update:value="(v: unknown) => onRangeChange(v as [Dayjs, Dayjs] | null)"
+        />
       </div>
+
+      <div class="kp-list-filter__field">
+        <label class="kp-list-filter__label">Banka</label>
+        <KpSelect
+          :value="filters.bankId.value || undefined"
+          class="kp-list-filter__control"
+          placeholder="Tüm bankalar"
+          allow-clear
+          show-search
+          option-filter-prop="label"
+          :options="bankOptions"
+          @update:value="(v) => (filters.bankId.value = String(v ?? ''))"
+        />
+      </div>
+
+      <div v-if="showEndpoint !== false" class="kp-list-filter__field">
+        <label class="kp-list-filter__label">Hesap / kasa</label>
+        <KpSelect
+          :value="filters.endpointId.value || undefined"
+          class="kp-list-filter__control"
+          placeholder="Tümü"
+          allow-clear
+          show-search
+          :filter-option="filterBankGroupedAccountOption"
+          :options="endpointOptions"
+          @update:value="(v) => (filters.endpointId.value = String(v ?? ''))"
+        />
+      </div>
+
+      <div v-if="showCategory" class="kp-list-filter__field">
+        <label class="kp-list-filter__label">Kategori</label>
+        <KpSelect
+          :value="filters.categoryId.value || undefined"
+          class="kp-list-filter__control"
+          placeholder="Tümü"
+          allow-clear
+          show-search
+          option-filter-prop="label"
+          :options="categoryOptions"
+          @update:value="(v) => (filters.categoryId.value = String(v ?? ''))"
+        />
+      </div>
+
+    <template #footer>
+      <Button block :disabled="activeFilterCount === 0" @click="clearFilters">
+        Filtreyi temizle
+      </Button>
     </template>
 
-    <span ref="filterTriggerRef" class="kp-analytics-filter-trigger">
-      <Badge :count="activeFilterCount" :show-zero="false" :offset="[-2, 2]" size="small">
-        <Button
-          :type="activeFilterCount > 0 ? 'primary' : 'default'"
-          :ghost="activeFilterCount > 0"
-          aria-label="Filtreler"
-        >
-          <template #icon><FilterOutlined /></template>
-        </Button>
-      </Badge>
-    </span>
-  </Popover>
+    <template #trigger>
+      <span ref="filterTriggerRef" class="kp-analytics-filter-trigger">
+        <Badge :count="activeFilterCount" :show-zero="false" :offset="[-2, 2]" size="small">
+          <Button
+            :type="activeFilterCount > 0 ? 'primary' : 'default'"
+            :ghost="activeFilterCount > 0"
+            aria-label="Filtreler"
+          >
+            <template #icon><FilterOutlined /></template>
+          </Button>
+        </Badge>
+      </span>
+    </template>
+  </KpListFilterOverlay>
 </template>
 
 <style scoped>

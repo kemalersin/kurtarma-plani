@@ -5,7 +5,6 @@ import {
   FormItem,
   Input,
   Textarea,
-  Select,
   Space,
   Button,
   message,
@@ -13,6 +12,7 @@ import {
 import KpStatRow, { type KpStat } from '@/components/KpStatRow.vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
+import KpSelect from '@/components/KpSelect.vue'
 import SensitiveRecordSwitch from '@/components/SensitiveRecordSwitch.vue'
 import {
   emptySensitiveFields,
@@ -309,7 +309,7 @@ function close(): void {
             :min="0"
             style="flex: 1; min-width: 0"
           />
-          <Select v-model:value="draft.interestPeriod" :options="PERIOD_OPTIONS" style="width: 110px" />
+          <KpSelect v-model:value="draft.interestPeriod" :options="PERIOD_OPTIONS" style="width: 110px" />
         </Space.Compact>
       </FormItem>
       <FormItem>
@@ -326,7 +326,7 @@ function close(): void {
             placeholder="Boş bırakılırsa sözleşme × 1.3"
             style="flex: 1; min-width: 0"
           />
-          <Select v-model:value="draft.lateInterestPeriod" :options="PERIOD_OPTIONS" style="width: 110px" />
+          <KpSelect v-model:value="draft.lateInterestPeriod" :options="PERIOD_OPTIONS" style="width: 110px" />
         </Space.Compact>
       </FormItem>
       <FormItem>

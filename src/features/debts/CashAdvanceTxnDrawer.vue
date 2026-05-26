@@ -4,7 +4,6 @@ import {
   Form,
   FormItem,
   Input,
-  Select,
   Textarea,
   Space,
   Button,
@@ -13,6 +12,7 @@ import {
 } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
+import KpSelect from '@/components/KpSelect.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
 import PaymentSourcePicker from '@/components/PaymentSourcePicker.vue'
@@ -183,7 +183,7 @@ function close(): void {
         />
       </FormItem>
       <FormItem label="Tür" required>
-        <Select v-model:value="draft.type" :options="typeOptions" />
+        <KpSelect v-model:value="draft.type" :options="typeOptions" />
       </FormItem>
       <FormItem label="Tutar" required>
         <LocaleInputNumber v-model:value="draft.amount" kind="currency" :min="0" />

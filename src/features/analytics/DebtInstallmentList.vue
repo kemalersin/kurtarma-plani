@@ -4,8 +4,6 @@ import {
   Badge,
   Button,
   Input,
-  Popover,
-  Select,
   Table,
   Tag,
 } from 'ant-design-vue'
@@ -13,7 +11,9 @@ import { FilterOutlined, SearchOutlined } from '@ant-design/icons-vue'
 import type { ColumnsType, TablePaginationConfig } from 'ant-design-vue/es/table'
 import dayjs, { type Dayjs } from 'dayjs'
 import LocaleRangePicker from '@/components/LocaleRangePicker.vue'
+import KpSelect from '@/components/KpSelect.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
+import KpListFilterOverlay from '@/components/KpListFilterOverlay.vue'
 import { textIncludesSearch } from '@/core/util/search'
 import { prepareListTableColumns, TABLE_SCROLL_X } from '@/core/util/table-columns'
 import { useListFilterPopoverProps } from '@/core/ui/list-filter-popover'
@@ -96,8 +96,9 @@ const listFilters: ListFilter<DebtInstallmentRow>[] = [
   },
 ]
 
-function filterSelectOption(input: string, option: { label?: unknown }): boolean {
-  return textIncludesSearch(String(option.label ?? ''), input)
+function filterSelectOption(input: string, option: unknown): boolean {
+  const opt = option as { label?: unknown }
+  return textIncludesSearch(String(opt.label ?? ''), input)
 }
 
 interface NumberRangeState {
@@ -341,15 +342,14 @@ function clearFilters(): void {
           <template #prefix><SearchOutlined /></template>
         </Input>
 
-        <Popover
+        <KpListFilterOverlay
           v-model:open="filtersOpen"
-          v-bind="filterPopoverProps"
+          stack-id="analytics-debt-installments-filter"
+          :popover-props="filterPopoverProps"
         >
-          <template #content>
-            <div class="kp-list-filter">
-              <header class="kp-list-filter__head">Filtreler</header>
+          <header class="kp-list-filter__head">Filtreler</header>
 
-              <div class="kp-list-filter__field">
+          <div class="kp-list-filter__field">
                 <label class="kp-list-filter__label">Tarih aralığı</label>
                 <LocaleRangePicker
                   :value="analyticsRangeValue"
@@ -361,7 +361,7 @@ function clearFilters(): void {
 
               <div class="kp-list-filter__field">
                 <label class="kp-list-filter__label">Banka</label>
-                <Select
+                <KpSelect
                   :value="filters.bankId.value || undefined"
                   class="kp-list-filter__control"
                   placeholder="Tüm bankalar"
@@ -381,7 +381,7 @@ function clearFilters(): void {
               >
                 <label class="kp-list-filter__label">{{ f.label }}</label>
 
-                <Select
+                <KpSelect
                   v-if="f.kind === 'select'"
                   :value="getSelectValue(f.key) || undefined"
                   class="kp-list-filter__control"
@@ -412,25 +412,24 @@ function clearFilters(): void {
                 </div>
               </div>
 
-              <footer class="kp-list-filter__foot">
-                <Button block :disabled="activeFilterCount === 0" @click="clearFilters">
-                  Filtreyi temizle
-                </Button>
-              </footer>
-            </div>
-          </template>
-
-          <Badge :count="activeFilterCount" :show-zero="false" :offset="[-2, 2]" size="small">
-            <Button
-              class="kp-analytics-debt-list__filter-trigger"
-              :type="activeFilterCount > 0 ? 'primary' : 'default'"
-              :ghost="activeFilterCount > 0"
-              aria-label="Filtreler"
-            >
-              <template #icon><FilterOutlined /></template>
+          <template #footer>
+            <Button block :disabled="activeFilterCount === 0" @click="clearFilters">
+              Filtreyi temizle
             </Button>
-          </Badge>
-        </Popover>
+          </template>
+          <template #trigger>
+            <Badge :count="activeFilterCount" :show-zero="false" :offset="[-2, 2]" size="small">
+              <Button
+                class="kp-analytics-debt-list__filter-trigger"
+                :type="activeFilterCount > 0 ? 'primary' : 'default'"
+                :ghost="activeFilterCount > 0"
+                aria-label="Filtreler"
+              >
+                <template #icon><FilterOutlined /></template>
+              </Button>
+            </Badge>
+          </template>
+        </KpListFilterOverlay>
       </div>
     </div>
 

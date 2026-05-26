@@ -5,13 +5,13 @@ import {
   FormItem,
   Input,
   Textarea,
-  Select,
   Space,
   Button,
   message,
 } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
+import KpSelect from '@/components/KpSelect.vue'
 import SensitiveRecordSwitch from '@/components/SensitiveRecordSwitch.vue'
 import {
   emptySensitiveFields,
@@ -179,7 +179,7 @@ function close(): void {
               : 'Dövizli kasa: borç ödemeleri için kullanılamaz; yalnız gelir / gider / transfer kaydedilebilir.'
         "
       >
-        <Select
+        <KpSelect
           v-model:value="draft.currency"
           :options="currencyOptions"
           :disabled="hasMovements"

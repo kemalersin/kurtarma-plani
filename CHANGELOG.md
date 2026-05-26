@@ -4,6 +4,30 @@ Format [Keep a Changelog](https://keepachangelog.com/) esasına uygundur.
 
 Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version` alanındadır (`0.1.x`). Aşağıdaki **Milestone M1–M5** bölümleri erken geliştirme döneminin arşividir; semver sürümü değildir ve `0.1.x` ile karıştırılmamalıdır.
 
+## [0.1.25]
+
+### Added — mobil combobox sheet (`KpSelect`)
+
+- `KpSelect`: masaüstünde AntDV `<Select>`, mobilde (`≤768px`) alttan açılan sheet (arama, gruplu liste, footer slot).
+- Tüm combobox kullanımları `KpSelect` / `SelectWithCreate` / `BankAccountSelect` üzerinden geçer.
+
+### Added — mobil tarih seçici sheet
+
+- `LocaleDatePicker` / `LocaleRangePicker`: mobilde form alanı standart tetikleyici; tıklanınca alttan açılan sheet (`KpMobileFullscreenSheet`, otomatik yükseklik).
+- Sheet içinde yalnızca AntDV picker popover paneli (`KpMobilePickerPanel` / `KpMobileRangePickerPanel`); özel takvim yok.
+- Mobil panel, masaüstü `LocaleDatePicker` / `LocaleRangePicker` ile aynı `pickerBind` attrs'larını alır (`disabledDate`, `showTime` vb.).
+
+### Added — mobil liste filtre drawer (`KpListFilterOverlay`)
+
+- `KpListFilterOverlay`: masaüstünde popover, mobilde (`≤768px`) `FormDrawer`; `EntityListPage`, `DebtInstallmentList`, `AnalyticsFilterBar` bu sarmalayıcıyı kullanır.
+- Filtre drawer: tam genişlik kontroller, kapat sağda, 「Filtreyi temizle」 footer'da; padding diğer `FormDrawer` ile aynı.
+
+### Fixed — mobil combobox sheet / form drawer
+
+- `KpSelect`: mobil sheet artık AntDV `Drawer` değil `Teleport` overlay; form drawer sola kaymaz (push/stack davranışı yalnızca `FormDrawer` için).
+- Sheet açılış/kapanış: overlay fade + panel slide-up (`Transition`); scroll kilidi kapanış animasyonu sonrası kaldırılır.
+- Mobilde drawer üstüne drawer, sheet, modal veya popover açıldığında alttaki drawer kaydırma çubuğu gizlenir (`mobileChildOverlay` + `FormDrawer`).
+
 ## [0.1.24]
 
 ### Changed — sayfa geçişi cache
