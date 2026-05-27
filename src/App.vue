@@ -9,6 +9,7 @@ import { useProfileStore } from '@/stores/profile'
 import { useSyncStore } from '@/stores/sync'
 import { useUpdateStore } from '@/stores/update'
 import { initSyncScheduler } from '@/core/services/sync/sync-scheduler'
+import { initModalOverlayWatch } from '@/composables/useAnyModalOpen'
 import { initMobileChildOverlayWatch } from '@/composables/mobileChildOverlay'
 import { initMobileScrollbars } from '@/composables/initMobileScrollbars'
 import UpdateAvailableNotice from '@/components/UpdateAvailableNotice.vue'
@@ -23,6 +24,7 @@ const updateStore = useUpdateStore()
 let stopSyncScheduler: (() => void) | undefined
 let stopMobileScrollbars: (() => void) | undefined
 let stopMobileChildOverlayWatch: (() => void) | undefined
+let stopModalOverlayWatch: (() => void) | undefined
 
 const themeConfig = computed(() => ({
   algorithm: ui.isDark ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
@@ -44,12 +46,14 @@ onMounted(async () => {
   stopSyncScheduler = initSyncScheduler()
   stopMobileScrollbars = initMobileScrollbars()
   stopMobileChildOverlayWatch = initMobileChildOverlayWatch()
+  stopModalOverlayWatch = initModalOverlayWatch()
 })
 
 onUnmounted(() => {
   stopSyncScheduler?.()
   stopMobileScrollbars?.()
   stopMobileChildOverlayWatch?.()
+  stopModalOverlayWatch?.()
 })
 </script>
 

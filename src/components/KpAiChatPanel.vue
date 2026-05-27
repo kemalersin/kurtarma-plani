@@ -363,6 +363,7 @@ function onKeydown(event: KeyboardEvent): void {
 }
 
 function goToAiSettings(): void {
+  if (props.variant === 'floating') emit('close')
   router.push({ name: 'settings', query: { tab: 'ai' } })
 }
 </script>

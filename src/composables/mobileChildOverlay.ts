@@ -17,7 +17,7 @@ export function registerMobileChildOverlay(): () => void {
   }
 }
 
-function isVisibleOverlay(el: Element): boolean {
+export function isVisibleOverlay(el: Element): boolean {
   if (!(el instanceof HTMLElement)) return false
   if (el.getAttribute('aria-hidden') === 'true') return false
   if (
