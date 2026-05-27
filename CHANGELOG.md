@@ -6,6 +6,8 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.35]
+
 ### Changed — ana sayfa gecikmiş nakit akışı uyarısı
 
 - "Gecikmiş gelir veya gider kayıtları var." uyarısı kapatılabilir; tercih tarayıcıda saklanır.
