@@ -812,9 +812,41 @@ body {
 }
 
 .kp-form-drawer--mobile-footer .kp-form-drawer__footer-actions .ant-space {
-  width: max-content;
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px !important;
+  width: auto;
   max-width: 100%;
   margin-left: auto;
+}
+
+.kp-form-drawer--mobile-footer .kp-form-drawer__footer-actions .ant-space-item {
+  margin: 0 !important;
+}
+
+.kp-form-drawer--mobile-footer:not(.kp-form-drawer--list-filter)
+  .kp-form-drawer__footer-actions
+  .ant-btn {
+  width: auto;
+}
+
+@media (max-width: 768px) {
+  .kp-form-drawer--mobile-footer.ant-drawer .ant-drawer-footer {
+    flex-shrink: 0;
+    padding: 12px 16px;
+    border-top: 1px solid var(--ant-color-border-secondary, rgba(0, 0, 0, 0.06));
+  }
+
+  .kp-form-drawer--mobile-footer:not(.kp-form-drawer--list-filter).ant-drawer
+    .ant-drawer-footer {
+    display: flex;
+    justify-content: flex-end;
+  }
+}
+
+[data-theme='dark'] .kp-form-drawer--mobile-footer.ant-drawer .ant-drawer-footer {
+  border-top-color: rgba(255, 255, 255, 0.08);
 }
 
 /** Form drawer: Vazgeç + onay — header (#actions) ile aynı düğme stili, form altında sağa dayalı */

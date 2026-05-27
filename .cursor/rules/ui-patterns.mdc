@@ -27,9 +27,10 @@ alwaysApply: false
 
 ## AppShell
 
-- `<a-layout-sider :collapsible="true">` + manuel pin (localStorage)
-- Üst navbar `<a-input-search>` global arama (banka/hesap/borç/gelir/gider)
-- İçerik alanı `<a-layout-content>`; mobile-first responsive
+- **`AppShell.vue`** — özel `aside.kp-sider` (AntDV `LayoutSider` değil); **pin** ile sabitlenebilir (tercih localStorage); hover peek / mobil overlay scrim
+- **Sol menü yerleşimi:** marka (`kp-sider__brand`) üstte sabit → **kaydırılabilir gövde** (`kp-sider__nav-scroll`: profil + `Menu`) → alt footer (`kp-sider__footer`, sürüm / mobil senkron) sabit. Kısa viewport'ta menü öğeleri kesilmez
+- Üst navbar breadcrumb + araçlar; **global arama** (banka/hesap/borç/gelir/gider indeksi) — ayrı route veya navbar bileşeni
+- İçerik alanı `.kp-content`; mobile-first responsive
 
 ## Liste
 
@@ -87,7 +88,7 @@ alwaysApply: false
 - Form drawer'ları **`FormDrawer`** (`src/components/FormDrawer.vue`) + benzersiz `stackId`; `useDrawerStack` z-index ve **alttaki panel sola kaydırma** (`DRAWER_STACK_OFFSET_PX`, `contentWrapperStyle`)
 - Üstte yeni drawer açılınca alttaki `translateX` ile sola kayar; kapanınca geri gelir
 - Drawer açılışında (`afterOpenChange`) formun **ilk odaklanabilir alanı** otomatik focus (`focusFirstFormField`); `autofocus` attr kullanma
-- **Drawer aksiyonları (`FormDrawer`):** **Vazgeç** + **Kaydet** → `#actions` slot (masaüstü header, **mobil footer**). Header'da kalacak ikincil aksiyonlar (örn. Erken kapama) → `#extra`. **Sil / tehlikeli aksiyon** header'da yok — form altında `.kp-form-drawer-danger-row`; liste satırlarında `TableRowActions` / `EntityListPage`
+- **Drawer aksiyonları (`FormDrawer`):** **Vazgeç** + **Kaydet** → `#actions` slot. **Varsayılan:** masaüstü header `#extra`, **mobil (`≤768px`) drawer footer** — sağa dayalı, düğme genişliği otomatik (`app.css` `.kp-form-drawer--mobile-footer`). `mobileActionsInFooter` varsayılan `true`; eski davranış için `mobile-actions-in-footer="false"`. Her zaman footer: `actions-in-footer` (örn. erken kapama). Header'da kalacak ikincil aksiyonlar (örn. Erken kapama — taksit planı `#actions` footer'da `kp-drawer-footer-action--block`) ayrı `#actions` / `#extra` slot'larında. **Sil / tehlikeli aksiyon** header'da yok — form altında `.kp-form-drawer-danger-row`; liste satırlarında `TableRowActions` / `EntityListPage`. **İstisna:** filtre drawer (`kp-form-drawer--list-filter`) mobil footer düğmeleri tam genişlik
 - Liste/combobox **「Yeni Kayıt」** → ilgili form drawer mevcut drawer **üstüne** (yüksek z-index)
 - `<a-select>` + `#dropdownRender` slot footer'da `<a-button>` "Yeni Kayıt"
 
@@ -136,7 +137,15 @@ alwaysApply: false
 
 - Tüm formlar **`FormDrawer`** üzerinden; mobilde `width: 100%`, tam viewport yüksekliği (`app.css` `.kp-form-drawer`)
 - Mobilde **`useDrawerStack` yatay kaydırma yok** (üst üste tam ekran)
+- **`#actions` (Vazgeç/Kaydet):** varsayılan olarak AntDV drawer **footer**'ında; gövde (`.kp-form-drawer__body`) ayrı kaydırılır
 - Ham `<Drawer>` doğrudan kullanma; stack `stackId` + `FormDrawer` zorunlu
+
+## Panel / özet kartları (`KpStatRow`)
+
+- **`KpStatRow`** (`src/components/KpStatRow.vue`) — drawer üstü ve dashboard KPI satırı; `tone`, `hint`, opsiyonel `labelTooltip`
+- **Izgara:** varsayılan `auto-fit`; panel özeti için `two-by-two-until-lg` — Ant Design **`lg` altında (`<992px`) 2×2**, `lg+` tek satır (`KP_LG_UP_MQ`)
+- **Dar ekran ipucu (`≤640px`, `KP_LIST_MOBILE_MQ`):** `mobileHintToggle: { primary, secondary }` — yalnızca `primary` gösterilir; kart **sağ üst** köşede `SwapOutlined` ile geçiş (örn. panel «Bu ay net»: gelir ↔ gider). Masaüstünde tam `hint` metni
+- **`mobileFullRow`:** mobilde kartı tüm satır genişliğine yayar
 
 ## Drawer bilgi alert'leri
 
