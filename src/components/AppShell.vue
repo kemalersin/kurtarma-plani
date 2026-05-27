@@ -230,59 +230,61 @@ function gotoCrumb(name?: string): void {
         </div>
       </div>
 
-      <div v-if="profileStore.activeProfile" class="kp-sider__profile">
-        <div class="kp-sider__profile-avatar">
-          {{ profileStore.activeProfile.name.charAt(0).toUpperCase() }}
-        </div>
-        <div class="kp-sider__profile-info">
-          <div class="kp-sider__profile-name">{{ profileStore.activeProfile.name }}</div>
-          <div class="kp-sider__profile-meta">
-            {{ profileStore.activeProfile.localeSettings.currency }} ·
-            {{ profileStore.activeProfile.localeSettings.locale }}
+      <div class="kp-sider__nav-scroll">
+        <div v-if="profileStore.activeProfile" class="kp-sider__profile">
+          <div class="kp-sider__profile-avatar">
+            {{ profileStore.activeProfile.name.charAt(0).toUpperCase() }}
+          </div>
+          <div class="kp-sider__profile-info">
+            <div class="kp-sider__profile-name">{{ profileStore.activeProfile.name }}</div>
+            <div class="kp-sider__profile-meta">
+              {{ profileStore.activeProfile.localeSettings.currency }} ·
+              {{ profileStore.activeProfile.localeSettings.locale }}
+            </div>
           </div>
         </div>
-      </div>
 
-      <Menu
-        mode="inline"
-        theme="light"
-        :selected-keys="selectedKeys"
-        style="border-inline-end: 0"
-        @click="navigate"
-      >
-        <MenuItem key="home">
-          <template #icon><DashboardOutlined /></template>
-          <span>Panel</span>
-        </MenuItem>
-        <MenuItem key="admin">
-          <template #icon><DatabaseOutlined /></template>
-          <span>Yönetim</span>
-        </MenuItem>
-        <MenuItem key="debts">
-          <template #icon><CreditCardOutlined /></template>
-          <span>Borçlar</span>
-        </MenuItem>
-        <MenuItem key="cashflow">
-          <template #icon><SwapOutlined /></template>
-          <span>Nakit akışı</span>
-        </MenuItem>
-        <MenuItem key="analytics">
-          <template #icon><LineChartOutlined /></template>
-          <span>Analiz & rapor</span>
-        </MenuItem>
-        <MenuItem key="ai">
-          <template #icon><RobotOutlined /></template>
-          <span>AI Asistan</span>
-        </MenuItem>
-        <MenuItem key="settings">
-          <template #icon><SettingOutlined /></template>
-          <span>Ayarlar</span>
-        </MenuItem>
-        <MenuItem key="about">
-          <template #icon><InfoCircleOutlined /></template>
-          <span>Hakkında</span>
-        </MenuItem>
-      </Menu>
+        <Menu
+          mode="inline"
+          theme="light"
+          :selected-keys="selectedKeys"
+          style="border-inline-end: 0"
+          @click="navigate"
+        >
+          <MenuItem key="home">
+            <template #icon><DashboardOutlined /></template>
+            <span>Panel</span>
+          </MenuItem>
+          <MenuItem key="admin">
+            <template #icon><DatabaseOutlined /></template>
+            <span>Yönetim</span>
+          </MenuItem>
+          <MenuItem key="debts">
+            <template #icon><CreditCardOutlined /></template>
+            <span>Borçlar</span>
+          </MenuItem>
+          <MenuItem key="cashflow">
+            <template #icon><SwapOutlined /></template>
+            <span>Nakit akışı</span>
+          </MenuItem>
+          <MenuItem key="analytics">
+            <template #icon><LineChartOutlined /></template>
+            <span>Analiz & rapor</span>
+          </MenuItem>
+          <MenuItem key="ai">
+            <template #icon><RobotOutlined /></template>
+            <span>AI Asistan</span>
+          </MenuItem>
+          <MenuItem key="settings">
+            <template #icon><SettingOutlined /></template>
+            <span>Ayarlar</span>
+          </MenuItem>
+          <MenuItem key="about">
+            <template #icon><InfoCircleOutlined /></template>
+            <span>Hakkında</span>
+          </MenuItem>
+        </Menu>
+      </div>
 
       <div class="kp-sider__footer kp-text-muted">
         <span class="kp-sider__footer-version">v{{ APP_VERSION }}</span>
@@ -386,6 +388,8 @@ function gotoCrumb(name?: string): void {
   display: flex;
   flex-direction: column;
   width: 240px;
+  min-height: 0;
+  overflow: hidden;
   background: #fff;
   border-right: 1px solid rgba(0, 0, 0, 0.06);
   transition: transform 0.2s ease;
@@ -414,8 +418,16 @@ function gotoCrumb(name?: string): void {
 }
 
 .kp-sider__brand {
+  flex-shrink: 0;
   padding: 16px 16px 12px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.kp-sider__nav-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 @media (min-width: 769px) {
@@ -520,7 +532,7 @@ function gotoCrumb(name?: string): void {
 }
 
 .kp-sider__footer {
-  margin-top: auto;
+  flex-shrink: 0;
   padding: 10px 12px;
   font-size: 11px;
   border-top: 1px solid rgba(0, 0, 0, 0.04);
