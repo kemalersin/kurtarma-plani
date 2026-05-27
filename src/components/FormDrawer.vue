@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Drawer } from 'ant-design-vue'
-import { computed, nextTick, useSlots, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, useSlots, useTemplateRef, watch } from 'vue'
 import { KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/composables/useMatchMedia'
 import { useDrawerStack } from '@/composables/useDrawerStack'
 import { focusFirstFormField, resetFormDrawerScroll } from '@/composables/useDrawerFormFocus'
@@ -39,7 +39,7 @@ const emit = defineEmits<{
 
 const isMobileViewport = useMatchMedia(KP_MOBILE_VIEWPORT_MQ)
 const slots = useSlots()
-const { push, pop, zIndex, contentWrapperStyle } = useDrawerStack(props.stackId)
+const { push, pop, releaseVisual, zIndex, contentWrapperStyle } = useDrawerStack(props.stackId)
 const formRoot = useTemplateRef<HTMLElement>('formRoot')
 
 const drawerWidth = computed(() => (isMobileViewport.value ? '100%' : props.width))
@@ -85,9 +85,18 @@ watch(
 )
 
 function onAfterOpenChange(open: boolean): void {
-  if (!open || !props.autoFocusFirst) return
+  if (!open) {
+    releaseVisual()
+    return
+  }
+  if (!props.autoFocusFirst) return
   void nextTick(() => focusFirstFormField(formRoot.value))
 }
+
+onBeforeUnmount(() => {
+  pop()
+  releaseVisual()
+})
 
 function close(): void {
   emit('update:open', false)

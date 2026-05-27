@@ -8,6 +8,12 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [0.1.34]
 
+### Changed — AI sohbet düğmesi ve drawer
+
+- Form drawer açıkken floating AI sohbet düğmesi gizlenir; drawer tam kapanana kadar (kapanış animasyonu bitene kadar) tekrar görünmez.
+- Düğme geri gelirken hafif fade/scale animasyonu uygulanır; drawer stack kaydırması etkilenmez.
+- Liste sayfalaması, düğme gizliyken de solda kalır (FAB çakışması önlemi sürekli).
+
 ### Changed — AI sohbet yedek/senkron dışı
 
 - `chatSession` kayıtları profil yedek ve senkron dosyalarına artık yazılmaz; eski dosyalardan içe aktarımda da yok sayılır. Yerel sohbet geçmişi senkron/geri yükleme sırasında korunur.

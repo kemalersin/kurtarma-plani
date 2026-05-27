@@ -5,6 +5,7 @@ import { Button } from 'ant-design-vue'
 import { RobotOutlined } from '@ant-design/icons-vue'
 import KpAiChatPanel from '@/components/KpAiChatPanel.vue'
 import { KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/composables/useMatchMedia'
+import { useAnyDrawerOpen } from '@/composables/useDrawerStack'
 import {
   resolveAiChatKey,
   resolveAiChatPlaceholder,
@@ -15,6 +16,7 @@ import { useAiStore } from '@/stores/ai'
 const route = useRoute()
 const ai = useAiStore()
 const isMobile = useMatchMedia(KP_MOBILE_VIEWPORT_MQ)
+const anyDrawerOpen = useAnyDrawerOpen()
 
 const open = ref(false)
 const expanded = ref(false)
@@ -23,6 +25,7 @@ const showFab = computed(
   () => shouldShowAiChatFab(route) && ai.showFloatingChatFab,
 )
 const showFabButton = computed(() => {
+  if (anyDrawerOpen.value) return false
   if (!open.value) return true
   if (isMobile.value) return false
   return !expanded.value
@@ -93,13 +96,16 @@ onBeforeUnmount(() => {
 <template>
   <Teleport v-if="showFab" to="body">
     <Button
-      v-show="showFabButton"
       type="primary"
       shape="circle"
       size="large"
       class="kp-ai-fab"
-      :class="{ 'kp-ai-fab--open': open }"
+      :class="{
+        'kp-ai-fab--visible': showFabButton,
+        'kp-ai-fab--open': open && showFabButton,
+      }"
       aria-label="AI sohbet"
+      :aria-hidden="!showFabButton"
       @click="toggleOpen"
     >
       <RobotOutlined />
@@ -150,14 +156,26 @@ onBeforeUnmount(() => {
   height: 56px;
   box-shadow: 0 4px 16px rgba(22, 119, 255, 0.35);
   font-size: 22px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  opacity: 0;
+  transform: scale(0.88);
+  pointer-events: none;
+  transition:
+    opacity 0.28s ease,
+    transform 0.28s ease,
+    box-shadow 0.2s ease;
 }
 
-.kp-ai-fab:hover {
+.kp-ai-fab--visible {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.kp-ai-fab--visible:hover {
   transform: scale(1.04);
 }
 
-.kp-ai-fab--open {
+.kp-ai-fab--visible.kp-ai-fab--open {
   transform: scale(0.96);
   box-shadow: 0 2px 10px rgba(22, 119, 255, 0.25);
 }
