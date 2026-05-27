@@ -30,12 +30,42 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           touch dist/.nojekyll
-          cd dist
-          git init
-          git checkout --orphan pages
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "deploy: ${{ github.sha }}"
-          git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" pages
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global http.postBuffer 524288000
+          git config --global http.version HTTP/1.1
+
+          workdir=$(mktemp -d)
+          repo="https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+
+          if git clone --depth 1 --branch pages "$repo" "$workdir" 2>/dev/null; then
+            echo "Existing pages branch cloned"
+          else
+            echo "Creating new pages branch"
+            git init "$workdir"
+            git -C "$workdir" checkout --orphan pages
+            git -C "$workdir" remote add origin "$repo"
+          fi
+
+          rsync -a --delete dist/ "$workdir/"
+
+          git -C "$workdir" add -A
+          if git -C "$workdir" diff --staged --quiet; then
+            echo "No changes to deploy"
+            exit 0
+          fi
+          git -C "$workdir" commit -m "deploy: ${{ github.sha }}"
+
+          for attempt in 1 2 3; do
+            if git -C "$workdir" push origin HEAD:pages; then
+              exit 0
+            fi
+            echo "Push failed (attempt ${attempt}/3), retrying..."
+            sleep $((attempt * 15))
+          done
+
+          echo "Push failed after 3 attempts"
+          exit 1
