@@ -6,6 +6,10 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+### Changed — panel URL
+
+- Panel rotasında adres çubuğunda hash gösterilmez (`index.html`); diğer sayfalar `#/debts` vb. hash routing ile kalır. Eski `#/home` ve `#/` adresleri panele yönlendirilir.
+
 ## [0.1.39]
 
 ### Changed — ana sayfa panel özeti

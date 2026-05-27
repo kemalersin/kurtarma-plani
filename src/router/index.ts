@@ -4,6 +4,7 @@ import { useSyncStore } from '@/stores/sync'
 import { ensureSyncBootstrap } from '@/core/services/sync/sync-scheduler'
 import { isOnboardingCompleted, postOnboardingRoute } from '@/core/onboarding'
 import { installScrollRestore } from '@/router/scrollRestore'
+import { installHomeHashCleanup } from '@/router/homeHashCleanup'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -29,13 +30,13 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/components/AppShell.vue'),
     meta: { requiresProfile: true },
     children: [
-      { path: '', redirect: { name: 'home' } },
       {
-        path: 'home',
+        path: '',
         name: 'home',
         component: () => import('@/features/home/HomeView.vue'),
         meta: { pageLayout: 'wide', keepAlive: true },
       },
+      { path: 'home', redirect: { name: 'home' } },
       {
         path: 'admin',
         name: 'admin',
@@ -90,6 +91,7 @@ export const router = createRouter({
 })
 
 installScrollRestore(router)
+installHomeHashCleanup(router)
 
 router.beforeEach(async (to) => {
   const profileStore = useProfileStore()
