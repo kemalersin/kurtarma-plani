@@ -5,6 +5,7 @@ import { Button } from 'ant-design-vue'
 import { RobotOutlined } from '@ant-design/icons-vue'
 import KpAiChatPanel from '@/components/KpAiChatPanel.vue'
 import { KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/composables/useMatchMedia'
+import { useAnyModalOpen } from '@/composables/useAnyModalOpen'
 import { useAnyDrawerOpen } from '@/composables/useDrawerStack'
 import {
   resolveAiChatKey,
@@ -17,6 +18,7 @@ const route = useRoute()
 const ai = useAiStore()
 const isMobile = useMatchMedia(KP_MOBILE_VIEWPORT_MQ)
 const anyDrawerOpen = useAnyDrawerOpen()
+const anyModalOpen = useAnyModalOpen()
 
 const open = ref(false)
 const expanded = ref(false)
@@ -25,7 +27,7 @@ const showFab = computed(
   () => shouldShowAiChatFab(route) && ai.showFloatingChatFab,
 )
 const showFabButton = computed(() => {
-  if (anyDrawerOpen.value) return false
+  if (anyDrawerOpen.value || anyModalOpen.value) return false
   if (!open.value) return true
   if (isMobile.value) return false
   return !expanded.value
