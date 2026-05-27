@@ -50,7 +50,7 @@ jobs:
             git -C "$workdir" remote add origin "$repo"
           fi
 
-          rsync -a --delete dist/ "$workdir/"
+          rsync -a --delete --exclude='.git' dist/ "$workdir/"
 
           git -C "$workdir" add -A
           if git -C "$workdir" diff --staged --quiet; then
