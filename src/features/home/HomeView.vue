@@ -63,6 +63,10 @@ const summaryStats = computed<KpStat[]>(() => {
       label: 'Bu ay net',
       value: formatCurrency(d.currentMonth.net, localCurrency.value),
       hint: `${formatCurrency(d.currentMonth.income, localCurrency.value)} gelir · ${formatCurrency(d.currentMonth.expense, localCurrency.value)} gider`,
+      mobileHintToggle: {
+        primary: `${formatCurrency(d.currentMonth.income, localCurrency.value)} gelir`,
+        secondary: `${formatCurrency(d.currentMonth.expense, localCurrency.value)} gider`,
+      },
       tone: d.currentMonth.net >= 0 ? 'success' : 'warning',
     },
   ]
@@ -307,7 +311,7 @@ const dashCardBody = { padding: '12px 16px 16px' }
       />
 
       <div class="kp-dashboard">
-        <KpStatRow :items="summaryStats" :min-column-width="180" />
+        <KpStatRow :items="summaryStats" two-by-two-until-lg />
 
         <Row :gutter="[20, 20]" class="kp-dashboard__main">
           <!-- Sol: ana grafikler — toplam yükseklik sağ sütunla eşit -->

@@ -1,7 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { SwapOutlined } from '@ant-design/icons-vue'
 import KpInfoHint from '@/components/KpInfoHint.vue'
-import { useMobileViewport } from '@/composables/useMatchMedia'
+import {
+  KP_LG_UP_MQ,
+  KP_LIST_MOBILE_MQ,
+  useMatchMedia,
+  useMobileViewport,
+} from '@/composables/useMatchMedia'
 
 /**
  * Tek satırda gösterilen istatistik/özet kartı.
@@ -28,6 +34,11 @@ export interface KpStat {
   value: string | number
   /** Değerin altında küçük yardımcı not (opsiyonel) */
   hint?: string
+  /**
+   * Dar ekranda (`≤640px`) hint yerine tek satır + dönüşüm düğmesi.
+   * Masaüstünde yalnızca `hint` gösterilir.
+   */
+  mobileHintToggle?: { primary: string; secondary: string }
   /** Etiket yanında bilgi ikonu (KpInfoHint); hover veya tıklama ile açılır */
   labelTooltip?: string
   /** Renk vurgusu — default `default` */
@@ -42,6 +53,11 @@ interface Props {
   columns?: number
   /** Tek sütun minimum genişliği (px). Default 150. `columns` yokken kullanılır. */
   minColumnWidth?: number
+  /**
+   * Ant Design `lg` (992px) altında 2 sütun (2×2); `lg` ve üstünde tüm kartlar tek satır.
+   * `columns` verilmişse yok sayılır.
+   */
+  twoByTwoUntilLg?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -49,13 +65,66 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const isMobileViewport = useMobileViewport()
+const isListMobile = useMatchMedia(KP_LIST_MOBILE_MQ)
+const isLgUp = useMatchMedia(KP_LG_UP_MQ)
 
-const gridStyle = computed(() => ({
-  gridTemplateColumns:
-    props.columns != null && props.columns > 0
-      ? `repeat(${props.columns}, minmax(0, 1fr))`
-      : `repeat(auto-fit, minmax(${props.minColumnWidth}px, 1fr))`,
-}))
+/** `true` → secondary (gider vb.) gösteriliyor. */
+const hintToggleShowingSecondary = ref<Record<string, boolean>>({})
+
+function hintToggleKey(item: KpStat, idx: number): string {
+  return `${item.label}:${idx}`
+}
+
+function showMobileHintToggle(item: KpStat): boolean {
+  return isListMobile.value && item.mobileHintToggle != null
+}
+
+function hasHint(item: KpStat): boolean {
+  return Boolean(item.hint) || item.mobileHintToggle != null
+}
+
+function displayHint(item: KpStat, idx: number): string {
+  if (showMobileHintToggle(item)) {
+    const alt = item.mobileHintToggle!
+    return hintToggleShowingSecondary.value[hintToggleKey(item, idx)]
+      ? alt.secondary
+      : alt.primary
+  }
+  return item.hint ?? ''
+}
+
+function hintToggleAriaLabel(item: KpStat, idx: number): string {
+  return hintToggleShowingSecondary.value[hintToggleKey(item, idx)]
+    ? 'Geliri göster'
+    : 'Gideri göster'
+}
+
+function toggleHint(item: KpStat, idx: number): void {
+  const key = hintToggleKey(item, idx)
+  hintToggleShowingSecondary.value = {
+    ...hintToggleShowingSecondary.value,
+    [key]: !hintToggleShowingSecondary.value[key],
+  }
+}
+
+const gridStyle = computed(() => {
+  if (props.twoByTwoUntilLg) {
+    const count = Math.max(1, props.items.length)
+    return {
+      gridTemplateColumns: isLgUp.value
+        ? `repeat(${count}, minmax(0, 1fr))`
+        : 'repeat(2, minmax(0, 1fr))',
+    }
+  }
+  if (props.columns != null && props.columns > 0) {
+    return {
+      gridTemplateColumns: `repeat(${props.columns}, minmax(0, 1fr))`,
+    }
+  }
+  return {
+    gridTemplateColumns: `repeat(auto-fit, minmax(${props.minColumnWidth}px, 1fr))`,
+  }
+})
 </script>
 
 <template>
@@ -64,9 +133,21 @@ const gridStyle = computed(() => ({
       v-for="(item, idx) in items"
       :key="item.label + idx"
       class="kp-stat"
-      :class="{ 'kp-stat--mobile-full-row': item.mobileFullRow }"
+      :class="{
+        'kp-stat--mobile-full-row': item.mobileFullRow,
+        'kp-stat--hint-toggle': showMobileHintToggle(item),
+      }"
       :data-tone="item.tone ?? 'default'"
     >
+      <button
+        v-if="showMobileHintToggle(item)"
+        type="button"
+        class="kp-stat__hint-toggle"
+        :aria-label="hintToggleAriaLabel(item, idx)"
+        @click="toggleHint(item, idx)"
+      >
+        <SwapOutlined aria-hidden="true" />
+      </button>
       <span class="kp-stat__label-row">
         <span
           class="kp-stat__label"
@@ -80,7 +161,7 @@ const gridStyle = computed(() => ({
         :title="!isMobileViewport ? String(item.value) : undefined"
         >{{ item.value }}</span
       >
-      <span v-if="item.hint" class="kp-stat__hint">{{ item.hint }}</span>
+      <span v-if="hasHint(item)" class="kp-stat__hint">{{ displayHint(item, idx) }}</span>
     </div>
   </div>
 </template>
@@ -93,6 +174,7 @@ const gridStyle = computed(() => ({
 }
 
 .kp-stat {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -102,6 +184,10 @@ const gridStyle = computed(() => ({
   border: 1px solid var(--ant-color-border-secondary, rgba(0, 0, 0, 0.06));
   transition: background-color 0.15s ease, border-color 0.15s ease;
   min-width: 0;
+}
+
+.kp-stat--hint-toggle {
+  padding-right: 38px;
 }
 
 .kp-stat:hover {
@@ -144,6 +230,40 @@ const gridStyle = computed(() => ({
   font-size: 12px;
   line-height: 1.3;
   color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.kp-stat__hint-toggle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--kp-radius, 6px);
+  background: transparent;
+  color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45));
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.kp-stat__hint-toggle:hover {
+  background: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
+  color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65));
+}
+
+.kp-stat__hint-toggle:focus-visible {
+  outline: 2px solid var(--ant-color-primary, #1677ff);
+  outline-offset: 1px;
 }
 
 /* tone — sadece value rengini değiştir; arka plan nötr kalır ki dağılmasın */
@@ -168,6 +288,13 @@ const gridStyle = computed(() => ({
   .kp-stat {
     padding: 10px 12px;
   }
+  .kp-stat--hint-toggle {
+    padding-right: 36px;
+  }
+  .kp-stat__hint-toggle {
+    top: 4px;
+    right: 4px;
+  }
   .kp-stat__value {
     font-size: 17px;
   }
@@ -181,6 +308,13 @@ const gridStyle = computed(() => ({
   .kp-stat {
     padding: 8px 10px;
     gap: 2px;
+  }
+  .kp-stat--hint-toggle {
+    padding-right: 34px;
+  }
+  .kp-stat__hint-toggle {
+    top: 2px;
+    right: 2px;
   }
   .kp-stat__label {
     font-size: 11px;
@@ -210,6 +344,15 @@ const gridStyle = computed(() => ({
 
 [data-theme='dark'] .kp-stat__hint {
   color: rgba(255, 255, 255, 0.55);
+}
+
+[data-theme='dark'] .kp-stat__hint-toggle {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+[data-theme='dark'] .kp-stat__hint-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.65);
 }
 
 [data-theme='dark'] .kp-stat[data-tone='primary'] .kp-stat__value {
