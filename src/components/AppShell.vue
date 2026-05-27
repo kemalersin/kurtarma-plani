@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter, type RouteLocationNormalized } from 'vue-router'
 import {
   Layout,
@@ -61,6 +61,29 @@ const menuOpen = computed(() =>
   isMobileShell.value ? ui.sidebarPeeking : ui.sidebarVisible,
 )
 
+const showSidebarScrim = computed(
+  () =>
+    menuOpen.value &&
+    (isMobileShell.value || (!ui.sidebarPinned && !hoverPeekEnabled.value)),
+)
+
+let peekCloseTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearPeekCloseTimer(): void {
+  if (peekCloseTimer === null) return
+  clearTimeout(peekCloseTimer)
+  peekCloseTimer = null
+}
+
+function schedulePeekClose(): void {
+  if (!hoverPeekEnabled.value) return
+  clearPeekCloseTimer()
+  peekCloseTimer = setTimeout(() => {
+    peekCloseTimer = null
+    ui.setSidebarPeeking(false)
+  }, 180)
+}
+
 const hamburgerTooltip = computed(() => {
   if (isMobileShell.value) {
     return ui.sidebarPeeking ? 'Menüyü kapat' : 'Menüyü aç'
@@ -114,22 +137,34 @@ function onHamburgerClick(): void {
 
 function onHamburgerEnter(): void {
   if (!hoverPeekEnabled.value) return
+  clearPeekCloseTimer()
   ui.setSidebarPeeking(true)
+}
+
+function onHamburgerLeave(): void {
+  if (!hoverPeekEnabled.value) return
+  schedulePeekClose()
 }
 
 function onSidebarEnter(): void {
   if (!hoverPeekEnabled.value) return
+  clearPeekCloseTimer()
   ui.setSidebarPeeking(true)
 }
 
 function onSidebarLeave(): void {
   if (!hoverPeekEnabled.value) return
-  ui.setSidebarPeeking(false)
+  schedulePeekClose()
 }
 
 function closeSidebarOverlay(): void {
+  clearPeekCloseTimer()
   ui.setSidebarPeeking(false)
 }
+
+onBeforeUnmount(() => {
+  clearPeekCloseTimer()
+})
 
 watch(isMobileShell, (mobile) => {
   if (mobile) ui.setSidebarPeeking(false)
@@ -168,9 +203,21 @@ function gotoCrumb(name?: string): void {
         'kp-sider--floating': isMobileShell || !ui.sidebarPinned,
         'kp-sider--visible': menuOpen,
       }"
-      @mouseenter="hoverPeekEnabled ? onSidebarEnter : undefined"
-      @mouseleave="hoverPeekEnabled ? onSidebarLeave : undefined"
+      @mouseenter="onSidebarEnter"
+      @mouseleave="onSidebarLeave"
     >
+      <KpTooltip v-if="!isMobileShell && !ui.sidebarPinned" title="Menüyü sabitle">
+        <Button
+          type="text"
+          size="small"
+          class="kp-sider__pin"
+          aria-label="Menüyü sabitle"
+          @click="ui.toggleSidebarPin()"
+        >
+          <PushpinOutlined />
+        </Button>
+      </KpTooltip>
+
       <div class="kp-sider__brand">
         <div class="kp-sider__brand-text">
           <div class="kp-sider__brand-title">
@@ -181,17 +228,6 @@ function gotoCrumb(name?: string): void {
             KİŞİSEL FİNANSAL PLAN & ASİSTAN
           </Typography.Text>
         </div>
-        <KpTooltip v-if="!isMobileShell && !ui.sidebarPinned" title="Menüyü sabitle">
-          <Button
-            type="text"
-            size="small"
-            class="kp-sider__pin"
-            :aria-label="'Menüyü sabitle'"
-            @click="ui.toggleSidebarPin()"
-          >
-            <PushpinOutlined />
-          </Button>
-        </KpTooltip>
       </div>
 
       <div v-if="profileStore.activeProfile" class="kp-sider__profile">
@@ -255,7 +291,7 @@ function gotoCrumb(name?: string): void {
     </aside>
 
     <div
-      v-if="menuOpen && (isMobileShell || !ui.sidebarPinned)"
+      v-if="showSidebarScrim"
       class="kp-sider__scrim"
       aria-hidden="true"
       @click="closeSidebarOverlay"
@@ -263,21 +299,26 @@ function gotoCrumb(name?: string): void {
 
     <Layout class="kp-main">
       <LayoutHeader class="kp-header">
-        <KpTooltip :title="hamburgerTooltip">
-          <Button
-            type="text"
-            class="kp-header__hamburger"
-            :aria-label="isMobileShell && ui.sidebarPeeking ? 'Menüyü kapat' : 'Menüyü aç'"
-            @click="onHamburgerClick"
-            @mouseenter="hoverPeekEnabled ? onHamburgerEnter : undefined"
-          >
-            <MenuFoldOutlined
-              v-if="!isMobileShell && ui.sidebarPinned"
-              style="font-size: 18px"
-            />
-            <MenuUnfoldOutlined v-else style="font-size: 18px" />
-          </Button>
-        </KpTooltip>
+        <span
+          class="kp-header__hamburger-zone"
+          @mouseenter="onHamburgerEnter"
+          @mouseleave="onHamburgerLeave"
+        >
+          <KpTooltip :title="hamburgerTooltip">
+            <Button
+              type="text"
+              class="kp-header__hamburger"
+              :aria-label="isMobileShell && ui.sidebarPeeking ? 'Menüyü kapat' : 'Menüyü aç'"
+              @click="onHamburgerClick"
+            >
+              <MenuFoldOutlined
+                v-if="!isMobileShell && ui.sidebarPinned"
+                style="font-size: 18px"
+              />
+              <MenuUnfoldOutlined v-else style="font-size: 18px" />
+            </Button>
+          </KpTooltip>
+        </span>
 
         <Breadcrumb separator="/">
           <AntBreadcrumbItem
@@ -350,6 +391,7 @@ function gotoCrumb(name?: string): void {
   transition: transform 0.2s ease;
   flex-shrink: 0;
   z-index: 50;
+  position: relative;
 }
 
 [data-theme='dark'] .kp-sider {
@@ -372,12 +414,15 @@ function gotoCrumb(name?: string): void {
 }
 
 .kp-sider__brand {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
   padding: 16px 16px 12px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+@media (min-width: 769px) {
+  .kp-sider__brand {
+    /* Sabitle düğmesi alanı — pin gizliyken de metin genişliği değişmesin */
+    padding-right: 40px;
+  }
 }
 
 [data-theme='dark'] .kp-sider__brand {
@@ -416,14 +461,17 @@ function gotoCrumb(name?: string): void {
 
 .kp-sider__brand-tag {
   font-size: 10px;
-  letter-spacing: 0.08em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  letter-spacing: 0.03em;
+  line-height: 1.35;
   display: block;
+  overflow-wrap: break-word;
 }
 
 .kp-sider__pin {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
   font-size: 14px;
 }
 
@@ -522,6 +570,8 @@ function gotoCrumb(name?: string): void {
 }
 
 .kp-header {
+  position: relative;
+  z-index: 45;
   background: #fff;
   padding: 0 16px;
   display: flex;
@@ -552,6 +602,11 @@ function gotoCrumb(name?: string): void {
 
 .kp-header__hamburger {
   padding: 4px 10px;
+}
+
+.kp-header__hamburger-zone {
+  display: inline-flex;
+  align-items: center;
 }
 
 .kp-breadcrumb--link a {

@@ -6,6 +6,18 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.36]
+
+### Fixed — masaüstü menü hover peek
+
+- Gizli (sabitlenmemiş) menü, hamburger üzerine gelince tekrar açılır; hover peek sırasında scrim tetikleyiciyi engellemez, menüye geçişte kısa gecikmeyle kapanır.
+- Sabitleme düğmesi yan menünün sağ üst köşesine taşındı.
+- Marka alt yazısı menü genişliğine sığacak şekilde kırılır; sabitleme sonrası metin genişliği değişmez.
+
+### Changed — floating AI sohbet düğmesi
+
+- Mobilde yan menü açıkken AI sohbet düğmesi gizlenir.
+
 ## [0.1.35]
 
 ### Changed — ana sayfa gecikmiş nakit akışı uyarısı

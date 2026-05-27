@@ -13,12 +13,15 @@ import {
   shouldShowAiChatFab,
 } from '@/features/ai/page-chat'
 import { useAiStore } from '@/stores/ai'
+import { useUiStore } from '@/stores/ui'
 
 const route = useRoute()
 const ai = useAiStore()
+const ui = useUiStore()
 const isMobile = useMatchMedia(KP_MOBILE_VIEWPORT_MQ)
 const anyDrawerOpen = useAnyDrawerOpen()
 const anyModalOpen = useAnyModalOpen()
+const mobileSidebarOpen = computed(() => isMobile.value && ui.sidebarPeeking)
 
 const open = ref(false)
 const expanded = ref(false)
@@ -27,7 +30,7 @@ const showFab = computed(
   () => shouldShowAiChatFab(route) && ai.showFloatingChatFab,
 )
 const showFabButton = computed(() => {
-  if (anyDrawerOpen.value || anyModalOpen.value) return false
+  if (anyDrawerOpen.value || anyModalOpen.value || mobileSidebarOpen.value) return false
   if (!open.value) return true
   if (isMobile.value) return false
   return !expanded.value
