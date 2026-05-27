@@ -246,7 +246,9 @@ describe('earliestCreditCardTransactionDate', () => {
 
 describe('isCreditCardOpeningDateOnOrBeforeFirstTxn', () => {
   it('ilk hareket yoksa veya açılış önce/eşitse geçerli', () => {
-    expect(isCreditCardOpeningDateOnOrBeforeFirstTxn('2026-05-15T00:00:00.000Z')).toBe(true)
+    expect(isCreditCardOpeningDateOnOrBeforeFirstTxn('2026-05-15T00:00:00.000Z', undefined)).toBe(
+      true,
+    )
     expect(
       isCreditCardOpeningDateOnOrBeforeFirstTxn(
         '2026-05-15T00:00:00.000Z',
@@ -299,7 +301,7 @@ describe('cardPeriodHasSelectableDates', () => {
       openingDate: '2026-05-15T00:00:00.000Z',
     }
     const periods = buildCardPeriods(card, [], { periods: 4, asOf })
-    const openingKey = card.openingDate.slice(0, 10)
+    const openingKey = card.openingDate!.slice(0, 10)
     const openingPeriod = periods.find((p) => {
       const bounds = cardPeriodBounds(p)
       return (

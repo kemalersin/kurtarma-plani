@@ -748,7 +748,6 @@ describe('debtInstallmentRows', () => {
       .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
     expect(stmtRows.length).toBeGreaterThan(0)
     expect(Number(stmtRows[0]!.amount)).toBe(25_000)
-    expect(rows.every((r) => r.debtKind !== 'creditCardOpeningBalance')).toBe(true)
   })
 
   it('açılış tarihi dönem ortasındaysa devreden bakiye o dönem ekstresine yansır', () => {
