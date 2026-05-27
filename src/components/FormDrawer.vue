@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { Drawer } from 'ant-design-vue'
 import { computed, nextTick, useSlots, useTemplateRef, watch } from 'vue'
-import { mobileChildOverlayDepth } from '@/composables/mobileChildOverlay'
 import { KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/composables/useMatchMedia'
 import { useDrawerStack } from '@/composables/useDrawerStack'
-import { focusFirstFormField } from '@/composables/useDrawerFormFocus'
+import { focusFirstFormField, resetFormDrawerScroll } from '@/composables/useDrawerFormFocus'
 
 interface Props {
   stackId: string
@@ -14,7 +13,9 @@ interface Props {
   maskClosable?: boolean
   /** Üst özet + tablo: drawer tam yükseklik, tablo kalan alanı doldurur. */
   layout?: 'default' | 'table'
-  /** Mobilde #actions footer'da; masaüstünde header. Taksit planı erken kapama için. */
+  /** #actions her zaman drawer footer'da (masaüstü + mobil). */
+  actionsInFooter?: boolean
+  /** Mobilde #actions footer'da; masaüstünde header. Taksit planı vb. */
   mobileActionsInFooter?: boolean
   /** Ek kök sınıfları (`kp-form-drawer--list-filter` vb.). */
   drawerClass?: string
@@ -26,6 +27,7 @@ const props = withDefaults(defineProps<Props>(), {
   width: 'min(560px, 100vw)',
   maskClosable: true,
   layout: 'default',
+  actionsInFooter: false,
   mobileActionsInFooter: false,
   autoFocusFirst: true,
 })
@@ -37,25 +39,19 @@ const emit = defineEmits<{
 
 const isMobileViewport = useMatchMedia(KP_MOBILE_VIEWPORT_MQ)
 const slots = useSlots()
-const { push, pop, zIndex, stackOffset, contentWrapperStyle } = useDrawerStack(props.stackId)
+const { push, pop, zIndex, contentWrapperStyle } = useDrawerStack(props.stackId)
 const formRoot = useTemplateRef<HTMLElement>('formRoot')
 
 const drawerWidth = computed(() => (isMobileViewport.value ? '100%' : props.width))
 
-/** Üstte başka drawer veya child overlay varken alttaki drawer kaydırma çubuğu gizlenir. */
-const hideBodyScrollbar = computed(
+const showActionsInFooter = computed(
   () =>
-    isMobileViewport.value &&
-    props.open &&
-    (stackOffset.value !== 0 || mobileChildOverlayDepth.value > 0),
+    !!slots.actions &&
+    (props.actionsInFooter || (props.mobileActionsInFooter && isMobileViewport.value)),
 )
 
 const showActionsInHeader = computed(
-  () => !!slots.actions && !(props.mobileActionsInFooter && isMobileViewport.value),
-)
-
-const showActionsInFooter = computed(
-  () => !!slots.actions && props.mobileActionsInFooter && isMobileViewport.value,
+  () => !!slots.actions && !showActionsInFooter.value,
 )
 
 const drawerRootClass = computed(() =>
@@ -64,7 +60,6 @@ const drawerRootClass = computed(() =>
     props.drawerClass,
     props.layout === 'table' ? 'kp-form-drawer--table-layout' : '',
     showActionsInFooter.value ? 'kp-form-drawer--mobile-footer' : '',
-    hideBodyScrollbar.value ? 'kp-form-drawer--hide-body-scrollbar' : '',
   ]
     .filter(Boolean)
     .join(' '),
@@ -75,16 +70,23 @@ const showHeaderExtra = computed(() => !!slots.extra || showActionsInHeader.valu
 watch(
   () => props.open,
   (open) => {
-    if (open) push()
-    else pop()
+    if (open) {
+      push()
+      resetFormDrawerScroll(formRoot.value)
+      void nextTick(() => resetFormDrawerScroll(formRoot.value))
+    } else {
+      pop()
+      // Kapanırken sıfırla; bir sonraki açılışta animasyon sırasında zıplama olmaz
+      resetFormDrawerScroll(formRoot.value)
+      void nextTick(() => resetFormDrawerScroll(formRoot.value))
+    }
   },
   { immediate: true },
 )
 
 function onAfterOpenChange(open: boolean): void {
-  if (open && props.autoFocusFirst) {
-    void nextTick(() => focusFirstFormField(formRoot.value))
-  }
+  if (!open || !props.autoFocusFirst) return
+  void nextTick(() => focusFirstFormField(formRoot.value))
 }
 
 function close(): void {

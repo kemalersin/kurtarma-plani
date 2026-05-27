@@ -251,6 +251,7 @@ const paymentSourceTooltip = computed(
     :title="title"
     width="min(560px, 100vw)"
     :mask-closable="!saving"
+    actions-in-footer
     @update:open="emit('update:open', $event)"
   >
     <Space direction="vertical" :size="16" style="width: 100%">
@@ -296,15 +297,13 @@ const paymentSourceTooltip = computed(
           <Textarea v-model:value="draft.notes" :rows="2" placeholder="Erken kapama" />
         </FormItem>
       </Form>
-
-      <div class="kp-form-drawer-submit-row">
-        <div class="kp-form-drawer__header-actions">
-          <Space>
-            <Button :disabled="saving" @click="close">Vazgeç</Button>
-            <Button type="primary" :loading="saving" @click="submit">Tamam</Button>
-          </Space>
-        </div>
-      </div>
     </Space>
+
+    <template #actions>
+      <Space>
+        <Button :disabled="saving" @click="close">Vazgeç</Button>
+        <Button type="primary" :loading="saving" @click="submit">Tamam</Button>
+      </Space>
+    </template>
   </FormDrawer>
 </template>

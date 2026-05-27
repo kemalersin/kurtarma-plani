@@ -7,15 +7,15 @@ const archived = defineModel<boolean>('archived', { default: false })
 
 <template>
   <FormItem class="kp-record-status">
-    <div class="kp-record-status__row">
-      <label class="kp-record-status__toggle">
-        <Typography.Text>Hassas kayıt</Typography.Text>
+    <div class="kp-form-toggle-grid">
+      <div class="kp-form-toggle-pair">
         <Switch v-model:checked="sensitive" />
-      </label>
-      <label class="kp-record-status__toggle">
-        <Typography.Text>Arşivli</Typography.Text>
+        <Typography.Text class="kp-form-toggle-pair__label">Hassas kayıt</Typography.Text>
+      </div>
+      <div class="kp-form-toggle-pair">
         <Switch v-model:checked="archived" />
-      </label>
+        <Typography.Text class="kp-form-toggle-pair__label">Arşivli</Typography.Text>
+      </div>
     </div>
     <Typography.Paragraph type="secondary" class="kp-record-status__hint">
       Hassas kayıtlar AI snapshot ve dışa aktarımdan (varsayılan) hariç tutulur.
@@ -26,22 +26,6 @@ const archived = defineModel<boolean>('archived', { default: false })
 <style scoped>
 .kp-record-status :deep(.ant-form-item-control-input) {
   min-height: 0;
-}
-
-.kp-record-status__row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 16px 24px;
-}
-
-.kp-record-status__toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  cursor: pointer;
-  user-select: none;
 }
 
 .kp-record-status__hint {

@@ -61,6 +61,32 @@ const pendingAttachments = ref<ChatAttachment[]>([])
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const listRef = ref<HTMLElement | null>(null)
 const chatExpanded = ref(false)
+/** Kullanıcı alttayken yeni içerikle birlikte kaydır; yukarı kaydırdıysa konumu koru. */
+const stickToBottom = ref(true)
+let suppressScrollPinUpdate = false
+
+const SCROLL_BOTTOM_THRESHOLD_PX = 64
+
+function isNearBottom(el: HTMLElement): boolean {
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= SCROLL_BOTTOM_THRESHOLD_PX
+}
+
+function scrollMessagesToBottom(): void {
+  const el = listRef.value
+  if (!el) return
+  suppressScrollPinUpdate = true
+  el.scrollTop = el.scrollHeight
+  requestAnimationFrame(() => {
+    suppressScrollPinUpdate = false
+  })
+}
+
+function onMessagesScroll(): void {
+  if (suppressScrollPinUpdate) return
+  const el = listRef.value
+  if (!el) return
+  stickToBottom.value = isNearBottom(el)
+}
 
 onMounted(async () => {
   if (!ai.loaded) await ai.load()
@@ -176,8 +202,9 @@ function isLastMessage(messageId: string): boolean {
 watch(
   () => ai.chat?.messages.map((m) => m.content).join('\n'),
   async () => {
+    if (!stickToBottom.value) return
     await nextTick()
-    if (listRef.value) listRef.value.scrollTop = listRef.value.scrollHeight
+    scrollMessagesToBottom()
   },
 )
 
@@ -187,7 +214,10 @@ async function submit(): Promise<void> {
     pendingAttachments.value.length ? [...pendingAttachments.value] : undefined
   draft.value = ''
   pendingAttachments.value = []
+  stickToBottom.value = true
   await ai.sendMessage(text, attachments)
+  await nextTick()
+  scrollMessagesToBottom()
 }
 
 function openFilePicker(): void {
@@ -265,6 +295,7 @@ function onKeydown(event: KeyboardEvent): void {
   <div class="kp-ai-page" :class="{ 'kp-ai-page--expanded': chatExpanded }">
     <template v-if="!chatExpanded">
       <PageHeader
+        class="kp-ai-page__header"
         title="AI Asistan"
         subtitle="Finans verileriniz üzerinde analiz ve planlama (yalnızca çevrimiçi)."
       />
@@ -358,6 +389,7 @@ function onKeydown(event: KeyboardEvent): void {
         ref="listRef"
         class="kp-ai-chat__messages"
         :class="{ 'kp-ai-chat__messages--empty': showEmptyHint }"
+        @scroll="onMessagesScroll"
       >
         <Spin v-if="!ai.loaded" />
         <Typography.Paragraph v-else-if="showEmptyHint" type="secondary" class="kp-ai-chat__empty">
@@ -525,18 +557,26 @@ function onKeydown(event: KeyboardEvent): void {
 .kp-ai-page {
   display: flex;
   flex-direction: column;
+  flex: 1 1 0;
   min-height: 0;
-  height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 
 .kp-ai-page--expanded {
   position: fixed;
   inset: 0;
   z-index: 300;
+  flex: none;
   height: auto;
   padding: 12px;
   box-sizing: border-box;
   background: var(--kp-bg, #f5f5f7);
+  overflow: hidden;
+}
+
+.kp-ai-page__header {
+  flex-shrink: 0;
 }
 
 .kp-ai-page__notice {
@@ -549,7 +589,7 @@ function onKeydown(event: KeyboardEvent): void {
 }
 
 .kp-ai-chat {
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -560,7 +600,7 @@ function onKeydown(event: KeyboardEvent): void {
 }
 
 .kp-ai-page--expanded .kp-ai-chat {
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   border-radius: var(--kp-radius, 8px);
 }
@@ -599,8 +639,8 @@ function onKeydown(event: KeyboardEvent): void {
 }
 
 .kp-ai-chat__messages {
-  flex: 1;
-  min-height: 160px;
+  flex: 1 1 0;
+  min-height: 0;
   overflow: auto;
   padding: 16px;
 }

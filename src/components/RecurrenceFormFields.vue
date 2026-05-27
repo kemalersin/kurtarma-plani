@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { FormItem, Space, Switch, Typography } from 'ant-design-vue'
+import { FormItem, Switch, Typography } from 'ant-design-vue'
 import KpSelect from '@/components/KpSelect.vue'
 import {
   RECURRENCE_LABELS,
@@ -22,16 +22,16 @@ const intervalOptions = computed(() =>
 
 <template>
   <FormItem class="kp-recurrence-row">
-    <Space :size="24" wrap align="center">
-      <Space :size="8" align="center">
-        <Typography.Text>Yinelenen</Typography.Text>
+    <div class="kp-form-toggle-grid">
+      <div class="kp-form-toggle-pair">
         <Switch v-model:checked="recurring" />
-      </Space>
-      <Space v-if="!recurring" :size="8" align="center">
-        <Typography.Text>Gerçekleşti</Typography.Text>
+        <Typography.Text class="kp-form-toggle-pair__label">Yinelenen</Typography.Text>
+      </div>
+      <div v-if="!recurring" class="kp-form-toggle-pair">
         <Switch v-model:checked="realized" />
-      </Space>
-    </Space>
+        <Typography.Text class="kp-form-toggle-pair__label">Gerçekleşti</Typography.Text>
+      </div>
+    </div>
   </FormItem>
 
   <FormItem v-if="recurring" label="Yinelenme aralığı" required>

@@ -231,7 +231,12 @@ function scheduleRowProps(row: ScheduleRow): Record<string, unknown> {
     @update:open="emit('update:open', $event)"
   >
     <template #actions>
-      <Button v-if="loan && canEarlyPayoff" type="primary" @click="payoffOpen = true">
+      <Button
+        v-if="loan && canEarlyPayoff"
+        type="primary"
+        class="kp-drawer-footer-action--block"
+        @click="payoffOpen = true"
+      >
         Erken kapama
       </Button>
       <Tag v-else-if="loan && isClosed" color="success">Kapandı</Tag>
