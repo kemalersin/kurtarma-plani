@@ -24,7 +24,7 @@ withDefaults(
 
 <style scoped>
 .kp-page-header {
-  margin: 24px 0 28px;
+  margin: 12px 0 20px;
 }
 
 .kp-page-header__title {
@@ -58,7 +58,7 @@ withDefaults(
 
 @media (max-width: 640px) {
   .kp-page-header {
-    margin: 16px 0 20px;
+    margin: 8px 0 16px;
   }
 
   .kp-page-header__title {

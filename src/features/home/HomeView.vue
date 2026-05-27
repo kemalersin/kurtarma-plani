@@ -518,11 +518,6 @@ const dashCardBody = { padding: '12px 16px 16px' }
   gap: 8px;
 }
 
-.kp-dashboard-page :deep(.kp-page-header) {
-  margin-top: 12px;
-  margin-bottom: 20px;
-}
-
 .kp-dashboard {
   display: flex;
   flex-direction: column;
@@ -750,11 +745,6 @@ const dashCardBody = { padding: '12px 16px 16px' }
 }
 
 @media (max-width: 640px) {
-  .kp-dashboard-page :deep(.kp-page-header) {
-    margin-top: 8px;
-    margin-bottom: 16px;
-  }
-
   .kp-dashboard {
     gap: 20px;
   }
