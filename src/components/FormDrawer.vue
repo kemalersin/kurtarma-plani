@@ -4,6 +4,7 @@ import { computed, nextTick, onBeforeUnmount, useSlots, useTemplateRef, watch } 
 import { KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/composables/useMatchMedia'
 import { useDrawerStack } from '@/composables/useDrawerStack'
 import { focusFirstFormField, resetFormDrawerScroll } from '@/composables/useDrawerFormFocus'
+import { bindVisualViewportCssVars } from '@/composables/useVisualViewportCssVars'
 
 interface Props {
   stackId: string
@@ -45,6 +46,18 @@ const slots = useSlots()
 const { push, pop, releaseVisual, zIndex, contentWrapperStyle } = useDrawerStack(props.stackId)
 const formRoot = useTemplateRef<HTMLElement>('formRoot')
 
+let releaseVisualViewport: (() => void) | null = null
+
+function setVisualViewportBinding(active: boolean): void {
+  if (active) {
+    releaseVisualViewport?.()
+    releaseVisualViewport = bindVisualViewportCssVars()
+    return
+  }
+  releaseVisualViewport?.()
+  releaseVisualViewport = null
+}
+
 const drawerWidth = computed(() => (isMobileViewport.value ? '100%' : props.width))
 
 const showActionsInFooter = computed(
@@ -69,6 +82,12 @@ const drawerRootClass = computed(() =>
 )
 
 const showHeaderExtra = computed(() => !!slots.extra || showActionsInHeader.value)
+
+watch(
+  () => props.open && isMobileViewport.value,
+  (active) => setVisualViewportBinding(active),
+  { immediate: true },
+)
 
 watch(
   () => props.open,
@@ -97,6 +116,7 @@ function onAfterOpenChange(open: boolean): void {
 }
 
 onBeforeUnmount(() => {
+  setVisualViewportBinding(false)
   pop()
   releaseVisual()
 })

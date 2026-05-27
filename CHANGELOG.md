@@ -6,6 +6,10 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+### Changed — form drawer mobil klavye
+
+- Mobilde form drawer açıkken `visualViewport` ile drawer yüksekliği klavyeye göre küçülür; Vazgeç/Kaydet footer'ı klavyenin üstünde kalır. Viewport meta: `interactive-widget=resizes-content`.
+
 ### Changed — panel URL
 
 - Panel rotasında adres çubuğunda hash gösterilmez (`index.html`); diğer sayfalar `#/debts` vb. hash routing ile kalır. Eski `#/home` ve `#/` adresleri panele yönlendirilir.
