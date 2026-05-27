@@ -15,6 +15,9 @@
   --kp-list-mobile-max: 640px;
   /** Popconfirm / popover / dropdown: viewport kenarından yatay boşluk */
   --kp-popoverlay-edge-margin: 12px;
+  /** Masaüstü floating AI sohbet paneli (AI Asistan tam sayfa ile aynı tipografi) */
+  --kp-ai-floating-panel-width: 480px;
+  --kp-ai-floating-panel-height: 640px;
 }
 
 html,
@@ -240,6 +243,34 @@ body {
 .kp-analytics-tab__table-card .ant-table-pagination {
   flex-wrap: wrap;
   row-gap: 8px;
+}
+
+/**
+ * Floating AI sohbet açıkken EntityListPage sayfalaması solda — sağ alttaki panel / FAB ile çakışmayı önler.
+ * Analiz & rapor tabloları hariç (sayfalama sağda kalır).
+ */
+@media (min-width: 641px) {
+  .kp-shell--ai-chat-fab .kp-list__table--desktop .ant-table-pagination {
+    justify-content: flex-start !important;
+  }
+
+  .kp-shell--ai-chat-fab .kp-list__table--desktop .ant-table-pagination .ant-pagination {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .kp-shell--ai-chat-fab .kp-list__cards-pagination {
+    text-align: start;
+  }
+
+  .kp-shell--ai-chat-fab .kp-analytics .ant-table-pagination {
+    justify-content: center !important;
+  }
+
+  .kp-shell--ai-chat-fab .kp-analytics .ant-table-pagination .ant-pagination {
+    justify-content: center;
+  }
 }
 
 /** Liste / drawer / analiz: başlık ve gövde tek satır; sağa hizalı sütunlarda başlık = gövde */

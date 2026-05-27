@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, inject, ref, type ComputedRef } from 'vue'
 import { storeToRefs } from 'pinia'
 import { Alert, Button, List, Popconfirm, Space, Typography, message } from 'ant-design-vue'
 import { DatabaseOutlined } from '@ant-design/icons-vue'
 import { useAiProposalApply } from '@/composables/useAiProposalApply'
+import { KP_AI_CHAT_OVERLAY_Z_INDEX_KEY } from '@/components/kp-ai-chat-overlay'
 import { summarizeProposalItems } from '@/features/ai/proposals/labels'
 import { proposalBundleKey } from '@/features/ai/proposals/parse'
 import type { AiProposalBundle } from '@/features/ai/proposals/types'
@@ -16,6 +17,10 @@ const props = defineProps<{
 
 const ai = useAiStore()
 const { chat } = storeToRefs(ai)
+const overlayZIndex = inject<ComputedRef<number | undefined>>(
+  KP_AI_CHAT_OVERLAY_Z_INDEX_KEY,
+  computed(() => undefined),
+)
 const { apply } = useAiProposalApply()
 const applying = ref(false)
 const appliedLocally = ref(false)
@@ -81,6 +86,7 @@ async function onApply(): Promise<void> {
         title="Önerilen kayıtlar profilinize eklensin mi?"
         ok-text="Ekle"
         cancel-text="Vazgeç"
+        :z-index="overlayZIndex"
         :disabled="isApplied || applying"
         @confirm="onApply"
       >

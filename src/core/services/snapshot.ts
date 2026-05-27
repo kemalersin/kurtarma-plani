@@ -38,11 +38,19 @@ interface ActiveProfileContext {
   key: CryptoKey | null
 }
 
+/** Yedek/senkron snapshot'ına dahil edilmeyen entity tipleri (cihaza özel). */
+export const SNAPSHOT_EXCLUDED_ENTITY_TYPES: ReadonlySet<EntityType> = new Set(['chatSession'])
+
+export function isSnapshotExportableEntity(type: EntityType): boolean {
+  return !SNAPSHOT_EXCLUDED_ENTITY_TYPES.has(type)
+}
+
 /**
  * Snapshot dosyasını üret — yalnızca aktif (kilidi açık) profil.
  *
  * `includeSecrets=false` iken AI ayarları gibi gizli alanlar (apiKey/baseUrl)
  * çıkarılır. `includeSensitive=false` iken `sensitive: true` işaretli kayıtlar atlanır.
+ * AI sohbet oturumları (`chatSession`) yedek/senkrona yazılmaz.
  */
 export async function buildSnapshot(
   options: ExportOptions,
@@ -54,6 +62,7 @@ export async function buildSnapshot(
   const repo = new EncryptedRepo(profile.id, key)
   const rows = await repo.exportAllRaw()
   for (const row of rows) {
+    if (!isSnapshotExportableEntity(row.type)) continue
     if (!options.includeSensitive && row.sensitive) continue
     const data = row.encrypted
       ? key
@@ -272,12 +281,21 @@ async function writeImportedEntities(
   key: CryptoKey | null,
   entities: ProfileEntityForExport[],
 ): Promise<number> {
+  const importable = entities.filter((entity) =>
+    isSnapshotExportableEntity(entity.type as EntityType),
+  )
   const db = openProfileDb(profileId)
-  await db.entities.clear()
-  if (entities.length === 0) return 0
+  const existingRows = await db.entities.toArray()
+  const idsToReplace = existingRows
+    .filter((row) => isSnapshotExportableEntity(row.type))
+    .map((row) => row.id)
+  if (idsToReplace.length > 0) {
+    await db.entities.bulkDelete(idsToReplace)
+  }
+  if (importable.length === 0) return 0
 
   const repo = new EncryptedRepo(profileId, key)
-  for (const entity of entities) {
+  for (const entity of importable) {
     await repo.put({
       id: entity.id,
       type: entity.type as EntityType,
@@ -286,7 +304,7 @@ async function writeImportedEntities(
       sensitive: entity.sensitive,
     })
   }
-  return entities.length
+  return importable.length
 }
 
 /**

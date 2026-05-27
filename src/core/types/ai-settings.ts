@@ -14,4 +14,6 @@ export interface AiSettings {
   providers: AiProviderConfig[]
   /** Varsayılan sistem promptunun sonuna eklenir. */
   customSystemPrompt?: string
+  /** Sağ alttaki sayfa içi AI sohbet düğmesi. Belirtilmezse gösterilir. */
+  showFloatingChatFab?: boolean
 }

@@ -107,6 +107,32 @@ export function filterRowsForAiSnapshot(rows: AiSnapshotSourceRow[]): AiSnapshot
   return entities
 }
 
+/** Ayarlar, Hakkında ve uygulama kabuğu — finans snapshot'ına dahil değil; kullanıcı yönlendirmesi için. */
+export const AI_APP_UI_GUIDE = `## Uygulama yapısı ve sayfalar
+Ana menü: Panel (özet), Yönetim (banka/hesap/kasa/türler), Borçlar, Nakit akışı, Analiz & rapor, AI Asistan (tam sayfa sohbet), Ayarlar, Hakkında.
+Sağ alttaki **AI sohbet düğmesi** (tam sayfa AI hariç) sayfa/sekme bazlı ayrı geçmiş tutar; her sekmenin kendi bağlam ipuçları vardır.
+Navbar: senkron durumu, AI bağlam dışa aktarım (JSON/Markdown — sohbet geçmişi ve API anahtarları **dahil değil**), tema, profil kilitle.
+
+## Ayarlar (#/settings?tab=…)
+Sekmeler ve içerik:
+- **Profil:** profil adı düzenleme; profil silme (tüm kayıtlar kalıcı silinir, geri alınamaz — önce yedek öner).
+- **Bölgesel:** locale, **para birimi** (profil geneli; formlarda para birimi seçilemez), saat dilimi, tarih formatı. Tüm tutar/tarih gösterimi bu ayarlara göre.
+- **Güvenlik:** opsiyonel profil parolası; etkinse IndexedDB verisi Web Crypto (PBKDF2 + AES-GCM) ile şifrelenir. Parola zorunlu değildir.
+- **Bankacılık:** TCMB tabanlı referans preset (build'e gömülü + IndexedDB; çevrimiçi feed veya dosya import ile güncelleme). Kredi kartı/nakit avans/kredi hesaplarında **Referansla doldur**; sözleşme oranı her zaman kayıt düzeyinde override edilebilir.
+- **AI Asistan:** sağlayıcı ekleme (Anthropic, OpenAI, Gemini, DeepSeek, Ollama, vLLM), model, opsiyonel özel sistem prompt eklentisi, **sayfa içi sohbet düğmesini gizle/göster**. API anahtarları **hassas**; export'ta kullanıcı seçimiyle, **modele asla gönderilmez**. AI yalnızca çevrimiçiyken çalışır.
+- **Veri:** profil yedek dışa aktarma / içe aktarma (JSON snapshot). Hassas kayıtlar ve API anahtarları export'ta ayrı onay. Dosya parola şifrelemesi opsiyonel.
+- **Senkron:** profil başına otomatik senkron dosyası (bulut klasörü: iCloud, Dropbox vb.); otomatik yazma, uzaktan okuma, isteğe bağlı dosya şifrelemesi. Çakışmada kullanıcıya modal ile yerel/uzak seçimi sunulur.
+- **Güncelleme:** uzaktan sürüm kontrolü; \`index.html\` indirme (tek dosya SPA güncellemesi).
+
+## Hakkında (#/about)
+- **Kurtarma Planı:** açık kaynak kişisel finans SPA; borç, gelir-gider, nakit akışı takibi.
+- **Veri gizliliği:** finans verisi sunucuya gönderilmez; tarayıcıda IndexedDB. Çoklu profil — her profil izole.
+- **Çevrimdışı:** finans modülü internet olmadan tam işlevli; AI sohbet ve TCMB preset feed yalnızca çevrimiçi + kullanıcı tetiklemeli.
+- **Hassas kayıtlar** (\`sensitive: true\`) ve API anahtarları AI snapshot/sohbet bağlamına **asla** girmez; export'ta kullanıcı onayı gerekir.
+- **Dağıtım:** tek \`index.html\` (Vite singlefile); \`file://\` uyumlu; harici CDN/backend yok (web fontları istisna).
+- **Yasal:** uygulama yalnızca bilgilendirme ve kişisel planlama içindir; bağlayıcı sonuç için banka sözleşmesi, ekstre ve resmi mevzuat geçerlidir.
+- Kaynak kodu GitHub'da; canlı sürüm ve \`index.html\` indirme Hakkında sayfasından erişilebilir.`
+
 export const AI_DOMAIN_GUIDE = `Sen "Kurtarma Planı" uygulamasının kişisel finans asistanısın.
 Kullanıcının borç (kredi, kredi kartı, nakit avans, taksitli avans), gelir, gider, transfer, hesap ve kasa verilerini analiz edersin.
 Türkiye bankacılık bağlamına aşinasın; hesaplamalar bilgilendirme amaçlıdır, bağlayıcı değildir.
@@ -119,7 +145,9 @@ Finans verisi sohbet bağlamında [kp:snapshot] ile işaretli mesajlarda verilir
 \`derived.loanSchedules\` / \`derived.installmentAdvanceSchedules\`: kredi ve taksitli avans — kalan borç özeti + **güncel ay ve sonrası** ödenmemiş taksit satırları; geçmiş ay vadeleri yok. **Kalan borcu sıfır olan borçlar bağlamda yer almaz.**
 Veri eklerken \`kp-proposals\` JSON bloğu zorunludur; kart/kredi hareketleri ana kayıttan **ayrı item** olarak yazılır.
 
-${AI_PROPOSAL_GUIDE}`
+${AI_PROPOSAL_GUIDE}
+
+${AI_APP_UI_GUIDE}`
 
 export const KP_SNAPSHOT_CTX = '[kp:snapshot]'
 export const KP_SNAPSHOT_ACK = '[kp:snapshot-ack]'

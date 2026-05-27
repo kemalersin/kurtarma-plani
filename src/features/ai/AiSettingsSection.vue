@@ -15,6 +15,7 @@ import {
   Popconfirm,
   Space,
   Spin,
+  Switch,
   Table,
   Tag,
   Typography,
@@ -266,6 +267,27 @@ async function resetCatalog(): Promise<void> {
   await catalogStore.resetToEmbedded()
   message.success('Gömülü katalog kullanılıyor.')
 }
+
+const showFloatingChatFab = computed({
+  get: () => ai.showFloatingChatFab,
+  set: (value: boolean) => {
+    void toggleFloatingChatFab(value)
+  },
+})
+
+async function toggleFloatingChatFab(value: boolean): Promise<void> {
+  if (!ai.settings) return
+  try {
+    await ai.saveSettings({
+      ...ai.settings,
+      showFloatingChatFab: value,
+    })
+    message.success(value ? 'Sayfa içi sohbet düğmesi gösterilecek.' : 'Sayfa içi sohbet düğmesi gizlendi.')
+  } catch (error) {
+    console.error(error)
+    message.error(error instanceof Error ? error.message : 'Kaydedilemedi.')
+  }
+}
 </script>
 
 <template>
@@ -322,6 +344,22 @@ async function resetCatalog(): Promise<void> {
         description="Katalog güncellemesi yalnızca çevrimiçiyken yapılabilir."
         class="kp-ai-settings__alert-inline"
       />
+    </Card>
+
+    <Card title="Sohbet arayüzü" size="small" class="kp-ai-settings__card">
+      <Typography.Paragraph class="kp-text-muted kp-ai-settings__fab-desc">
+        Sağ alt köşedeki sayfa içi AI sohbet düğmesi. Menüdeki tam sayfa
+        <Typography.Text strong>AI Asistan</Typography.Text> bu ayarla kapatılmaz.
+      </Typography.Paragraph>
+      <Form layout="vertical" :colon="false" class="kp-ai-settings__fab-form">
+        <FormItem label="Sayfa içi sohbet düğmesi">
+          <Switch
+            v-model:checked="showFloatingChatFab"
+            checked-children="Göster"
+            un-checked-children="Gizle"
+          />
+        </FormItem>
+      </Form>
     </Card>
 
     <Alert
@@ -532,6 +570,14 @@ async function resetCatalog(): Promise<void> {
   .kp-ai-settings__catalog-actions :deep(.ant-btn) {
     width: 100%;
   }
+}
+
+.kp-ai-settings__fab-desc {
+  margin-bottom: 12px;
+}
+
+.kp-ai-settings__fab-form :deep(.ant-form-item) {
+  margin-bottom: 0;
 }
 
 .kp-ai-settings__prompt-desc {

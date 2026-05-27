@@ -85,12 +85,15 @@ export const AiSettingsEntitySchema = z.object({
     }),
   ),
   customSystemPrompt: z.string().optional(),
+  showFloatingChatFab: z.boolean().optional(),
   createdAt: Iso,
   updatedAt: Iso,
 })
 export type AiSettingsEntity = z.infer<typeof AiSettingsEntitySchema>
 
 export const AI_SETTINGS_ID = 'ai-settings'
+
+/** @deprecated Tek oturum dönemi; yeni oturumlar `chat:<key>` biçimindedir. */
 export const ACTIVE_CHAT_ID = 'active'
 
 export interface TokenUsage {

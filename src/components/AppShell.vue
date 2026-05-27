@@ -30,11 +30,13 @@ import type { MenuInfo } from 'ant-design-vue/es/menu/src/interface'
 import { useUiStore } from '@/stores/ui'
 import { useProfileStore } from '@/stores/profile'
 import { useSyncStore } from '@/stores/sync'
+import { useAiStore } from '@/stores/ai'
 import KpTooltip from '@/components/KpTooltip.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import SyncStatusBadge from '@/components/SyncStatusBadge.vue'
 import AiContextExportButton from '@/components/AiContextExportButton.vue'
 import SyncConflictModal from '@/components/SyncConflictModal.vue'
+import KpAiChatWidget from '@/components/KpAiChatWidget.vue'
 import { KP_HOVER_CAPABLE_MQ, KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/composables/useMatchMedia'
 import BrandMark from '@/components/icons/BrandMark.vue'
 import { APP_NAME, APP_VERSION } from '@/core/constants'
@@ -44,6 +46,7 @@ import { resolvePageLayout, isWidePageLayout, shouldKeepAliveRoute } from '@/rou
 const ui = useUiStore()
 const profileStore = useProfileStore()
 const syncStore = useSyncStore()
+const ai = useAiStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -152,7 +155,13 @@ function gotoCrumb(name?: string): void {
 </script>
 
 <template>
-  <div class="kp-shell" :class="{ 'kp-shell--pinned': !isMobileShell && ui.sidebarPinned }">
+  <div
+    class="kp-shell"
+    :class="{
+      'kp-shell--pinned': !isMobileShell && ui.sidebarPinned,
+      'kp-shell--ai-chat-fab': ai.showFloatingChatFab,
+    }"
+  >
     <aside
       class="kp-sider"
       :class="{
@@ -169,7 +178,7 @@ function gotoCrumb(name?: string): void {
             <span>{{ APP_NAME }}</span>
           </div>
           <Typography.Text class="kp-text-muted kp-sider__brand-tag">
-            KİŞİSEL FİNANSAL PLAN
+            KİŞİSEL FİNANSAL PLAN & ASİSTAN
           </Typography.Text>
         </div>
         <KpTooltip v-if="!isMobileShell && !ui.sidebarPinned" title="Menüyü sabitle">
@@ -319,6 +328,7 @@ function gotoCrumb(name?: string): void {
     </Layout>
 
     <SyncConflictModal />
+    <KpAiChatWidget />
   </div>
 </template>
 

@@ -6,6 +6,39 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.34]
+
+### Changed — AI sohbet yedek/senkron dışı
+
+- `chatSession` kayıtları profil yedek ve senkron dosyalarına artık yazılmaz; eski dosyalardan içe aktarımda da yok sayılır. Yerel sohbet geçmişi senkron/geri yükleme sırasında korunur.
+
+### Fixed — floating AI sohbet Popconfirm
+
+- **Temizle** ve kayıt önerisi onay pencereleri artık floating sohbet panelinin üstünde görünür (`z-index: 1060`).
+
+### Fixed — yarım kalan AI yanıtları
+
+- Durdurulan veya boş kesilen yanıtlarda içeriksiz asistan balonu artık kaydedilmez; oturum yüklenirken sondaki boş balonlar temizlenir. Kısmi yanıt varsa metin korunur.
+
+### Fixed — liste sayfalama ve floating sohbet çakışması
+
+- Sayfa içi AI sohbet düğmesi açıkken **EntityListPage** listelerinde sayfalama (sayfa boyutu seçici dahil) sağ yerine **sola** hizalanır; Analiz & rapor tabloları masaüstünde sağda kalır, **mobilde ortada**.
+
+### Changed — AI sistem promptu
+
+- `AI_APP_UI_GUIDE` eklendi: Ayarlar sekmeleri (profil, bölgesel, güvenlik, bankacılık, AI, veri, senkron, güncelleme) ve Hakkında sayfası (gizlilik, dağıtım, yasal uyarı) sistem promptuna dahil edildi.
+
+### Added — sayfa içi AI sohbet (floating)
+
+- AppShell'de sağ alt köşede **AI sohbet** düğmesi; tıklayınca kayan sohbet penceresi açılır (masaüstünde köşe paneli, mobilde tam ekran).
+- Ayarlar → AI → **Sayfa içi sohbet düğmesi** ile floating düğme gizlenebilir veya gösterilebilir (tam sayfa AI Asistan etkilenmez).
+- Boş sohbette o anki sayfa/sekme için **ne sorulabileceğini** özetleyen placeholder metin gösterilir.
+- Masaüstünde floating panel **tam ekran** moduna geçirilebilir (araç çubuğu düğmesi veya Esc ile küçültme).
+- Masaüstü floating panel boyutu **480×640px**; metin boyutları AI Asistan tam sayfa sohbeti ile aynı (14px Ant Design tabanı).
+- Her sayfa ve sekme için ayrı sohbet geçmişi IndexedDB'de saklanır (`chat:<route>`); geçmiş **Temizle** ile silinebilir.
+- Sayfa/sekme başına sohbet **kaydırma konumu** oturum açıkken hatırlanır (sayfa değişimi, panel kapat/aç).
+- Eski tek oturum kaydı (`active`) otomatik olarak `chat:ai` oturumuna taşınır.
+
 ## [0.1.31]
 
 ### Fixed — borç analizi aylık grafik filtreleri

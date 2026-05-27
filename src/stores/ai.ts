@@ -4,7 +4,6 @@ import { notifySyncLocalChange } from '@/core/services/sync/sync-scheduler'
 import { EncryptedRepo } from '@/core/db/encrypted-repo'
 import type { AiProviderConfig, AiSettings } from '@/core/types/ai-settings'
 import {
-  ACTIVE_CHAT_ID,
   AI_SETTINGS_ID,
   type AiSettingsEntity,
   type AiUsageEntry,
@@ -30,6 +29,11 @@ import {
   buildSnapshotContextContent,
   computeSnapshotFingerprint,
 } from '@/features/ai/snapshot'
+import {
+  chatSessionStorageId,
+  LEGACY_ACTIVE_CHAT_ID,
+} from '@/features/ai/page-chat'
+import { pruneTrailingEmptyAssistantMessages } from '@/features/ai/chat-message-cleanup'
 import { normalizeApiKey, validateApiKey } from '@/features/ai/provider-auth'
 import { useProfileStore } from '@/stores/profile'
 import { useModelsCatalogStore } from '@/stores/models-catalog'
@@ -53,9 +57,9 @@ function defaultSettingsEntity(now: string): AiSettingsEntity {
   }
 }
 
-function emptyChat(now: string): ChatSession {
+function emptyChat(sessionId: string, now: string): ChatSession {
   return {
-    id: ACTIVE_CHAT_ID,
+    id: sessionId,
     messages: [],
     createdAt: now,
     updatedAt: now,
@@ -66,13 +70,21 @@ function emptyUsageTotals(): ChatSessionUsage {
   return { inputTokens: 0, outputTokens: 0, costUsd: 0 }
 }
 
+export interface ChatScrollState {
+  scrollTop: number
+  stickToBottom: boolean
+}
+
 function plainChatSession(session: ChatSession): ChatSession {
   return JSON.parse(JSON.stringify(session)) as ChatSession
 }
 
-function sumSessionUsageEntries(entries: AiUsageEntry[]): ChatSessionUsage {
+function sumSessionUsageEntries(
+  entries: AiUsageEntry[],
+  sessionId: string,
+): ChatSessionUsage {
   return entries
-    .filter((e) => e.sessionId === ACTIVE_CHAT_ID)
+    .filter((e) => e.sessionId === sessionId || e.sessionId === LEGACY_ACTIVE_CHAT_ID)
     .reduce(
       (acc, e) => ({
         inputTokens: acc.inputTokens + e.inputTokens,
@@ -135,6 +147,8 @@ export const useAiStore = defineStore('ai', () => {
   const modelsCatalogStore = useModelsCatalogStore()
   const settings = ref<AiSettingsEntity | null>(null)
   const chat = ref<ChatSession | null>(null)
+  const activeChatKey = ref('home')
+  const chatScrollByKey = ref<Record<string, ChatScrollState>>({})
   const usageEntries = ref<AiUsageEntry[]>([])
   const loaded = ref(false)
   const streaming = ref(false)
@@ -145,37 +159,126 @@ export const useAiStore = defineStore('ai', () => {
     costUsd: 0,
   })
   let abortController: AbortController | null = null
+  let legacyMigrated = false
 
   function repo(): EncryptedRepo {
     if (!profileStore.activeProfileId) throw new Error('Aktif profil yok.')
     return new EncryptedRepo(profileStore.activeProfileId, profileStore.encryptionKey)
   }
 
+  function currentSessionId(): string {
+    return chatSessionStorageId(activeChatKey.value)
+  }
+
+  function saveChatScroll(key: string, state: ChatScrollState): void {
+    chatScrollByKey.value = { ...chatScrollByKey.value, [key]: state }
+  }
+
+  function getChatScroll(key: string): ChatScrollState | undefined {
+    return chatScrollByKey.value[key]
+  }
+
+  function clearChatScroll(key: string): void {
+    if (!(key in chatScrollByKey.value)) return
+    const next = { ...chatScrollByKey.value }
+    delete next[key]
+    chatScrollByKey.value = next
+  }
+
+  async function migrateLegacySession(r: EncryptedRepo): Promise<void> {
+    if (legacyMigrated) return
+    legacyMigrated = true
+
+    const legacyRow = await r.get<ChatSession>(LEGACY_ACTIVE_CHAT_ID)
+    const legacyData = legacyRow?.data
+    if (!legacyData?.messages?.length) return
+
+    const targetId = chatSessionStorageId('ai')
+    const existing = await r.get<ChatSession>(targetId)
+    const now = new Date().toISOString()
+
+    if (!existing?.data?.messages?.length) {
+      const migrated: ChatSession = {
+        ...legacyData,
+        id: targetId,
+        updatedAt: now,
+      }
+      await r.put({
+        id: targetId,
+        type: 'chatSession',
+        updatedAt: now,
+        data: migrated,
+      })
+    }
+
+    const usageRows = await r.list<AiUsageEntry>('aiUsage')
+    for (const row of usageRows) {
+      if (row.data.sessionId !== LEGACY_ACTIVE_CHAT_ID) continue
+      const updated: AiUsageEntry = {
+        ...row.data,
+        sessionId: targetId,
+        updatedAt: now,
+      }
+      await r.put({
+        id: row.id,
+        type: 'aiUsage',
+        updatedAt: now,
+        data: updated,
+      })
+    }
+
+    await r.delete(LEGACY_ACTIVE_CHAT_ID)
+    usageEntries.value = usageEntries.value.map((entry) =>
+      entry.sessionId === LEGACY_ACTIVE_CHAT_ID ?
+        { ...entry, sessionId: targetId }
+      : entry,
+    )
+  }
+
   async function load(): Promise<void> {
     if (!profileStore.activeProfileId) return
     await modelsCatalogStore.load()
     const r = repo()
+    await migrateLegacySession(r)
     const settingsRow = await r.get<AiSettingsEntity>(AI_SETTINGS_ID)
-    const chatRow = await r.get<ChatSession>(ACTIVE_CHAT_ID)
     const usageRows = await r.list<AiUsageEntry>('aiUsage')
     const now = new Date().toISOString()
     settings.value = settingsRow?.data ?? defaultSettingsEntity(now)
     usageEntries.value = usageRows.map((row) => row.data).sort((a, b) => b.at.localeCompare(a.at))
+    loaded.value = true
+  }
 
-    let chatData = chatRow?.data ?? emptyChat(now)
+  async function switchSession(key: string): Promise<void> {
+    if (!profileStore.activeProfileId) return
+    if (!loaded.value) await load()
+
+    if (activeChatKey.value === key && chat.value?.id === chatSessionStorageId(key)) {
+      return
+    }
+
+    if (streaming.value) stopStreaming()
+
+    activeChatKey.value = key
+    const sessionId = chatSessionStorageId(key)
+    const r = repo()
+    const chatRow = await r.get<ChatSession>(sessionId)
+    const now = new Date().toISOString()
+    const settingsData = settings.value ?? defaultSettingsEntity(now)
+
+    let chatData = chatRow?.data ?? emptyChat(sessionId, now)
     if (!chatData.usageTotals) {
-      const migrated = sumSessionUsageEntries(usageEntries.value)
+      const migrated = sumSessionUsageEntries(usageEntries.value, sessionId)
       if (migrated.inputTokens || migrated.outputTokens) {
         chatData = { ...chatData, usageTotals: migrated }
         await r.put({
-          id: ACTIVE_CHAT_ID,
+          id: sessionId,
           type: 'chatSession',
           updatedAt: now,
           data: chatData,
         })
       }
     }
-    const settingsData = settings.value ?? defaultSettingsEntity(now)
+
     const resolvedChat = withResolvedChatProvider(
       chatData,
       settingsData.providers,
@@ -183,28 +286,45 @@ export const useAiStore = defineStore('ai', () => {
     )
     if (resolvedChat !== chatData) {
       await r.put({
-        id: ACTIVE_CHAT_ID,
+        id: sessionId,
         type: 'chatSession',
         updatedAt: now,
         data: resolvedChat,
       })
       chatData = resolvedChat
     }
+
+    const normalizedMessages = chatData.messages.map(normalizeChatMessage)
+    const prunedMessages = pruneTrailingEmptyAssistantMessages(normalizedMessages)
+    if (prunedMessages.length !== normalizedMessages.length) {
+      chatData = { ...chatData, messages: prunedMessages, updatedAt: now }
+      await r.put({
+        id: sessionId,
+        type: 'chatSession',
+        updatedAt: now,
+        data: chatData,
+      })
+    }
+
     chat.value = {
       ...chatData,
-      messages: chatData.messages.map(normalizeChatMessage),
+      messages: prunedMessages,
     }
-    loaded.value = true
+    streamError.value = null
+    turnUsage.value = emptyUsageTotals()
   }
 
   function reset(): void {
     settings.value = null
     chat.value = null
+    activeChatKey.value = 'home'
+    chatScrollByKey.value = {}
     usageEntries.value = []
     loaded.value = false
     streaming.value = false
     streamError.value = null
     turnUsage.value = { inputTokens: 0, outputTokens: 0, costUsd: 0 }
+    legacyMigrated = false
     abortController?.abort()
     abortController = null
   }
@@ -223,6 +343,11 @@ export const useAiStore = defineStore('ai', () => {
 
   const showProviderPicker = computed(
     () => (settings.value?.providers.length ?? 0) > 1,
+  )
+
+  /** Sağ alttaki floating sohbet düğmesi (Ayarlar → AI). */
+  const showFloatingChatFab = computed(
+    () => settings.value?.showFloatingChatFab !== false,
   )
 
   const chatProviderOptions = computed(() =>
@@ -298,9 +423,10 @@ export const useAiStore = defineStore('ai', () => {
       : [...s.providers, next]
     await saveSettings({
       customSystemPrompt: s.customSystemPrompt,
+      showFloatingChatFab: s.showFloatingChatFab,
       providers,
     })
-    const session = chat.value ?? emptyChat(new Date().toISOString())
+    const session = chat.value ?? emptyChat(currentSessionId(), new Date().toISOString())
     if (!session.providerId || idx < 0) {
       await persistChat(
         withResolvedChatProvider(session, providers, undefined),
@@ -314,6 +440,7 @@ export const useAiStore = defineStore('ai', () => {
     const providers = s.providers.filter((p) => p.id !== id)
     await saveSettings({
       customSystemPrompt: s.customSystemPrompt,
+      showFloatingChatFab: s.showFloatingChatFab,
       providers,
     })
     const session = chat.value
@@ -328,7 +455,7 @@ export const useAiStore = defineStore('ai', () => {
     const provider = s.providers.find((p) => p.id === providerId)
     if (!provider) return
     const now = new Date().toISOString()
-    const session = chat.value ?? emptyChat(now)
+    const session = chat.value ?? emptyChat(currentSessionId(), now)
     await persistChat({
       ...session,
       providerId,
@@ -341,7 +468,7 @@ export const useAiStore = defineStore('ai', () => {
     const now = new Date().toISOString()
     const entity = plainChatSession({ ...next, updatedAt: now })
     await repo().put({
-      id: ACTIVE_CHAT_ID,
+      id: entity.id,
       type: 'chatSession',
       updatedAt: now,
       data: entity,
@@ -362,11 +489,18 @@ export const useAiStore = defineStore('ai', () => {
   }
 
   async function clearSessionUsageEntries(): Promise<void> {
+    const sessionId = currentSessionId()
     const r = repo()
     const rows = await r.list<AiUsageEntry>('aiUsage')
-    const sessionRows = rows.filter((row) => row.data.sessionId === ACTIVE_CHAT_ID)
+    const sessionRows = rows.filter(
+      (row) =>
+        row.data.sessionId === sessionId ||
+        row.data.sessionId === LEGACY_ACTIVE_CHAT_ID,
+    )
     await Promise.all(sessionRows.map((row) => r.delete(row.id)))
-    usageEntries.value = usageEntries.value.filter((e) => e.sessionId !== ACTIVE_CHAT_ID)
+    usageEntries.value = usageEntries.value.filter(
+      (e) => e.sessionId !== sessionId && e.sessionId !== LEGACY_ACTIVE_CHAT_ID,
+    )
   }
 
   async function prepareChatContext(
@@ -422,6 +556,67 @@ export const useAiStore = defineStore('ai', () => {
     streaming.value = false
   }
 
+  async function commitAssistantTurn(input: {
+    baseSession: ChatSession
+    assistantId: string
+    messages: ChatMessage[]
+    assistantText: string
+    usage: TokenUsage
+    catalog: ReturnType<typeof modelsCatalogStore.modelCatalog> | undefined
+    provider: AiProviderConfig
+    aborted?: boolean
+  }): Promise<void> {
+    const { baseSession, assistantId, messages, assistantText, usage, catalog, provider, aborted } =
+      input
+    const liveContent = messages.find((m) => m.id === assistantId)?.content ?? assistantText
+    const trimmed = liveContent.trim()
+
+    if (!trimmed) {
+      const pruned = pruneTrailingEmptyAssistantMessages(messages)
+      await persistChat({
+        ...baseSession,
+        messages: pruned,
+        updatedAt: new Date().toISOString(),
+      })
+      if (!aborted) {
+        streamError.value = 'Sağlayıcıdan boş yanıt alındı.'
+      }
+      return
+    }
+
+    const finalNow = new Date().toISOString()
+    const finalMessages = messages.map((m) =>
+      m.id === assistantId ? { ...m, content: liveContent, createdAt: finalNow } : m,
+    )
+    const costUsd = computeCostUsd(catalog, usage)
+    const prevTotals = baseSession.usageTotals ?? chat.value?.usageTotals ?? emptyUsageTotals()
+    const usageTotals: ChatSessionUsage = {
+      inputTokens: prevTotals.inputTokens + usage.inputTokens,
+      outputTokens: prevTotals.outputTokens + usage.outputTokens,
+      costUsd: prevTotals.costUsd + costUsd,
+    }
+    await persistChat({
+      ...baseSession,
+      messages: finalMessages,
+      usageTotals,
+      updatedAt: finalNow,
+    })
+
+    if (usage.inputTokens || usage.outputTokens) {
+      await appendUsage({
+        at: finalNow,
+        providerId: provider.id,
+        modelId: provider.defaultModelId ?? '',
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        cacheReadTokens: usage.cacheReadTokens,
+        cacheWriteTokens: usage.cacheWriteTokens,
+        costUsd,
+        sessionId: currentSessionId(),
+      })
+    }
+  }
+
   async function sendMessage(text: string, attachments?: ChatAttachment[]): Promise<void> {
     const trimmed = text.trim()
     const attachmentList = attachments?.length ? [...attachments] : undefined
@@ -456,7 +651,7 @@ export const useAiStore = defineStore('ai', () => {
 
     streamError.value = null
     const now = new Date().toISOString()
-    const session = chat.value ?? emptyChat(now)
+    const session = chat.value ?? emptyChat(currentSessionId(), now)
     const { session: sessionWithContext, system } = await prepareChatContext(session, now)
     const userMessage: ChatMessage = {
       id: newId(),
@@ -492,6 +687,8 @@ export const useAiStore = defineStore('ai', () => {
       : undefined
 
     let liveMessages = nextSession.messages
+    let assistantText = ''
+    let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 }
 
     try {
       const adapter = getProviderAdapter(provider.provider)
@@ -505,9 +702,6 @@ export const useAiStore = defineStore('ai', () => {
         }))
 
       assertChatAttachmentsSupported(provider.provider, history, modelId)
-
-      let assistantText = ''
-      let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 }
 
       for await (const event of adapter.streamChat({
         model: modelId,
@@ -535,44 +729,40 @@ export const useAiStore = defineStore('ai', () => {
         }
       }
 
-      if (!assistantText.trim()) {
-        streamError.value = 'Sağlayıcıdan boş yanıt alındı.'
-      }
-
-      const finalNow = new Date().toISOString()
-      const finalMessages = liveMessages.map((m) =>
-        m.id === assistantId ? { ...m, content: assistantText, createdAt: finalNow } : m,
-      )
-      const costUsd = computeCostUsd(catalog, usage)
-      const prevTotals = session.usageTotals ?? chat.value?.usageTotals ?? emptyUsageTotals()
-      const usageTotals: ChatSessionUsage = {
-        inputTokens: prevTotals.inputTokens + usage.inputTokens,
-        outputTokens: prevTotals.outputTokens + usage.outputTokens,
-        costUsd: prevTotals.costUsd + costUsd,
-      }
-      await persistChat({
-        ...nextSession,
-        messages: finalMessages,
-        usageTotals,
-        updatedAt: finalNow,
+      await commitAssistantTurn({
+        baseSession: nextSession,
+        assistantId,
+        messages: liveMessages,
+        assistantText,
+        usage,
+        catalog,
+        provider,
       })
-
-      if (usage.inputTokens || usage.outputTokens) {
-        await appendUsage({
-          at: finalNow,
-          providerId: provider.id,
-          modelId,
-          inputTokens: usage.inputTokens,
-          outputTokens: usage.outputTokens,
-          cacheReadTokens: usage.cacheReadTokens,
-          cacheWriteTokens: usage.cacheWriteTokens,
-          costUsd,
-          sessionId: ACTIVE_CHAT_ID,
-        })
-      }
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        await commitAssistantTurn({
+          baseSession: nextSession,
+          assistantId,
+          messages: liveMessages,
+          assistantText,
+          usage,
+          catalog,
+          provider,
+          aborted: true,
+        })
+        return
+      }
       streamError.value = error instanceof Error ? error.message : String(error)
+      await commitAssistantTurn({
+        baseSession: nextSession,
+        assistantId,
+        messages: liveMessages,
+        assistantText,
+        usage,
+        catalog,
+        provider,
+        aborted: true,
+      })
     } finally {
       streaming.value = false
       abortController = null
@@ -582,10 +772,11 @@ export const useAiStore = defineStore('ai', () => {
   async function clearChat(): Promise<void> {
     stopStreaming()
     const now = new Date().toISOString()
+    const sessionId = currentSessionId()
     const lastProviderId = chat.value?.providerId
     await clearSessionUsageEntries()
     turnUsage.value = emptyUsageTotals()
-    const next = emptyChat(now)
+    const next = emptyChat(sessionId, now)
     if (lastProviderId) {
       const provider = settings.value?.providers.find((p) => p.id === lastProviderId)
       if (provider) {
@@ -594,6 +785,7 @@ export const useAiStore = defineStore('ai', () => {
       }
     }
     await persistChat(next)
+    clearChatScroll(activeChatKey.value)
   }
 
   async function markProposalApplied(messageId: string, bundleKey: string): Promise<void> {
@@ -627,6 +819,7 @@ export const useAiStore = defineStore('ai', () => {
   return {
     settings,
     chat,
+    activeChatKey,
     usageEntries,
     loaded,
     streaming,
@@ -636,11 +829,13 @@ export const useAiStore = defineStore('ai', () => {
     activeProvider,
     lastUsedProviderId,
     showProviderPicker,
+    showFloatingChatFab,
     chatProviderOptions,
     modelOptions,
     totalUsageCost,
     load,
     reset,
+    switchSession,
     saveSettings,
     upsertProvider,
     removeProvider,
@@ -650,5 +845,8 @@ export const useAiStore = defineStore('ai', () => {
     stopStreaming,
     markProposalApplied,
     newProviderDraft,
+    saveChatScroll,
+    getChatScroll,
+    clearChatScroll,
   }
 })
