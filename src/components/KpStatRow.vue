@@ -32,6 +32,8 @@ export interface KpStat {
   labelTooltip?: string
   /** Renk vurgusu — default `default` */
   tone?: StatTone
+  /** Mobilde (`≤640px`) kartı tüm satır genişliğine yayar. */
+  mobileFullRow?: boolean
 }
 
 interface Props {
@@ -62,6 +64,7 @@ const gridStyle = computed(() => ({
       v-for="(item, idx) in items"
       :key="item.label + idx"
       class="kp-stat"
+      :class="{ 'kp-stat--mobile-full-row': item.mobileFullRow }"
       :data-tone="item.tone ?? 'default'"
     >
       <span class="kp-stat__label-row">
@@ -167,6 +170,9 @@ const gridStyle = computed(() => ({
   }
   .kp-stat__value {
     font-size: 17px;
+  }
+  .kp-stat--mobile-full-row {
+    grid-column: 1 / -1;
   }
 }
 

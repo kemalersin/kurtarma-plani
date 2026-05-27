@@ -7,8 +7,9 @@
  * - Responsive: `ResizeObserver` ile container boyut değişiminde `resize()`.
  * - Tema duyarlı: `data-theme="dark"` → `'dark'` ECharts teması; `useUiStore`
  *   reaktif olarak izlenir, tema değiştiğinde grafik dispose + yeniden init.
- * - Mobil viewport'ta ECharts tooltip'leri açık kalır (`confine`, dokunmatik `click` tetikleme);
- *   KpTooltip / AntDV kuralları grafiklere uygulanmaz.
+ * - Masaüstü: tooltip `document.body`'e eklenir (overflow/clipping önlenir); hover tetikleme.
+ * - Mobil: `confine` + `click` tetikleme; KpTooltip / AntDV kuralları grafiklere uygulanmaz.
+ * - Sekme gizliyken (`display:none`) yeniden görününce `IntersectionObserver` ile `resize()`.
  * - Veri akışı: `option` prop'u her değiştiğinde `setOption(..., { notMerge: false })`
  *   ile diff yapılır; container ref dispose'unda chart instance temizlenir.
  */
@@ -43,26 +44,58 @@ const isMobileViewport = useMobileViewport()
 const container = ref<HTMLDivElement | null>(null)
 let chart: EChartsType | null = null
 let resizeObserver: ResizeObserver | null = null
+let visibilityObserver: IntersectionObserver | null = null
 
 const heightStyle = computed(() =>
   typeof props.height === 'number' ? `${props.height}px` : props.height,
 )
 
+type TooltipOption = NonNullable<EChartsOption['tooltip']>
+
+function mergeTooltip(
+  tip: TooltipOption,
+  defaults: Record<string, unknown>,
+): TooltipOption {
+  if (Array.isArray(tip)) {
+    return tip.map((entry) => ({ ...defaults, ...entry }))
+  }
+  return { ...defaults, ...tip }
+}
+
+/** Tooltip: taşma/clipping ve sekme gizleme sonrası hover için platform varsayılanları. */
 function chartOption(option: EChartsOption): EChartsOption {
-  if (!isMobileViewport.value) return option
   const tip = option.tooltip
   if (tip == null) return option
-  const mobileDefaults = {
-    confine: true,
-    triggerOn: 'click' as const,
-  }
-  if (Array.isArray(tip)) {
+
+  if (isMobileViewport.value) {
     return {
       ...option,
-      tooltip: tip.map((t) => ({ ...mobileDefaults, ...t })),
+      tooltip: mergeTooltip(tip, {
+        confine: true,
+        triggerOn: 'click',
+      }),
     }
   }
-  return { ...option, tooltip: { ...mobileDefaults, ...tip } }
+
+  const body = typeof document !== 'undefined' ? document.body : undefined
+  return {
+    ...option,
+    tooltip: mergeTooltip(tip, {
+      confine: false,
+      triggerOn: 'mousemove|click',
+      // ECharts 6: taşan tooltip DOM'u body'de; AppShell overflow zincirinden kaçınır.
+      ...(body ? { appendTo: body } : {}),
+      className: 'kp-echarts-tooltip',
+    }),
+  }
+}
+
+function resizeChartIfVisible(): void {
+  if (!chart || !container.value) return
+  const rect = container.value.getBoundingClientRect()
+  if (rect.width > 0 && rect.height > 0) {
+    chart.resize()
+  }
 }
 
 function initChart(): void {
@@ -77,9 +110,17 @@ function initChart(): void {
   chart.setOption(chartOption(props.option), { notMerge: true })
   if (!resizeObserver) {
     resizeObserver = new ResizeObserver(() => {
-      chart?.resize()
+      resizeChartIfVisible()
     })
     resizeObserver.observe(container.value)
+  }
+  if (!visibilityObserver && typeof IntersectionObserver !== 'undefined') {
+    visibilityObserver = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        resizeChartIfVisible()
+      }
+    })
+    visibilityObserver.observe(container.value)
   }
 }
 
@@ -129,11 +170,7 @@ watch(
 
 watch(isMobileViewport, () => {
   if (props.isEmpty) return
-  if (chart) {
-    chart.setOption(chartOption(props.option), { notMerge: false })
-  } else {
-    void ensureChart()
-  }
+  initChart()
 })
 
 onBeforeUnmount(() => {
@@ -144,6 +181,10 @@ onBeforeUnmount(() => {
   if (resizeObserver) {
     resizeObserver.disconnect()
     resizeObserver = null
+  }
+  if (visibilityObserver) {
+    visibilityObserver.disconnect()
+    visibilityObserver = null
   }
 })
 </script>
@@ -165,6 +206,7 @@ onBeforeUnmount(() => {
 .kp-chart__canvas {
   width: 100%;
   height: 100%;
+  overflow: visible;
 }
 
 .kp-chart__empty {

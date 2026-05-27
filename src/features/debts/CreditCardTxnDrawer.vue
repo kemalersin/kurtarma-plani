@@ -21,13 +21,20 @@ import DismissibleDrawerAlert from '@/components/DismissibleDrawerAlert.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useProfileStore } from '@/stores/profile'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
-import { disableFutureDates } from '@/core/util/datepicker'
+import { disableFutureDates, disableOutsideDateRange, combineDisabledDates } from '@/core/util/datepicker'
 import type {
   CreditCard,
   CreditCardTransaction,
   CreditCardTxnType,
 } from '@/core/types/entities'
-import { accruedInstallmentCount } from './cardHelpers'
+import {
+  accruedInstallmentCount,
+  cardPeriodBounds,
+  defaultCardTxnDateInPeriod,
+  isCardTxnDateInPeriod,
+  type CardPeriod,
+  type CardPeriodBounds,
+} from './cardHelpers'
 import { installmentPaymentSourceTooltip } from './installmentPaymentFormHints'
 import {
   resolveCreditCardRepaymentTotal,
@@ -38,8 +45,10 @@ interface Props {
   open: boolean
   card: CreditCard | null
   txn?: CreditCardTransaction | null
+  /** Hesap özeti drawer'ından yeni kayıt: tarih yalnız bu döneme kısıtlanır. */
+  statementPeriod?: CardPeriod | null
 }
-const props = withDefaults(defineProps<Props>(), { txn: null })
+const props = withDefaults(defineProps<Props>(), { txn: null, statementPeriod: null })
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void
   (e: 'saved'): void
@@ -47,7 +56,7 @@ const emit = defineEmits<{
 
 const entities = useEntitiesStore()
 const profileStore = useProfileStore()
-const { formatCurrency } = useLocaleFormatters()
+const { formatCurrency, formatDate } = useLocaleFormatters()
 
 const profileCurrency = computed(
   () => profileStore.activeProfile?.localeSettings.currency ?? 'TRY',
@@ -98,6 +107,34 @@ const draft = reactive<DraftForm>({
 })
 const saving = ref(false)
 
+const createPeriodBounds = computed<CardPeriodBounds | null>(() => {
+  if (props.txn || !props.statementPeriod) return null
+  return cardPeriodBounds(props.statementPeriod)
+})
+
+const createPeriodDateHint = computed(() => {
+  const bounds = createPeriodBounds.value
+  if (!bounds) return undefined
+  const lastDay = new Date(bounds.periodEndExclusiveIso)
+  lastDay.setUTCDate(lastDay.getUTCDate() - 1)
+  return `Yalnız ${formatDate(bounds.periodStartIso)} – ${formatDate(lastDay.toISOString())} arası (seçili dönem).`
+})
+
+const disabledTxnDate = computed(() => {
+  const bounds = createPeriodBounds.value
+  if (!bounds) return disableFutureDates
+  return combineDisabledDates(
+    disableFutureDates,
+    disableOutsideDateRange(bounds.periodStartIso, bounds.periodEndExclusiveIso),
+  )
+})
+
+const drawerTitle = computed(() => {
+  if (props.txn) return 'Hareketi düzenle'
+  if (props.statementPeriod) return `Yeni hareket — ${props.statementPeriod.label}`
+  return 'Yeni kart hareketi'
+})
+
 watch(
   () => [props.open, props.txn?.id] as const,
   ([open]) => {
@@ -115,7 +152,11 @@ watch(
       draft.description = props.txn.description ?? ''
       draft.notes = props.txn.notes ?? ''
     } else {
-      draft.date = dayjs()
+      const bounds =
+        props.statementPeriod && !props.txn
+          ? cardPeriodBounds(props.statementPeriod)
+          : null
+      draft.date = bounds ? dayjs(defaultCardTxnDateInPeriod(bounds)) : dayjs()
       draft.type = 'purchase'
       draft.amount = 0
       draft.installmentCount = 1
@@ -216,6 +257,11 @@ async function submit(): Promise<void> {
     message.error('Tutar sıfırdan büyük olmalı.')
     return
   }
+  const bounds = createPeriodBounds.value
+  if (bounds && !isCardTxnDateInPeriod(draft.date.toISOString(), bounds)) {
+    message.error('Hareket tarihi seçili dönem dışında.')
+    return
+  }
   if (supportsInstallments.value && draft.installmentCount > 1) {
     if (draft.installmentCount < minInstallmentCount.value) {
       message.error(
@@ -306,7 +352,7 @@ function close(): void {
   <FormDrawer
     stack-id="credit-card-txn"
     :open="open"
-    :title="txn ? 'Hareketi düzenle' : 'Yeni kart hareketi'"
+    :title="drawerTitle"
     width="min(560px, 100vw)"
     :mask-closable="!saving"
     @update:open="emit('update:open', $event)"
@@ -320,10 +366,13 @@ function close(): void {
     />
 
     <Form layout="vertical" :colon="false" @submit.prevent="submit">
-      <FormItem label="Tarih" required>
+      <FormItem required>
+        <template #label>
+          <KpFormLabel :hint="createPeriodDateHint">Tarih</KpFormLabel>
+        </template>
         <LocaleDatePicker
           v-model:value="draft.date"
-          :disabled-date="disableFutureDates"
+          :disabled-date="disabledTxnDate"
           :disabled="dateLocked"
           style="width: 100%"
         />

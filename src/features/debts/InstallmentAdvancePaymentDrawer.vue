@@ -13,7 +13,6 @@ import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
 import KpFormLabel from '@/components/KpFormLabel.vue'
 import KpStatRow from '@/components/KpStatRow.vue'
-import KpTooltip from '@/components/KpTooltip.vue'
 import { disableAfter } from '@/core/util/datepicker'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
@@ -77,6 +76,11 @@ const laterOwnPayments = computed(() => {
 })
 
 const hasLaterPayments = computed<boolean>(() => laterOwnPayments.value.length > 0)
+
+/** Sonraki taksit ödemesi varken silinemez — düğme gösterilmez. */
+const canUnmarkPayment = computed(
+  () => !!props.existing?.paidDate && !hasLaterPayments.value,
+)
 
 const nextPaymentDate = computed<string | undefined>(() => {
   if (!laterOwnPayments.value.length) return undefined
@@ -376,7 +380,7 @@ function close(): void {
     @update:open="emit('update:open', $event)"
   >
     <Space direction="vertical" :size="16" style="width: 100%">
-      <KpStatRow :columns="2" :items="statItems" />
+      <KpStatRow :columns="statItems.length" :items="statItems" />
 
       <Form layout="vertical" :colon="false" @submit.prevent="submit">
         <FormItem v-if="showPaidToggle" label="Ödendi olarak işaretle">
@@ -416,27 +420,16 @@ function close(): void {
         </FormItem>
       </Form>
 
-      <div v-if="existing?.paidDate" class="kp-form-drawer-danger-row">
-        <KpTooltip
-          :title="
-            hasLaterPayments
-              ? 'Sonraki taksitler ödenmiş olduğu için bu ödeme silinemez. Önce sonraki taksit ödemelerini kaldırın.'
-              : 'Bu kaydı kaldır'
-          "
+      <div v-if="canUnmarkPayment" class="kp-form-drawer-danger-row">
+        <Button
+          :loading="saving"
+          danger
+          ghost
+          size="small"
+          @click="unmark"
         >
-          <span>
-            <Button
-              :loading="saving"
-              :disabled="hasLaterPayments"
-              danger
-              ghost
-              size="small"
-              @click="unmark"
-            >
-              Ödemeyi kaldır
-            </Button>
-          </span>
-        </KpTooltip>
+          Ödemeyi kaldır
+        </Button>
       </div>
     </Space>
 

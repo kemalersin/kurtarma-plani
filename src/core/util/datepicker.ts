@@ -40,3 +40,24 @@ export function disableAfter(
     return current.isAfter(cap)
   }
 }
+
+/**
+ * `[startInclusive, endExclusive)` dışındaki günleri devre dışı bırakır.
+ */
+export function disableOutsideDateRange(
+  startInclusive: ConfigType,
+  endExclusive: ConfigType,
+): (current: Dayjs) => boolean {
+  return (current: Dayjs): boolean => {
+    if (!current) return false
+    const start = dayjs(startInclusive).startOf('day')
+    const end = dayjs(endExclusive).startOf('day')
+    return current.isBefore(start, 'day') || !current.isBefore(end, 'day')
+  }
+}
+
+export function combineDisabledDates(
+  ...fns: Array<(current: Dayjs) => boolean>
+): (current: Dayjs) => boolean {
+  return (current: Dayjs) => fns.some((fn) => fn(current))
+}

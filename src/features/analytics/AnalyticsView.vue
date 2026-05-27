@@ -47,6 +47,7 @@ const { data, loading } = useAnalyticsData(filterState.filters)
 <style scoped>
 .kp-analytics {
   width: 100%;
+  min-width: 0;
 }
 
 .kp-analytics__header {

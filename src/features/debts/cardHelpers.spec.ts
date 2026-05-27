@@ -154,7 +154,7 @@ describe('buildCardPeriods', () => {
     )
     expect(futureInstallments.length).toBeGreaterThan(0)
     expect(defaultCardStatementPeriodCutoff(extended, asOf)).toBe(
-      base[base.length - 1]!.cutoffDate,
+      base[base.length - 2]!.cutoffDate,
     )
   })
 
@@ -193,6 +193,27 @@ describe('buildCardPeriods', () => {
       .flatMap((p) => p.transactions)
       .map((t) => t.installmentCount)
     expect(allCounts.every((c) => c === 12)).toBe(true)
+  })
+})
+
+describe('defaultCardStatementPeriodCutoff', () => {
+  it('açık dönemde bir önceki kapalı dönemi seçer', () => {
+    const asOf = new Date('2026-05-22T12:00:00.000Z')
+    const periods = buildCardPeriods(baseCard, [], { periods: 6, asOf })
+    expect(defaultCardStatementPeriodCutoff(periods, asOf)).toBe(
+      periods[periods.length - 2]!.cutoffDate,
+    )
+  })
+
+  it('listedeki tüm kesimler geçtiyse son dönemi seçer', () => {
+    const periods = buildCardPeriods(baseCard, [], {
+      periods: 2,
+      asOf: new Date('2026-03-01T12:00:00.000Z'),
+    }).slice(0, 2)
+    const asOf = new Date('2026-04-20T12:00:00.000Z')
+    expect(defaultCardStatementPeriodCutoff(periods, asOf)).toBe(
+      periods[periods.length - 1]!.cutoffDate,
+    )
   })
 })
 

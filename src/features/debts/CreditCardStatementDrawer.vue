@@ -2,12 +2,12 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import {
   Button,
-  Space,
   Empty,
   Tag,
   message,
 } from 'ant-design-vue'
 import KpSelect from '@/components/KpSelect.vue'
+import KpTooltip from '@/components/KpTooltip.vue'
 import DismissibleDrawerAlert from '@/components/DismissibleDrawerAlert.vue'
 import DrawerDataTable from '@/components/DrawerDataTable.vue'
 import KpStatRow, { type KpStat } from '@/components/KpStatRow.vue'
@@ -22,6 +22,8 @@ import type {
 } from '@/core/types/entities'
 import {
   buildCardPeriods,
+  cardPeriodBounds,
+  cardPeriodHasSelectableDates,
   defaultCardStatementPeriodCutoff,
   projectCardPeriodDebts,
   type CardPeriod,
@@ -114,6 +116,17 @@ const tableRows = computed<PeriodTxn[]>(
   () => activePeriod.value?.transactions ?? [],
 )
 
+const canCreateTxnInPeriod = computed(() => {
+  if (!activePeriod.value) return false
+  return cardPeriodHasSelectableDates(cardPeriodBounds(activePeriod.value))
+})
+
+const createTxnDisabledReason = computed(() => {
+  if (!activePeriod.value) return 'Önce bir dönem seçin.'
+  if (!canCreateTxnInPeriod.value) return 'Bu dönem henüz başlamadı; hareket eklenemez.'
+  return undefined
+})
+
 const periodOptions = computed(() =>
   periods.value.map((p) => ({ value: p.cutoffDate, label: p.label })),
 )
@@ -185,6 +198,7 @@ const txnOpen = ref(false)
 const editing = ref<CreditCardTransaction | null>(null)
 
 function openCreate(): void {
+  if (!canCreateTxnInPeriod.value) return
   editing.value = null
   txnOpen.value = true
 }
@@ -241,14 +255,20 @@ const periodStats = computed<KpStat[]>(() => {
   const p = activePeriod.value
   if (!proj || !p || !props.card) return []
   const ccy = props.card.currency
+  const isLastPeriod =
+    periods.value.length > 0 &&
+    p.cutoffDate === periods.value[periods.value.length - 1]!.cutoffDate
+  const openingBalanceTooltip =
+    proj.carriedIn > 0
+      ? 'Önceki dönemden taşınan ödenmemiş bakiye (gecikme faizi hariç).'
+      : isLastPeriod
+        ? 'Önceki dönem borcunun tamamının ödendiği kabul edilir.'
+        : undefined
   const stats: KpStat[] = [
     {
       label: 'Açılış bakiyesi',
       value: formatCurrency(proj.carriedIn, ccy),
-      labelTooltip:
-        proj.carriedIn > 0
-          ? 'Önceki dönemden taşınan ödenmemiş bakiye (gecikme faizi hariç).'
-          : undefined,
+      labelTooltip: openingBalanceTooltip,
     },
   ]
   if (proj.lateInterest > 0) {
@@ -312,15 +332,25 @@ const periodStats = computed<KpStat[]>(() => {
       />
 
       <div class="kp-statement-toolbar">
-        <Space :size="12" wrap>
+        <div class="kp-statement-period-select">
           <KpSelect
             v-model:value="selectedCutoff"
-            style="min-width: 220px"
             placeholder="Dönem seçin"
             :options="periodOptions"
           />
-          <Button type="primary" @click="openCreate">Yeni hareket</Button>
-        </Space>
+        </div>
+        <KpTooltip :title="createTxnDisabledReason">
+          <span>
+            <Button
+              type="primary"
+              class="kp-statement-toolbar__action"
+              :disabled="!canCreateTxnInPeriod"
+              @click="openCreate"
+            >
+              Yeni hareket
+            </Button>
+          </span>
+        </KpTooltip>
         <Tag v-if="showDueDateAsTag" class="kp-statement-due-tag">
           Son ödeme: {{ activeDueDateLabel }}
         </Tag>
@@ -346,6 +376,7 @@ const periodStats = computed<KpStat[]>(() => {
     v-model:open="txnOpen"
     :card="card"
     :txn="editing"
+    :statement-period="editing ? null : activePeriod"
   />
 </template>
 
@@ -354,12 +385,41 @@ const periodStats = computed<KpStat[]>(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
 }
 
+.kp-statement-period-select {
+  width: 220px;
+  max-width: 100%;
+  flex-shrink: 0;
+}
+
+.kp-statement-period-select :deep(.kp-select-mobile-root),
+.kp-statement-period-select :deep(.ant-select) {
+  width: 100%;
+}
+
+.kp-statement-toolbar__action {
+  flex-shrink: 0;
+}
+
 .kp-statement-due-tag {
+  margin-inline-start: auto;
   margin-inline-end: 0;
+  flex-shrink: 0;
   font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 768px) {
+  .kp-statement-toolbar {
+    flex-wrap: nowrap;
+  }
+
+  .kp-statement-period-select {
+    width: auto;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
+  }
 }
 </style>

@@ -3,6 +3,7 @@ import { useProfileStore } from '@/stores/profile'
 import { useSyncStore } from '@/stores/sync'
 import { ensureSyncBootstrap } from '@/core/services/sync/sync-scheduler'
 import { isOnboardingCompleted, postOnboardingRoute } from '@/core/onboarding'
+import { installScrollRestore } from '@/router/scrollRestore'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -87,6 +88,8 @@ export const router = createRouter({
   history: createWebHashHistory(),
   routes,
 })
+
+installScrollRestore(router)
 
 router.beforeEach(async (to) => {
   const profileStore = useProfileStore()

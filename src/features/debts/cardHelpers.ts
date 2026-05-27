@@ -161,15 +161,21 @@ function statementCutoffForDate(card: CreditCard, dateIso: string): Date {
   return cutoff
 }
 
-/** Hesap özeti drawer varsayılan dönemi (içinde bulunulan / açık ekstre kesimi). */
+/** Hesap özeti drawer varsayılan dönemi: açık dönemde bir önceki (kapalı) ekstre. */
 export function defaultCardStatementPeriodCutoff(
   periods: CardPeriod[],
   asOf: Date = new Date(),
 ): string | undefined {
   if (!periods.length) return undefined
   const asOfKey = asOf.toISOString().slice(0, 10)
-  const open = periods.find((p) => p.cutoffDate.slice(0, 10) > asOfKey)
-  return (open ?? periods[periods.length - 1])!.cutoffDate
+  const openIndex = periods.findIndex((p) => p.cutoffDate.slice(0, 10) > asOfKey)
+  if (openIndex >= 0) {
+    if (openIndex > 0) {
+      return periods[openIndex - 1]!.cutoffDate
+    }
+    return periods[openIndex]!.cutoffDate
+  }
+  return periods[periods.length - 1]!.cutoffDate
 }
 
 /**
@@ -259,6 +265,60 @@ export function buildCardPeriods(
   }
 
   return result
+}
+
+export interface CardPeriodBounds {
+  periodStartIso: string
+  periodEndExclusiveIso: string
+}
+
+/** Dönem aralığı: [periodStart, periodEndExclusive) — `buildCardPeriods` ile uyumlu. */
+export function cardPeriodBounds(
+  period: Pick<CardPeriod, 'cutoffDate'>,
+): CardPeriodBounds {
+  const periodEnd = new Date(period.cutoffDate)
+  const periodStart = addMonths(periodEnd, -1)
+  return {
+    periodStartIso: periodStart.toISOString(),
+    periodEndExclusiveIso: period.cutoffDate,
+  }
+}
+
+export function isCardTxnDateInPeriod(dateIso: string, bounds: CardPeriodBounds): boolean {
+  const d = dateIso.slice(0, 10)
+  const start = bounds.periodStartIso.slice(0, 10)
+  const end = bounds.periodEndExclusiveIso.slice(0, 10)
+  return d >= start && d < end
+}
+
+/** Bugün veya geçmiş dönemlerde en az bir seçilebilir tarih var mı (gelecek dönemler hariç). */
+export function cardPeriodHasSelectableDates(
+  bounds: CardPeriodBounds,
+  asOf: Date = new Date(),
+): boolean {
+  const start = bounds.periodStartIso.slice(0, 10)
+  const end = bounds.periodEndExclusiveIso.slice(0, 10)
+  const today = asOf.toISOString().slice(0, 10)
+  if (start >= end) return false
+  if (today < start) return false
+  return true
+}
+
+/** Yeni hareket varsayılan tarihi: bugün dönemdeyse bugün, değilse dönemin son günü. */
+export function defaultCardTxnDateInPeriod(
+  bounds: CardPeriodBounds,
+  asOf: Date = new Date(),
+): string {
+  const start = bounds.periodStartIso.slice(0, 10)
+  const end = bounds.periodEndExclusiveIso.slice(0, 10)
+  const today = asOf.toISOString().slice(0, 10)
+  if (today >= start && today < end) {
+    return asOf.toISOString()
+  }
+  const endDate = new Date(end + 'T00:00:00.000Z')
+  endDate.setUTCDate(endDate.getUTCDate() - 1)
+  endDate.setUTCHours(12, 0, 0, 0)
+  return endDate.toISOString()
 }
 
 export interface CardPeriodDebtProjection {

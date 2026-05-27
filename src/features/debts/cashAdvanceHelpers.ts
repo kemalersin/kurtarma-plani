@@ -117,6 +117,25 @@ export function cashAdvanceAccountMonthlyDebts(
   return out
 }
 
+/** Cari takvim ayındaki ödeme hareketleri toplamı (motor ile uyumlu). */
+export function cashAdvancePaymentsInMonth(
+  account: CashAdvanceAccount,
+  transactions: CashAdvanceTransaction[],
+  asOf?: string,
+  taxRateMonthly?: number,
+): number {
+  const asOfIso = asOf ?? new Date().toISOString()
+  const monthKey = asOfIso.slice(0, 7)
+  const { periods } = simulateRevolvingLedger({
+    openingBalance: account.openingBalance,
+    openingDate: account.openingDate,
+    transactions: mapTransactions(account.id, transactions),
+    rates: revolvingRatesFromAccount(account, taxRateMonthly),
+    asOf: asOfIso,
+  })
+  return periods.find((p) => p.monthKey === monthKey)?.paymentsInMonth ?? 0
+}
+
 /** Belirli tarihte yapılabilecek maksimum kullanım (limit − anapara). */
 export function cashAdvanceDrawCapacity(
   account: CashAdvanceAccount,

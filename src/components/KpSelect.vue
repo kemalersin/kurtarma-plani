@@ -167,6 +167,7 @@ defineExpose({ closeSheet })
   </Select>
 
   <template v-else>
+    <div class="kp-select-mobile-root" v-bind="attrs">
     <button
       type="button"
       class="kp-select-trigger"
@@ -266,10 +267,17 @@ defineExpose({ closeSheet })
         </div>
       </Transition>
     </Teleport>
+    </div>
   </template>
 </template>
 
 <style scoped>
+.kp-select-mobile-root {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+}
+
 .kp-select-trigger {
   display: flex;
   align-items: center;
@@ -373,6 +381,11 @@ defineExpose({ closeSheet })
   cursor: pointer;
 }
 
+.kp-select-sheet__close:hover,
+.kp-select-sheet__close:focus-visible {
+  background: var(--ant-color-fill-secondary, rgba(0, 0, 0, 0.06));
+}
+
 .kp-select-sheet__search {
   margin-bottom: 12px;
   flex-shrink: 0;
@@ -448,14 +461,6 @@ defineExpose({ closeSheet })
   border-top: 1px solid var(--ant-color-border-secondary, rgba(0, 0, 0, 0.06));
 }
 
-[data-theme='dark'] .kp-select-trigger {
-  background: var(--ant-color-bg-container, #141414);
-  border-color: var(--ant-color-border, #424242);
-}
-
-[data-theme='dark'] .kp-select-sheet__foot {
-  border-top-color: rgba(255, 255, 255, 0.08);
-}
 </style>
 
 <style>
@@ -521,7 +526,6 @@ defineExpose({ closeSheet })
 }
 
 [data-theme='dark'] .kp-select-sheet-panel {
-  background: var(--ant-color-bg-elevated, #1f1f1f);
   box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.45);
 }
 </style>

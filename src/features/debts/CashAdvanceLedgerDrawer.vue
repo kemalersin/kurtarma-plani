@@ -13,13 +13,14 @@ import type { KpTableColumn } from '@/core/util/table-columns'
 import FormDrawer from '@/components/FormDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
+import { useMobileViewport } from '@/composables/useMatchMedia'
 import { useCreditCardRateContext } from '@/composables/useCreditCardRateContext'
 import type {
   CashAdvanceAccount,
   CashAdvanceTransaction,
   CashAdvanceTxnType,
 } from '@/core/types/entities'
-import { cashAdvanceState } from './cashAdvanceHelpers'
+import { cashAdvancePaymentsInMonth, cashAdvanceState } from './cashAdvanceHelpers'
 import CashAdvanceTxnDrawer from './CashAdvanceTxnDrawer.vue'
 
 interface Props {
@@ -34,6 +35,7 @@ const emit = defineEmits<{
 const entities = useEntitiesStore()
 const { formatCurrency, formatDate } = useLocaleFormatters()
 const { taxRateMonthly } = useCreditCardRateContext()
+const isMobileViewport = useMobileViewport()
 
 const txns = entities.list<CashAdvanceTransaction>('cashAdvanceTransaction')
 
@@ -123,7 +125,7 @@ const stats = computed<KpStat[]>(() => {
   if (!props.account) return []
   const ccy = props.account.currency
   const s = state.value
-  return [
+  const items: KpStat[] = [
     {
       label: 'Kalan anapara',
       value: formatCurrency(s?.principal ?? 0, ccy),
@@ -139,6 +141,26 @@ const stats = computed<KpStat[]>(() => {
       value: formatCurrency(s?.minPayment ?? 0, ccy),
       tone: 'default',
     },
+  ]
+
+  if (isMobileViewport.value) {
+    const paidThisMonth = cashAdvancePaymentsInMonth(
+      props.account,
+      txns.value,
+      undefined,
+      taxRateMonthly.value,
+    )
+    items.push({
+      label: 'Bu ay ödenen',
+      value: formatCurrency(paidThisMonth, ccy),
+      tone: paidThisMonth >= Number(s?.minPayment ?? 0) && Number(s?.minPayment ?? 0) > 0
+        ? 'success'
+        : 'default',
+      labelTooltip: 'Cari takvim ayındaki ödeme hareketleri toplamı.',
+    })
+  }
+
+  items.push(
     {
       label: 'Toplam borç',
       value: formatCurrency(s?.total ?? 0, ccy),
@@ -149,7 +171,9 @@ const stats = computed<KpStat[]>(() => {
       value: formatCurrency(props.account.limit - Number(s?.principal ?? 0), ccy),
       tone: 'success',
     },
-  ]
+  )
+
+  return items
 })
 </script>
 
