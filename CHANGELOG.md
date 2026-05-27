@@ -6,6 +6,10 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+### Changed — ana sayfa gecikmiş nakit akışı uyarısı
+
+- "Gecikmiş gelir veya gider kayıtları var." uyarısı kapatılabilir; tercih tarayıcıda saklanır.
+
 ## [0.1.34]
 
 ### Changed — AI sohbet düğmesi ve drawer

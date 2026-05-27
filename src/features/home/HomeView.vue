@@ -16,6 +16,7 @@ import KpStatRow, { type KpStat } from '@/components/KpStatRow.vue'
 import KpChart from '@/components/KpChart.vue'
 import KpNotice from '@/components/KpNotice.vue'
 import AppDisclaimer from '@/components/AppDisclaimer.vue'
+import { useDismissibleHint } from '@/composables/useDismissibleHint'
 import { useDashboardData } from '@/features/analytics/useDashboardData'
 import { buildDonutOption } from '@/features/analytics/chartOptions'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
@@ -262,6 +263,15 @@ const hasOverdueCashflow = computed(
     0,
 )
 
+const {
+  visible: overdueCashflowNoticeVisible,
+  dismiss: dismissOverdueCashflowNotice,
+} = useDismissibleHint('home.overdue-cashflow')
+
+const showOverdueCashflowNotice = computed(
+  () => hasOverdueCashflow.value && overdueCashflowNoticeVisible.value,
+)
+
 const dashCardBody = { padding: '12px 16px 16px' }
 </script>
 
@@ -275,10 +285,12 @@ const dashCardBody = { padding: '12px 16px 16px' }
       <div class="kp-dashboard-page__notices">
         <AppDisclaimer />
         <KpNotice
-          v-if="hasOverdueCashflow"
+          v-if="showOverdueCashflowNotice"
           tone="error"
           title="Gecikmiş gelir veya gider kayıtları var."
           detail="Vadesi geçmiş kayıtları gerçekleştirin veya planı güncelleyin."
+          closable
+          @close="dismissOverdueCashflowNotice"
         >
           <template #action>
             <Button size="small" type="primary" @click="go('cashflow')">
