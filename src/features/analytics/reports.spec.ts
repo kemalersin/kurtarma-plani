@@ -3,6 +3,7 @@ import {
   cashflowMonthRows,
   debtInstallmentMonthlySeries,
   debtInstallmentRows,
+  debtInstallmentTableAmount,
   debtInstallmentTypeLabel,
   filterCashflowRecords,
   movementRows,
@@ -23,6 +24,24 @@ import type {
 } from '@/core/types/entities'
 
 const ISO = '2026-05-01T00:00:00.000Z'
+
+function installmentAdvance(over: Partial<InstallmentCashAdvance>): InstallmentCashAdvance {
+  return {
+    id: 'ica1',
+    name: 'Taksitli avans',
+    bankId: 'b1',
+    currency: 'TRY',
+    principal: 50_000,
+    termMonths: 6,
+    startDate: '2026-02-01T00:00:00.000Z',
+    interestRate: 0.04,
+    interestPeriod: 'monthly',
+    firstInstallmentDate: '2026-03-01T00:00:00.000Z',
+    createdAt: ISO,
+    updatedAt: ISO,
+    ...over,
+  } as InstallmentCashAdvance
+}
 
 function loan(over: Partial<Loan>): Loan {
   return {
@@ -269,6 +288,33 @@ describe('debtInstallmentRows', () => {
       '2026-05-26T00:00:00.000Z',
     )
     expect(rows.filter((r) => r.debtKind === 'loan')).toHaveLength(0)
+  })
+
+  it('geciken taksitli avans borcu tabloda rollup satırında dueAmount ile görünür', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        installmentAdvances: [
+          installmentAdvance({
+            firstInstallmentDate: '2026-03-01T00:00:00.000Z',
+            termMonths: 6,
+          }),
+        ],
+      },
+      { range: { from: '2026-01-01', to: '2026-12-31' } },
+      '2026-03-15T00:00:00.000Z',
+    )
+    const advRows = rows
+      .filter((r) => r.debtKind === 'installmentAdvance')
+      .sort((a, b) => a.installmentIndex - b.installmentIndex)
+    expect(advRows[0]!.status).toBe('overdue')
+    expect(Number(advRows[1]!.dueAmount)).toBeGreaterThan(Number(advRows[1]!.amount))
+    expect(Number(debtInstallmentTableAmount(advRows[1]!))).toBe(
+      Number(advRows[1]!.dueAmount),
+    )
+    expect(Number(debtInstallmentTableAmount(advRows[0]!))).toBe(
+      Number(advRows[0]!.amount),
+    )
   })
 
   it('geciken kredi taksitlerinde faiz bir sonraki vade satırına yansır', () => {
@@ -680,6 +726,58 @@ describe('debtInstallmentRows', () => {
     const idx = series.months.indexOf('2026-06')
     expect(idx).toBeGreaterThanOrEqual(0)
     expect(series.paid[idx]!).toBeGreaterThan(0)
+  })
+
+  it('devreden açılış bakiyesi dönem toplam ödemesine dahil edilir', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        creditCards: [
+          creditCard({
+            openingBalance: 25_000,
+            openingDate: '2026-05-15T00:00:00.000Z',
+          }),
+        ],
+        creditCardTransactions: [],
+      },
+      { range: { from: '2026-05-01', to: '2026-08-31' }, cardDueMode: 'statement' },
+      '2026-07-15T12:00:00.000Z',
+    )
+    const stmtRows = rows
+      .filter((r) => r.debtKind === 'creditCardStatement')
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+    expect(stmtRows.length).toBeGreaterThan(0)
+    expect(Number(stmtRows[0]!.amount)).toBe(25_000)
+    expect(rows.every((r) => r.debtKind !== 'creditCardOpeningBalance')).toBe(true)
+  })
+
+  it('açılış tarihi dönem ortasındaysa devreden bakiye o dönem ekstresine yansır', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        creditCards: [
+          creditCard({
+            openingBalance: 10_000,
+            openingDate: '2026-05-20T00:00:00.000Z',
+          }),
+        ],
+        creditCardTransactions: [
+          cardTxn({
+            id: 'buy',
+            date: '2026-05-25T10:00:00.000Z',
+            amount: 2_000,
+            type: 'purchase',
+          }),
+        ],
+      },
+      { range: { from: '2026-05-01', to: '2026-06-30' }, cardDueMode: 'statement' },
+      '2026-06-10T12:00:00.000Z',
+    )
+    const juneStmt = rows.find(
+      (r) => r.debtKind === 'creditCardStatement' && r.dueDate.startsWith('2026-06'),
+    )
+    expect(juneStmt).toBeDefined()
+    expect(Number(juneStmt!.amount)).toBe(12_000)
   })
 
   it('toplam ödeme modunda geç ödeme pencere toplamını ödenen olarak yansıtır', () => {

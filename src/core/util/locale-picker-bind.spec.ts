@@ -41,4 +41,11 @@ describe('locale-picker-bind', () => {
     expect(readDisabledDateFromBind({ disabledDate: fn })).toBe(fn)
     expect(readDisabledDateFromBind({ disabledDate: 'x' })).toBeUndefined()
   })
+
+  it('disabled-date kebab-case AntDV disabledDate olarak aktarılır', () => {
+    const disabledDate = (current: Dayjs) => current.isAfter(dayjs().endOf('day'))
+    const bind = localePickerBindFromAttrs({ 'disabled-date': disabledDate }, 'DD.MM.YYYY')
+    expect(bind.disabledDate).toBe(disabledDate)
+    expect(readDisabledDateFromBind(bind)).toBe(disabledDate)
+  })
 })

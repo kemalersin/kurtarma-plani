@@ -117,13 +117,26 @@ const tableRows = computed<PeriodTxn[]>(
 )
 
 const canCreateTxnInPeriod = computed(() => {
-  if (!activePeriod.value) return false
-  return cardPeriodHasSelectableDates(cardPeriodBounds(activePeriod.value))
+  if (!activePeriod.value || !props.card) return false
+  return cardPeriodHasSelectableDates(
+    cardPeriodBounds(activePeriod.value),
+    new Date(),
+    props.card.openingDate,
+  )
 })
 
 const createTxnDisabledReason = computed(() => {
   if (!activePeriod.value) return 'Önce bir dönem seçin.'
-  if (!canCreateTxnInPeriod.value) return 'Bu dönem henüz başlamadı; hareket eklenemez.'
+  if (!canCreateTxnInPeriod.value) {
+    if (props.card?.openingDate) {
+      const bounds = cardPeriodBounds(activePeriod.value)
+      const openingKey = props.card.openingDate.slice(0, 10)
+      if (openingKey >= bounds.periodEndExclusiveIso.slice(0, 10)) {
+        return 'Bu dönem kart açılış tarihinden önce; hareket eklenemez.'
+      }
+    }
+    return 'Bu dönem henüz başlamadı; hareket eklenemez.'
+  }
   return undefined
 })
 

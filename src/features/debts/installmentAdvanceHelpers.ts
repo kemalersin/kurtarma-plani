@@ -7,6 +7,14 @@ import { unpaidInstallmentOverrides } from './installmentDisplay'
 import { buildAnnuitySchedule, payoffAmount, outstandingLateFeesTotal, remainingDebtTotal, remainingPrincipalBalance, type LoanSchedule } from '@/finance/loan'
 import { D, roundMoney } from '@/finance/decimal'
 
+/** İlk taksit tarihi, başlangıç tarihinden önce olamaz. */
+export function isFirstInstallmentDateOnOrAfterStart(
+  startDateIso: string,
+  firstInstallmentDateIso: string,
+): boolean {
+  return firstInstallmentDateIso.slice(0, 10) >= startDateIso.slice(0, 10)
+}
+
 /**
  * Taksitli nakit avans = sabit faiz + sabit taksitli anüite plan (kredi gibi).
  * `LoanSchedule` üretici aynısı kullanılır.

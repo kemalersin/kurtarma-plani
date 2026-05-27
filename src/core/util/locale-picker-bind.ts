@@ -26,6 +26,10 @@ export function localePickerShellAttrs(attrs: Record<string, unknown>): LocalePi
   return shell
 }
 
+function pickerAttrKey(key: string): string {
+  return key === 'disabled-date' ? 'disabledDate' : key
+}
+
 /** Masaüstü DatePicker ile aynı bind — mobil panelde birebir aktarım. */
 export function localePickerBindFromAttrs(
   attrs: Record<string, unknown>,
@@ -33,9 +37,8 @@ export function localePickerBindFromAttrs(
 ): Record<string, unknown> {
   const bind: Record<string, unknown> = { format }
   for (const key of Object.keys(attrs)) {
-    if (!MOBILE_TRIGGER_ATTR_KEYS.has(key)) {
-      bind[key] = attrs[key]
-    }
+    if (MOBILE_TRIGGER_ATTR_KEYS.has(key)) continue
+    bind[pickerAttrKey(key)] = attrs[key]
   }
   return bind
 }
@@ -43,7 +46,7 @@ export function localePickerBindFromAttrs(
 export function readDisabledDateFromBind(
   bind: Record<string, unknown>,
 ): ((current: import('dayjs').Dayjs) => boolean) | undefined {
-  const raw = bind.disabledDate
+  const raw = bind.disabledDate ?? bind['disabled-date']
   if (typeof raw !== 'function') return undefined
   return raw as (current: import('dayjs').Dayjs) => boolean
 }

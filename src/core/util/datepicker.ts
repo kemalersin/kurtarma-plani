@@ -42,6 +42,19 @@ export function disableAfter(
 }
 
 /**
+ * Verilen alt sınırdan (gün başı) önceki tüm tarihleri devre dışı bırakan factory.
+ */
+export function disableBefore(
+  limit: ConfigType,
+): (current: Dayjs) => boolean {
+  return (current: Dayjs): boolean => {
+    if (!current) return false
+    const floor = dayjs(limit).startOf('day')
+    return current.isBefore(floor, 'day')
+  }
+}
+
+/**
  * `[startInclusive, endExclusive)` dışındaki günleri devre dışı bırakır.
  */
 export function disableOutsideDateRange(

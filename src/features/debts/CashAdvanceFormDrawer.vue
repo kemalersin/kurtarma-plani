@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import {
   Form,
   FormItem,
@@ -27,7 +27,17 @@ import { useEntitiesStore } from '@/stores/entities'
 import { useProfileStore } from '@/stores/profile'
 import { useBankingPresetStore } from '@/stores/banking-preset'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
-import type { Bank, CashAdvanceAccount, RatePeriodEnum } from '@/core/types/entities'
+import { disableAfter } from '@/core/util/datepicker'
+import type {
+  Bank,
+  CashAdvanceAccount,
+  CashAdvanceTransaction,
+  RatePeriodEnum,
+} from '@/core/types/entities'
+import {
+  earliestCashAdvanceTransactionDate,
+  isCashAdvanceOpeningDateOnOrBeforeFirstTxn,
+} from '@/features/debts/cashAdvanceHelpers'
 import { creditCardTaxRateFromPreset } from '@/core/util/banking-preset-credit-card'
 
 interface Props {
@@ -43,9 +53,35 @@ const emit = defineEmits<{
 const entities = useEntitiesStore()
 const profileStore = useProfileStore()
 const presetStore = useBankingPresetStore()
-const { formatPercentFromFraction } = useLocaleFormatters()
+const { formatDate, formatPercentFromFraction } = useLocaleFormatters()
 
 const banks = entities.list<Bank>('bank')
+const cashAdvanceTxns = entities.list<CashAdvanceTransaction>('cashAdvanceTransaction')
+
+const earliestTxnDateIso = computed(() => {
+  if (!props.account?.id) return undefined
+  return earliestCashAdvanceTransactionDate(props.account.id, cashAdvanceTxns.value)
+})
+
+const openingDateHint = computed(() => {
+  if (!earliestTxnDateIso.value) return undefined
+  return `İlk hareketten (${formatDate(earliestTxnDateIso.value)}) sonra seçilemez.`
+})
+
+function openingDateDisabled(current: Dayjs): boolean {
+  const cap = earliestTxnDateIso.value
+  if (!cap) return false
+  return disableAfter(cap)(current)
+}
+
+function clampOpeningDate(): void {
+  const cap = earliestTxnDateIso.value
+  if (!cap || !props.account) return
+  const capDay = dayjs(cap)
+  if (draft.openingDate.isAfter(capDay, 'day')) {
+    draft.openingDate = capDay
+  }
+}
 
 const PERIOD_OPTIONS: { value: RatePeriodEnum; label: string }[] = [
   { value: 'monthly', label: 'Aylık' },
@@ -97,8 +133,13 @@ function profileCurrency(): string {
 
 watch(
   () => [props.open, props.account?.id] as const,
-  ([open]) => {
+  async ([open]) => {
     if (!open) return
+    if (!entities.loaded('cashAdvanceTransaction').value) {
+      await entities
+        .load<CashAdvanceTransaction>('cashAdvanceTransaction')
+        .catch(() => undefined)
+    }
     if (props.account) {
       Object.assign(draft, {
         name: props.account.name,
@@ -119,11 +160,16 @@ watch(
         archived: !!props.account.archived,
         sensitive: readSensitiveDraft('cashAdvanceAccount', props.account.id),
       })
+      clampOpeningDate()
     } else {
       Object.assign(draft, emptyForm())
     }
   },
 )
+
+watch(earliestTxnDateIso, () => {
+  if (props.open && props.account) clampOpeningDate()
+})
 
 function fillRefRate(): void {
   const ceil =
@@ -183,6 +229,17 @@ async function submit(): Promise<void> {
   }
   if (draft.limit <= 0) {
     message.error('Limit sıfırdan büyük olmalı.')
+    return
+  }
+  if (
+    !isCashAdvanceOpeningDateOnOrBeforeFirstTxn(
+      draft.openingDate.toISOString(),
+      earliestTxnDateIso.value,
+    )
+  ) {
+    message.error(
+      `Açılış tarihi ilk hareketten (${formatDate(earliestTxnDateIso.value!)}) sonra olamaz.`,
+    )
     return
   }
   saving.value = true
@@ -254,8 +311,15 @@ function close(): void {
       <FormItem label="Açılış bakiyesi (devreden)">
         <LocaleInputNumber v-model:value="draft.openingBalance" kind="currency" :min="0" />
       </FormItem>
-      <FormItem label="Açılış tarihi" required>
-        <LocaleDatePicker v-model:value="draft.openingDate" style="width: 100%" />
+      <FormItem required>
+        <template #label>
+          <KpFormLabel :hint="openingDateHint">Açılış tarihi</KpFormLabel>
+        </template>
+        <LocaleDatePicker
+          v-model:value="draft.openingDate"
+          :disabled-date="openingDateDisabled"
+          style="width: 100%"
+        />
       </FormItem>
       <FormItem label="Faiz (%)" required>
         <Space.Compact style="width: 100%">

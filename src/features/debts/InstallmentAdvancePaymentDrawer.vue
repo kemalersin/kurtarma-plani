@@ -11,6 +11,7 @@ import {
 } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
+import DismissibleDrawerAlert from '@/components/DismissibleDrawerAlert.vue'
 import KpFormLabel from '@/components/KpFormLabel.vue'
 import KpStatRow from '@/components/KpStatRow.vue'
 import { disableAfter } from '@/core/util/datepicker'
@@ -25,7 +26,7 @@ import type {
   InstallmentCashAdvancePayment,
 } from '@/core/types/entities'
 import type { ScheduleRow } from '@/finance/loan'
-import { computeLateFee, lateDays } from '@/finance/loan'
+import { computeLateFee } from '@/finance/loan'
 import { D } from '@/finance/decimal'
 import { isInstallmentUpcoming, canMarkInstallmentAsPaid, displayInstallmentDueAmount } from './installmentDisplay'
 import {
@@ -38,6 +39,9 @@ import {
   installmentAmountHint,
   installmentPaymentDateHint,
   installmentPaymentSourceTooltip,
+  installmentPaymentLateDaysCount,
+  priorInstallmentIndexRequired,
+  priorInstallmentPaymentBlockedMessage,
 } from './installmentPaymentFormHints'
 
 interface Props {
@@ -140,9 +144,18 @@ const canMarkAsPaid = computed(() =>
 
 const showPaidToggle = computed(() => canMarkAsPaid.value && !props.existing?.paidDate)
 
+const priorInstallmentToPay = computed(() => {
+  if (!props.row) return undefined
+  return priorInstallmentIndexRequired(
+    props.row.index,
+    paidThrough.value,
+    Boolean(props.existing?.paidDate),
+  )
+})
+
 const lateFee = computed<string>(() => {
-  if (!props.advance || !props.row || !draft.paidDate) return '0'
-  const days = lateDays(props.row.dueDate, draft.paidDate.toISOString())
+  if (!props.advance || !props.row) return '0'
+  const days = lateDaysCount.value
   if (days <= 0) return '0'
   return computeLateFee(
     props.row.installment,
@@ -164,8 +177,11 @@ const totalDue = computed<string>(() => {
 })
 
 const lateDaysCount = computed<number>(() => {
-  if (!props.row || !draft.paidDate) return 0
-  return lateDays(props.row.dueDate, draft.paidDate.toISOString())
+  if (!props.row) return 0
+  return installmentPaymentLateDaysCount(
+    props.row.dueDate,
+    draft.paidDate?.toISOString(),
+  )
 })
 
 function formatMoney(value: string | number): string {
@@ -204,6 +220,11 @@ const statItems = computed(() =>
     totalDueLabel: formatMoney(totalDue.value),
   }),
 )
+
+const statColumns = computed(() => {
+  const n = statItems.value.length
+  return n >= 4 ? 2 : n
+})
 
 watch(
   () => [props.open, props.row?.index, props.existing?.id] as const,
@@ -272,6 +293,16 @@ watch(
 
 async function submit(): Promise<void> {
   if (!props.advance || !props.row) return
+
+  if (markAsPaid.value && !canMarkAsPaid.value) {
+    const prior = priorInstallmentToPay.value
+    message.error(
+      prior != null
+        ? priorInstallmentPaymentBlockedMessage(prior)
+        : 'Bu taksit ödendi olarak işaretlenemez.',
+    )
+    return
+  }
 
   if (!markAsPaid.value) {
     saving.value = true
@@ -380,7 +411,15 @@ function close(): void {
     @update:open="emit('update:open', $event)"
   >
     <Space direction="vertical" :size="16" style="width: 100%">
-      <KpStatRow :columns="statItems.length" :items="statItems" />
+      <KpStatRow :columns="statColumns" :items="statItems" />
+
+      <DismissibleDrawerAlert
+        v-if="priorInstallmentToPay != null"
+        hint-key="installment-advance-payment.prior-unpaid"
+        type="warning"
+        message="Sıralı ödeme"
+        :description="priorInstallmentPaymentBlockedMessage(priorInstallmentToPay)"
+      />
 
       <Form layout="vertical" :colon="false" @submit.prevent="submit">
         <FormItem v-if="showPaidToggle" label="Ödendi olarak işaretle">

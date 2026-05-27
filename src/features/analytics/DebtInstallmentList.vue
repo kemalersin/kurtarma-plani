@@ -27,7 +27,13 @@ import {
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type { ListFilter } from '@/components/EntityListPage.vue'
 import type { AnalyticsFilterState } from '@/composables/useAnalyticsFilters'
-import { debtInstallmentTypeLabel, debtInstallmentPaidDisplay, debtInstallmentStatusDisplay, type DebtInstallmentRow } from '@/features/analytics/reports'
+import {
+  debtInstallmentTypeLabel,
+  debtInstallmentPaidDisplay,
+  debtInstallmentStatusDisplay,
+  debtInstallmentTableAmount,
+  type DebtInstallmentRow,
+} from '@/features/analytics/reports'
 import {
   analyticsRangeQueryActive,
   clearAnalyticsListRouteQuery,
@@ -169,11 +175,12 @@ const baseColumns: ColumnsType<DebtInstallmentRow> = [
   },
   {
     title: 'Tutar',
-    dataIndex: 'amount',
     key: 'amount',
     align: 'right',
-    sorter: (a, b) => Number(a.amount) - Number(b.amount),
-    customRender: ({ text }) => formatCurrency(String(text), props.currency),
+    sorter: (a, b) =>
+      Number(debtInstallmentTableAmount(a)) - Number(debtInstallmentTableAmount(b)),
+    customRender: ({ record }) =>
+      formatCurrency(debtInstallmentTableAmount(record), props.currency),
   },
   {
     title: 'Ödenen',

@@ -2,6 +2,7 @@ import { textIncludesSearch } from '@/core/util/search'
 import type { ListFilter } from '@/components/EntityListPage.vue'
 import {
   debtInstallmentPaidDisplay,
+  debtInstallmentTableAmount,
   debtInstallmentTypeLabel,
   type DebtInstallmentRow,
 } from '@/features/analytics/reports'
@@ -56,7 +57,7 @@ export const DEBT_INSTALLMENT_LIST_FILTERS: ListFilter<DebtInstallmentRow>[] = [
     key: 'amount',
     label: 'Tutar',
     numberKind: 'currency',
-    getValue: (row) => Number(row.amount),
+    getValue: (row) => Number(debtInstallmentTableAmount(row)),
   },
 ]
 

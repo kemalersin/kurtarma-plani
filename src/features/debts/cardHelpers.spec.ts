@@ -5,8 +5,15 @@ import {
   buildCardPeriods,
   cardCommittedTotal,
   cardOutstandingBalance,
+  cardPeriodBounds,
+  cardPeriodHasSelectableDates,
   defaultCardStatementPeriodCutoff,
+  defaultCardTxnDateInPeriod,
   expandInstallments,
+  earliestCreditCardTransactionDate,
+  isCreditCardOpeningDateOnOrBeforeFirstTxn,
+  isCreditCardTxnDateOnOrAfterOpening,
+  periodOpeningBalance,
   projectCardPeriodDebts,
 } from './cardHelpers'
 
@@ -79,6 +86,37 @@ describe('buildCardPeriods', () => {
 
     expect(last.transactions.map((t) => t.originalTxnId)).toEqual(['new'])
     expect(prev.transactions.map((t) => t.originalTxnId)).toEqual(['old'])
+  })
+
+  it('açılış tarihi dönem ortasındaysa devreden bakiye o dönem başına yazılır', () => {
+    const card: CreditCard = {
+      ...baseCard,
+      openingBalance: 10_000,
+      openingDate: '2026-05-20T00:00:00.000Z',
+    }
+    const expanded = expandInstallments(card, [
+      txn({
+        id: 'buy',
+        date: '2026-05-25T10:00:00.000Z',
+        amount: 2_000,
+        type: 'purchase',
+      }),
+    ])
+    const asOf = new Date('2026-06-10T12:00:00.000Z')
+    const periods = buildCardPeriods(card, [txn({
+      id: 'buy',
+      date: '2026-05-25T10:00:00.000Z',
+      amount: 2_000,
+      type: 'purchase',
+    })], { periods: 4, asOf })
+    const junePeriod = periods.find((p) => p.cutoffDate.startsWith('2026-06'))!
+    expect(junePeriod.openingBalance).toBe(10_000)
+    expect(Number(junePeriod.statement.endingBalance)).toBe(12_000)
+
+    const periodEnd = new Date(junePeriod.cutoffDate)
+    const periodStart = new Date(periodEnd)
+    periodStart.setUTCMonth(periodStart.getUTCMonth() - 1)
+    expect(periodOpeningBalance(card, expanded, periodStart, periodEnd)).toBe(10_000)
   })
 
   it('açılış tarihinden önceki hareketler dönem hesabına dahil edilmez', () => {
@@ -193,6 +231,100 @@ describe('buildCardPeriods', () => {
       .flatMap((p) => p.transactions)
       .map((t) => t.installmentCount)
     expect(allCounts.every((c) => c === 12)).toBe(true)
+  })
+})
+
+describe('earliestCreditCardTransactionDate', () => {
+  it('kartın en erken hareket tarihini döner', () => {
+    const earliest = earliestCreditCardTransactionDate('card-1', [
+      txn({ id: 'b', date: '2026-06-01T00:00:00.000Z', amount: 1, type: 'purchase' }),
+      txn({ id: 'a', date: '2026-05-10T00:00:00.000Z', amount: 1, type: 'purchase' }),
+    ])
+    expect(earliest).toBe('2026-05-10T00:00:00.000Z')
+  })
+})
+
+describe('isCreditCardOpeningDateOnOrBeforeFirstTxn', () => {
+  it('ilk hareket yoksa veya açılış önce/eşitse geçerli', () => {
+    expect(isCreditCardOpeningDateOnOrBeforeFirstTxn('2026-05-15T00:00:00.000Z')).toBe(true)
+    expect(
+      isCreditCardOpeningDateOnOrBeforeFirstTxn(
+        '2026-05-15T00:00:00.000Z',
+        '2026-05-20T00:00:00.000Z',
+      ),
+    ).toBe(true)
+    expect(
+      isCreditCardOpeningDateOnOrBeforeFirstTxn(
+        '2026-05-21T00:00:00.000Z',
+        '2026-05-20T00:00:00.000Z',
+      ),
+    ).toBe(false)
+  })
+})
+
+describe('isCreditCardTxnDateOnOrAfterOpening', () => {
+  it('openingDate yoksa tüm tarihler geçerli', () => {
+    expect(isCreditCardTxnDateOnOrAfterOpening(baseCard, '2020-01-01T00:00:00.000Z')).toBe(true)
+  })
+
+  it('açılış günü ve sonrası geçerli', () => {
+    const card: CreditCard = { ...baseCard, openingDate: '2026-05-15T00:00:00.000Z' }
+    expect(isCreditCardTxnDateOnOrAfterOpening(card, '2026-05-14T23:59:59.000Z')).toBe(false)
+    expect(isCreditCardTxnDateOnOrAfterOpening(card, '2026-05-15T00:00:00.000Z')).toBe(true)
+    expect(isCreditCardTxnDateOnOrAfterOpening(card, '2026-06-01T00:00:00.000Z')).toBe(true)
+  })
+})
+
+describe('cardPeriodHasSelectableDates', () => {
+  it('açılış tarihinden önceki dönemde seçilebilir gün yok', () => {
+    const asOf = new Date('2026-05-22T12:00:00.000Z')
+    const card: CreditCard = {
+      ...baseCard,
+      openingDate: '2026-05-15T00:00:00.000Z',
+    }
+    const periods = buildCardPeriods(card, [], { periods: 4, asOf })
+    const beforeOpening = periods.find(
+      (p) => cardPeriodBounds(p).periodEndExclusiveIso.slice(0, 10) <= card.openingDate!.slice(0, 10),
+    )!
+    const bounds = cardPeriodBounds(beforeOpening)
+
+    expect(cardPeriodHasSelectableDates(bounds, asOf)).toBe(true)
+    expect(cardPeriodHasSelectableDates(bounds, asOf, card.openingDate)).toBe(false)
+  })
+
+  it('açılış tarihi dönem içindeyse kısmi aralık seçilebilir', () => {
+    const asOf = new Date('2026-05-22T12:00:00.000Z')
+    const card: CreditCard = {
+      ...baseCard,
+      openingDate: '2026-05-15T00:00:00.000Z',
+    }
+    const periods = buildCardPeriods(card, [], { periods: 4, asOf })
+    const openingKey = card.openingDate.slice(0, 10)
+    const openingPeriod = periods.find((p) => {
+      const bounds = cardPeriodBounds(p)
+      return (
+        openingKey >= bounds.periodStartIso.slice(0, 10) &&
+        openingKey < bounds.periodEndExclusiveIso.slice(0, 10)
+      )
+    })!
+    const bounds = cardPeriodBounds(openingPeriod)
+
+    expect(cardPeriodHasSelectableDates(bounds, asOf, card.openingDate)).toBe(true)
+  })
+})
+
+describe('defaultCardTxnDateInPeriod', () => {
+  it('açılış tarihinden önceki varsayılanı açılış gününe çeker', () => {
+    const bounds = {
+      periodStartIso: '2026-05-15T00:00:00.000Z',
+      periodEndExclusiveIso: '2026-06-15T00:00:00.000Z',
+    }
+    const asOf = new Date('2026-05-18T12:00:00.000Z')
+    const openingDate = '2026-05-20T00:00:00.000Z'
+
+    expect(defaultCardTxnDateInPeriod(bounds, asOf, openingDate).slice(0, 10)).toBe(
+      '2026-05-20',
+    )
   })
 })
 

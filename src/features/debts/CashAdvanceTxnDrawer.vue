@@ -12,6 +12,7 @@ import {
 } from 'ant-design-vue'
 import dayjs, { type Dayjs } from 'dayjs'
 import FormDrawer from '@/components/FormDrawer.vue'
+import KpFormLabel from '@/components/KpFormLabel.vue'
 import KpSelect from '@/components/KpSelect.vue'
 import LocaleInputNumber from '@/components/LocaleInputNumber.vue'
 import LocaleDatePicker from '@/components/LocaleDatePicker.vue'
@@ -20,8 +21,15 @@ import { useEntitiesStore } from '@/stores/entities'
 import { useProfileStore } from '@/stores/profile'
 import { useCreditCardRateContext } from '@/composables/useCreditCardRateContext'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
-import { disableFutureDates } from '@/core/util/datepicker'
-import { cashAdvanceDrawCapacity } from '@/features/debts/cashAdvanceHelpers'
+import {
+  combineDisabledDates,
+  disableBefore,
+  disableFutureDates,
+} from '@/core/util/datepicker'
+import {
+  cashAdvanceDrawCapacity,
+  isCashAdvanceTxnDateOnOrAfterOpening,
+} from '@/features/debts/cashAdvanceHelpers'
 import type {
   CashAdvanceAccount,
   CashAdvanceTransaction,
@@ -42,7 +50,7 @@ const emit = defineEmits<{
 const entities = useEntitiesStore()
 const profileStore = useProfileStore()
 const { taxRateMonthly } = useCreditCardRateContext()
-const { formatCurrency } = useLocaleFormatters()
+const { formatCurrency, formatDate } = useLocaleFormatters()
 
 const cashAdvanceTxns = entities.list<CashAdvanceTransaction>('cashAdvanceTransaction')
 
@@ -108,6 +116,19 @@ const drawCapacityHint = computed(() => {
   return `Kullanılabilir limit: ${formatCurrency(drawCapacity.value, props.account.currency)}`
 })
 
+const openingDateHint = computed(() => {
+  if (!props.account) return undefined
+  return `Hesap açılış tarihinden (${formatDate(props.account.openingDate)}) önce seçilemez.`
+})
+
+const disabledTxnDate = computed(() => {
+  if (!props.account) return disableFutureDates
+  return combineDisabledDates(
+    disableFutureDates,
+    disableBefore(props.account.openingDate),
+  )
+})
+
 watch(
   () => [props.open, props.txn?.id] as const,
   ([open]) => {
@@ -140,6 +161,15 @@ async function submit(): Promise<void> {
   if (!props.account) return
   if (draft.amount <= 0) {
     message.error('Tutar sıfırdan büyük olmalı.')
+    return
+  }
+  if (
+    props.account &&
+    !isCashAdvanceTxnDateOnOrAfterOpening(props.account, draft.date.toISOString())
+  ) {
+    message.error(
+      `Hareket tarihi hesap açılış tarihinden (${formatDate(props.account.openingDate)}) önce olamaz.`,
+    )
     return
   }
   if (draft.type === 'draw' && props.account) {
@@ -209,10 +239,13 @@ function close(): void {
     @update:open="emit('update:open', $event)"
   >
     <Form layout="vertical" :colon="false" @submit.prevent="submit">
-      <FormItem label="Tarih" required>
+      <FormItem required>
+        <template #label>
+          <KpFormLabel :hint="openingDateHint">Tarih</KpFormLabel>
+        </template>
         <LocaleDatePicker
           v-model:value="draft.date"
-          :disabled-date="disableFutureDates"
+          :disabled-date="disabledTxnDate"
           style="width: 100%"
         />
       </FormItem>

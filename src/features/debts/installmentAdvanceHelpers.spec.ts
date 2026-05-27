@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { advancePaidThroughIndex } from './installmentAdvanceHelpers'
+import {
+  advancePaidThroughIndex,
+  isFirstInstallmentDateOnOrAfterStart,
+} from './installmentAdvanceHelpers'
 import type { InstallmentCashAdvancePayment } from '@/core/types/entities'
 
 const ISO = '2026-05-01T00:00:00.000Z'
@@ -19,6 +22,32 @@ function payment(
     updatedAt: ISO,
   } as InstallmentCashAdvancePayment
 }
+
+describe('isFirstInstallmentDateOnOrAfterStart', () => {
+  it('ilk taksit başlangıçtan önceyse false', () => {
+    expect(
+      isFirstInstallmentDateOnOrAfterStart(
+        '2026-03-01T00:00:00.000Z',
+        '2026-02-28T00:00:00.000Z',
+      ),
+    ).toBe(false)
+  })
+
+  it('aynı gün veya sonraysa true', () => {
+    expect(
+      isFirstInstallmentDateOnOrAfterStart(
+        '2026-03-01T00:00:00.000Z',
+        '2026-03-01T12:00:00.000Z',
+      ),
+    ).toBe(true)
+    expect(
+      isFirstInstallmentDateOnOrAfterStart(
+        '2026-03-01T00:00:00.000Z',
+        '2026-04-01T00:00:00.000Z',
+      ),
+    ).toBe(true)
+  })
+})
 
 describe('advancePaidThroughIndex', () => {
   it('sıra-bağımsız: ters sıra 3,2,1 ödenmiş → 3 döner', () => {

@@ -26,12 +26,45 @@ export function revolvingRatesFromAccount(
   }
 }
 
-function mapTransactions(
+/** Hareket tarihi hesap açılış tarihinden önce olamaz. */
+export function isCashAdvanceTxnDateOnOrAfterOpening(
+  account: Pick<CashAdvanceAccount, 'openingDate'>,
+  dateIso: string,
+): boolean {
+  return dateIso.slice(0, 10) >= account.openingDate.slice(0, 10)
+}
+
+/** Hesabın kayıtlı en erken hareket tarihi (yoksa `undefined`). */
+export function earliestCashAdvanceTransactionDate(
   accountId: string,
+  transactions: readonly Pick<CashAdvanceTransaction, 'accountId' | 'date'>[],
+): string | undefined {
+  let earliest: string | undefined
+  for (const t of transactions) {
+    if (t.accountId !== accountId) continue
+    if (!earliest || t.date < earliest) earliest = t.date
+  }
+  return earliest
+}
+
+/** Açılış tarihi, ilk hareketten sonra olamaz. */
+export function isCashAdvanceOpeningDateOnOrBeforeFirstTxn(
+  openingDateIso: string,
+  earliestTxnDateIso: string | undefined,
+): boolean {
+  if (!earliestTxnDateIso) return true
+  return openingDateIso.slice(0, 10) <= earliestTxnDateIso.slice(0, 10)
+}
+
+function mapTransactions(
+  account: CashAdvanceAccount,
   transactions: CashAdvanceTransaction[],
 ) {
+  const openingKey = account.openingDate.slice(0, 10)
   return transactions
-    .filter((t) => t.accountId === accountId)
+    .filter(
+      (t) => t.accountId === account.id && t.date.slice(0, 10) >= openingKey,
+    )
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((t) => ({
       date: t.date,
@@ -50,7 +83,7 @@ export function cashAdvanceState(
   return runRevolvingLedger({
     openingBalance: account.openingBalance,
     openingDate: account.openingDate,
-    transactions: mapTransactions(account.id, transactions),
+    transactions: mapTransactions(account, transactions),
     rates: revolvingRatesFromAccount(account, taxRateMonthly),
     asOf,
   })
@@ -90,7 +123,7 @@ export function cashAdvanceAccountMonthlyDebts(
   const { periods } = simulateRevolvingLedger({
     openingBalance: account.openingBalance,
     openingDate: account.openingDate,
-    transactions: mapTransactions(account.id, own),
+    transactions: mapTransactions(account, own),
     rates: revolvingRatesFromAccount(account, taxRateMonthly),
     asOf: todayIso,
   })
@@ -129,7 +162,7 @@ export function cashAdvancePaymentsInMonth(
   const { periods } = simulateRevolvingLedger({
     openingBalance: account.openingBalance,
     openingDate: account.openingDate,
-    transactions: mapTransactions(account.id, transactions),
+    transactions: mapTransactions(account, transactions),
     rates: revolvingRatesFromAccount(account, taxRateMonthly),
     asOf: asOfIso,
   })
@@ -147,10 +180,12 @@ export function cashAdvanceDrawCapacity(
     excludeTransactionId?: string
   },
 ): number {
+  const openingKey = account.openingDate.slice(0, 10)
   const relevant = transactions.filter(
     (t) =>
       t.accountId === account.id &&
       t.id !== options?.excludeTransactionId &&
+      t.date.slice(0, 10) >= openingKey &&
       t.date <= drawDateIso,
   )
   const state = cashAdvanceState(

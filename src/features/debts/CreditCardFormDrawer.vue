@@ -30,7 +30,17 @@ import { useEntitiesStore } from '@/stores/entities'
 import { useProfileStore } from '@/stores/profile'
 import { useBankingPresetStore } from '@/stores/banking-preset'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
-import type { Bank, CreditCard, CreditCardRateMode } from '@/core/types/entities'
+import { disableAfter } from '@/core/util/datepicker'
+import type {
+  Bank,
+  CreditCard,
+  CreditCardRateMode,
+  CreditCardTransaction,
+} from '@/core/types/entities'
+import {
+  earliestCreditCardTransactionDate,
+  isCreditCardOpeningDateOnOrBeforeFirstTxn,
+} from '@/features/debts/cardHelpers'
 
 interface Props {
   open: boolean
@@ -45,9 +55,35 @@ const emit = defineEmits<{
 const entities = useEntitiesStore()
 const profileStore = useProfileStore()
 const presetStore = useBankingPresetStore()
-const { formatCurrency, formatPercentFromFraction } = useLocaleFormatters()
+const { formatCurrency, formatDate, formatPercentFromFraction } = useLocaleFormatters()
 
 const banks = entities.list<Bank>('bank')
+const cardTransactions = entities.list<CreditCardTransaction>('creditCardTransaction')
+
+const earliestTxnDateIso = computed(() => {
+  if (!props.card?.id) return undefined
+  return earliestCreditCardTransactionDate(props.card.id, cardTransactions.value)
+})
+
+const openingDateHint = computed(() => {
+  if (!earliestTxnDateIso.value) return undefined
+  return `İlk kart hareketinden (${formatDate(earliestTxnDateIso.value)}) sonra seçilemez.`
+})
+
+function openingDateDisabled(current: Dayjs): boolean {
+  const cap = earliestTxnDateIso.value
+  if (!cap) return false
+  return disableAfter(cap)(current)
+}
+
+function clampOpeningDate(): void {
+  const cap = earliestTxnDateIso.value
+  if (!cap || !props.card) return
+  const capDay = dayjs(cap)
+  if (draft.openingDate.isAfter(capDay, 'day')) {
+    draft.openingDate = capDay
+  }
+}
 
 const rateModeOptions = [
   { value: 'fixed', label: 'Sabit sözleşme oranı' },
@@ -114,8 +150,13 @@ function profileCurrency(): string {
 
 watch(
   () => [props.open, props.card?.id] as const,
-  ([open]) => {
+  async ([open]) => {
     if (!open) return
+    if (!entities.loaded('creditCardTransaction').value) {
+      await entities
+        .load<CreditCardTransaction>('creditCardTransaction')
+        .catch(() => undefined)
+    }
     if (props.card) {
       Object.assign(draft, {
         name: props.card.name,
@@ -139,11 +180,16 @@ watch(
         archived: !!props.card.archived,
         sensitive: readSensitiveDraft('creditCard', props.card.id),
       })
+      clampOpeningDate()
     } else {
       Object.assign(draft, emptyForm())
     }
   },
 )
+
+watch(earliestTxnDateIso, () => {
+  if (props.open && props.card) clampOpeningDate()
+})
 
 function fillRefPurchase(): void {
   const tiers = presetStore.active.preset.creditCard.maxRatesByBalanceTier
@@ -205,6 +251,17 @@ async function submit(): Promise<void> {
   }
   if (draft.rateMode === 'fixed' && draft.purchaseAprMonthly == null) {
     message.error('Alışveriş aylık faizi gerekli.')
+    return
+  }
+  if (
+    !isCreditCardOpeningDateOnOrBeforeFirstTxn(
+      draft.openingDate.toISOString(),
+      earliestTxnDateIso.value,
+    )
+  ) {
+    message.error(
+      `Açılış tarihi ilk kart hareketinden (${formatDate(earliestTxnDateIso.value!)}) sonra olamaz.`,
+    )
     return
   }
   saving.value = true
@@ -296,8 +353,15 @@ function close(): void {
       <FormItem label="Açılış bakiyesi (devreden)">
         <LocaleInputNumber v-model:value="draft.openingBalance" kind="currency" :min="0" />
       </FormItem>
-      <FormItem label="Açılış tarihi" required>
-        <LocaleDatePicker v-model:value="draft.openingDate" style="width: 100%" />
+      <FormItem required>
+        <template #label>
+          <KpFormLabel :hint="openingDateHint">Açılış tarihi</KpFormLabel>
+        </template>
+        <LocaleDatePicker
+          v-model:value="draft.openingDate"
+          :disabled-date="openingDateDisabled"
+          style="width: 100%"
+        />
       </FormItem>
       <div style="display: flex; gap: 12px; width: 100%; align-items: flex-start">
         <FormItem label="Hesap kesim günü" required style="flex: 1; min-width: 0">

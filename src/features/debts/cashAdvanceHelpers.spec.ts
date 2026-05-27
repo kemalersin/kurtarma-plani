@@ -3,7 +3,12 @@ import type {
   CashAdvanceAccount,
   CashAdvanceTransaction,
 } from '@/core/types/entities'
-import { cashAdvanceDrawCapacity } from '@/features/debts/cashAdvanceHelpers'
+import {
+  cashAdvanceDrawCapacity,
+  earliestCashAdvanceTransactionDate,
+  isCashAdvanceOpeningDateOnOrBeforeFirstTxn,
+  isCashAdvanceTxnDateOnOrAfterOpening,
+} from '@/features/debts/cashAdvanceHelpers'
 
 const account: CashAdvanceAccount = {
   id: 'ca-1',
@@ -29,6 +34,50 @@ function txn(
     ...partial,
   }
 }
+
+describe('cash advance opening date rules', () => {
+  it('hareket açılıştan önce geçersiz', () => {
+    expect(
+      isCashAdvanceTxnDateOnOrAfterOpening(account, '2025-12-31T00:00:00.000Z'),
+    ).toBe(false)
+    expect(
+      isCashAdvanceTxnDateOnOrAfterOpening(account, '2026-01-01T00:00:00.000Z'),
+    ).toBe(true)
+  })
+
+  it('açılış tarihi ilk hareketten sonra olamaz', () => {
+    const earliest = earliestCashAdvanceTransactionDate('ca-1', [
+      txn({ id: 'a', date: '2026-03-01T00:00:00.000Z', amount: 1, type: 'draw' }),
+    ])
+    expect(earliest).toBe('2026-03-01T00:00:00.000Z')
+    expect(
+      isCashAdvanceOpeningDateOnOrBeforeFirstTxn(
+        '2026-03-15T00:00:00.000Z',
+        earliest,
+      ),
+    ).toBe(false)
+  })
+
+  it('açılış öncesi hareket motor hesabına dahil edilmez', () => {
+    const txns = [
+      txn({
+        id: 'early',
+        date: '2025-12-15T00:00:00.000Z',
+        amount: 5_000,
+        type: 'draw',
+      }),
+      txn({
+        id: 'ok',
+        date: '2026-02-01T00:00:00.000Z',
+        amount: 1_000,
+        type: 'draw',
+      }),
+    ]
+    expect(
+      cashAdvanceDrawCapacity(account, txns, '2026-06-15T12:00:00.000Z'),
+    ).toBe(9_000)
+  })
+})
 
 describe('cashAdvanceDrawCapacity', () => {
   it('boş hesapta limit kadar kullanım kapasitesi verir', () => {

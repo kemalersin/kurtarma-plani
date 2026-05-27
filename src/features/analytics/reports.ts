@@ -20,7 +20,11 @@ import type {
   LoanPayment,
 } from '@/core/types/entities'
 import { cashAdvanceAccountMonthlyDebts } from '@/features/debts/cashAdvanceHelpers'
-import { buildCardPeriods, projectCardPeriodDebts, type CardProjectionRateContext } from '@/features/debts/cardHelpers'
+import {
+  buildCardPeriods,
+  projectCardPeriodDebts,
+  type CardProjectionRateContext,
+} from '@/features/debts/cardHelpers'
 import type { AccountMovement } from '@/features/cashflow/movements'
 import {
   buildScheduleForLoan,
@@ -176,6 +180,16 @@ function debtInstallmentDueForBalance(row: DebtInstallmentRow): ReturnType<typeo
   return D(row.dueAmount ?? row.amount)
 }
 
+/** Liste Tutar sütunu — kredi / taksitli avans bekleyen satırlarda grafikle aynı (rollup + gecikme). */
+export function debtInstallmentTableAmount(row: DebtInstallmentRow): string {
+  if (row.debtKind === 'loan' || row.debtKind === 'installmentAdvance') {
+    if (!row.paid || debtInstallmentPaidDisplay(row) > 0) {
+      return row.dueAmount ?? row.amount
+    }
+  }
+  return row.amount
+}
+
 /** Satırda gösterilecek ödenen tutar (kısmi ödeme dahil; faiz/ücret dahil gerçek ödeme). */
 export function debtInstallmentPaidDisplay(row: DebtInstallmentRow): number {
   if (row.paidAmount != null && row.paidAmount !== '') {
@@ -208,15 +222,18 @@ function cardPeriodsForRange(
   card: CreditCard,
   transactions: CreditCardTransaction[],
   range: AnalyticsDateRange,
+  todayIso: string,
 ): ReturnType<typeof buildCardPeriods> {
   const toDate = new Date(range.to)
   const fromDate = new Date(range.from)
+  const today = new Date(todayIso)
   const spanMonths =
     (toDate.getUTCFullYear() - fromDate.getUTCFullYear()) * 12 +
     (toDate.getUTCMonth() - fromDate.getUTCMonth()) +
     12
   const periods = Math.min(Math.max(spanMonths, 18), 120)
-  return buildCardPeriods(card, transactions, { periods, asOf: toDate })
+  const buildAsOf = today.getTime() > toDate.getTime() ? today : toDate
+  return buildCardPeriods(card, transactions, { periods, asOf: buildAsOf })
 }
 
 function parseEndpoint(endpointId?: string): {
@@ -468,13 +485,12 @@ export function debtInstallmentRows(
     if (card.currency !== input.localCurrency) continue
     if (bankId && card.bankId !== bankId) continue
     const txns = input.creditCardTransactions.filter((t) => t.cardId === card.id)
-    const periods = cardPeriodsForRange(card, txns, range)
+    const periods = cardPeriodsForRange(card, txns, range, todayIso)
     const projections = projectCardPeriodDebts(card, txns, {
       periods,
       asOf: new Date(todayIso),
       ...input.creditCardRateContext,
     })
-
     for (const p of projections) {
       if (!inRange(p.dueDate, range)) continue
       if (p.endingBalance <= 0) continue

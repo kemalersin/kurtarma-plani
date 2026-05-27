@@ -21,7 +21,7 @@ import DismissibleDrawerAlert from '@/components/DismissibleDrawerAlert.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useProfileStore } from '@/stores/profile'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
-import { disableFutureDates, disableOutsideDateRange, combineDisabledDates } from '@/core/util/datepicker'
+import { disableFutureDates, disableOutsideDateRange, disableBefore, combineDisabledDates } from '@/core/util/datepicker'
 import type {
   CreditCard,
   CreditCardTransaction,
@@ -32,6 +32,7 @@ import {
   cardPeriodBounds,
   defaultCardTxnDateInPeriod,
   isCardTxnDateInPeriod,
+  isCreditCardTxnDateOnOrAfterOpening,
   type CardPeriod,
   type CardPeriodBounds,
 } from './cardHelpers'
@@ -113,20 +114,33 @@ const createPeriodBounds = computed<CardPeriodBounds | null>(() => {
 })
 
 const createPeriodDateHint = computed(() => {
+  const parts: string[] = []
   const bounds = createPeriodBounds.value
-  if (!bounds) return undefined
-  const lastDay = new Date(bounds.periodEndExclusiveIso)
-  lastDay.setUTCDate(lastDay.getUTCDate() - 1)
-  return `Yalnız ${formatDate(bounds.periodStartIso)} – ${formatDate(lastDay.toISOString())} arası (seçili dönem).`
+  if (bounds) {
+    const lastDay = new Date(bounds.periodEndExclusiveIso)
+    lastDay.setUTCDate(lastDay.getUTCDate() - 1)
+    parts.push(
+      `Yalnız ${formatDate(bounds.periodStartIso)} – ${formatDate(lastDay.toISOString())} arası (seçili dönem).`,
+    )
+  }
+  if (props.card?.openingDate) {
+    parts.push(
+      `Kart açılış tarihinden (${formatDate(props.card.openingDate)}) önce seçilemez.`,
+    )
+  }
+  return parts.length ? parts.join(' ') : undefined
 })
 
 const disabledTxnDate = computed(() => {
+  const fns: Array<(current: Dayjs) => boolean> = [disableFutureDates]
   const bounds = createPeriodBounds.value
-  if (!bounds) return disableFutureDates
-  return combineDisabledDates(
-    disableFutureDates,
-    disableOutsideDateRange(bounds.periodStartIso, bounds.periodEndExclusiveIso),
-  )
+  if (bounds) {
+    fns.push(disableOutsideDateRange(bounds.periodStartIso, bounds.periodEndExclusiveIso))
+  }
+  if (props.card?.openingDate) {
+    fns.push(disableBefore(props.card.openingDate))
+  }
+  return combineDisabledDates(...fns)
 })
 
 const drawerTitle = computed(() => {
@@ -156,7 +170,10 @@ watch(
         props.statementPeriod && !props.txn
           ? cardPeriodBounds(props.statementPeriod)
           : null
-      draft.date = bounds ? dayjs(defaultCardTxnDateInPeriod(bounds)) : dayjs()
+      const minDate = props.card?.openingDate
+      draft.date = bounds
+        ? dayjs(defaultCardTxnDateInPeriod(bounds, new Date(), minDate))
+        : dayjs()
       draft.type = 'purchase'
       draft.amount = 0
       draft.installmentCount = 1
@@ -260,6 +277,15 @@ async function submit(): Promise<void> {
   const bounds = createPeriodBounds.value
   if (bounds && !isCardTxnDateInPeriod(draft.date.toISOString(), bounds)) {
     message.error('Hareket tarihi seçili dönem dışında.')
+    return
+  }
+  if (
+    props.card.openingDate &&
+    !isCreditCardTxnDateOnOrAfterOpening(props.card, draft.date.toISOString())
+  ) {
+    message.error(
+      `Hareket tarihi kart açılış tarihinden (${formatDate(props.card.openingDate)}) önce olamaz.`,
+    )
     return
   }
   if (supportsInstallments.value && draft.installmentCount > 1) {

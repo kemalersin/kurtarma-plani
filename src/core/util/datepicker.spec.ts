@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import dayjs from 'dayjs'
-import { disableFutureDates, disableAfter } from './datepicker'
+import { disableFutureDates, disableAfter, disableBefore } from './datepicker'
 
 describe('disableFutureDates', () => {
   it('bugünü devre dışı bırakmaz (gerçek ödeme bugün yapılabilir)', () => {
@@ -61,5 +61,21 @@ describe('disableAfter', () => {
     const fn = disableAfter(limit)
     expect(fn(limit.add(23, 'hour'))).toBe(false)
     expect(fn(limit.add(1, 'day'))).toBe(true)
+  })
+})
+
+describe('disableBefore', () => {
+  it('limit günü ve sonrasını açık bırakır', () => {
+    const limit = dayjs('2026-05-15')
+    const fn = disableBefore(limit)
+    expect(fn(limit.subtract(1, 'day'))).toBe(true)
+    expect(fn(limit)).toBe(false)
+    expect(fn(limit.add(1, 'day'))).toBe(false)
+  })
+
+  it('ISO string limit kabul eder', () => {
+    const fn = disableBefore('2026-05-15T00:00:00.000Z')
+    expect(fn(dayjs('2026-05-14'))).toBe(true)
+    expect(fn(dayjs('2026-05-15'))).toBe(false)
   })
 })

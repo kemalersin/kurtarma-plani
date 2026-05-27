@@ -165,6 +165,9 @@ const attachmentUploadHint = computed(() => {
 
 const hasProviders = computed(() => (ai.settings?.providers.length ?? 0) > 0)
 
+/** Tam sayfa AI Asistan'da sayfa düzeyinde gösterilir; panel içinde tekrarlanmaz. */
+const showProviderSetupBanner = computed(() => props.variant !== 'embedded')
+
 const needsProviderSelection = computed(
   () => ai.showProviderPicker && !ai.chat?.providerId,
 )
@@ -425,7 +428,7 @@ function goToAiSettings(): void {
       class="kp-ai-chat__banner"
     />
     <Alert
-      v-else-if="ai.loaded && !hasProviders"
+      v-else-if="ai.loaded && !hasProviders && showProviderSetupBanner"
       type="info"
       show-icon
       banner

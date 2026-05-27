@@ -30,12 +30,16 @@ import { useEntitiesStore } from '@/stores/entities'
 import { useProfileStore } from '@/stores/profile'
 import { useBankingPresetStore } from '@/stores/banking-preset'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
+import { disableBefore } from '@/core/util/datepicker'
 import type {
   Bank,
   CashAdvanceAccount,
   InstallmentCashAdvance,
   RatePeriodEnum,
 } from '@/core/types/entities'
+import {
+  isFirstInstallmentDateOnOrAfterStart,
+} from '@/features/debts/installmentAdvanceHelpers'
 import { buildAnnuitySchedule } from '@/finance/loan'
 import { D } from '@/finance/decimal'
 
@@ -52,7 +56,25 @@ const emit = defineEmits<{
 const entities = useEntitiesStore()
 const profileStore = useProfileStore()
 const presetStore = useBankingPresetStore()
-const { formatCurrency, formatNumber, formatPercentFromFraction } = useLocaleFormatters()
+const { formatCurrency, formatDate, formatNumber, formatPercentFromFraction } =
+  useLocaleFormatters()
+
+const firstInstallmentDateHint = computed(() => {
+  if (!draft.startDate) return undefined
+  return `Başlangıç tarihinden (${formatDate(draft.startDate.toISOString())}) önce seçilemez.`
+})
+
+function firstInstallmentDateDisabled(current: Dayjs): boolean {
+  if (!draft.startDate) return false
+  return disableBefore(draft.startDate)(current)
+}
+
+function clampFirstInstallmentDate(): void {
+  if (!draft.startDate || !draft.firstInstallmentDate) return
+  if (draft.firstInstallmentDate.isBefore(draft.startDate, 'day')) {
+    draft.firstInstallmentDate = draft.startDate
+  }
+}
 
 const banks = entities.list<Bank>('bank')
 const cashAdvances = entities.list<CashAdvanceAccount>('cashAdvanceAccount')
@@ -182,9 +204,17 @@ watch(
         archived: !!props.advance.archived,
         sensitive: readSensitiveDraft('installmentCashAdvance', props.advance.id),
       })
+      clampFirstInstallmentDate()
     } else {
       Object.assign(draft, emptyForm())
     }
+  },
+)
+
+watch(
+  () => draft.startDate?.valueOf(),
+  () => {
+    if (props.open) clampFirstInstallmentDate()
   },
 )
 
@@ -261,6 +291,17 @@ async function submit(): Promise<void> {
   }
   if (draft.termMonths <= 0) {
     message.error('Vade sıfırdan büyük olmalı.')
+    return
+  }
+  if (
+    !isFirstInstallmentDateOnOrAfterStart(
+      draft.startDate.toISOString(),
+      draft.firstInstallmentDate.toISOString(),
+    )
+  ) {
+    message.error(
+      `İlk taksit tarihi başlangıç tarihinden (${formatDate(draft.startDate.toISOString())}) önce olamaz.`,
+    )
     return
   }
   saving.value = true
@@ -352,8 +393,15 @@ function close(): void {
       <FormItem label="Başlangıç tarihi" required>
         <LocaleDatePicker v-model:value="draft.startDate" style="width: 100%" />
       </FormItem>
-      <FormItem label="İlk taksit tarihi" required>
-        <LocaleDatePicker v-model:value="draft.firstInstallmentDate" style="width: 100%" />
+      <FormItem required>
+        <template #label>
+          <KpFormLabel :hint="firstInstallmentDateHint">İlk taksit tarihi</KpFormLabel>
+        </template>
+        <LocaleDatePicker
+          v-model:value="draft.firstInstallmentDate"
+          :disabled-date="firstInstallmentDateDisabled"
+          style="width: 100%"
+        />
       </FormItem>
       <FormItem label="Sözleşme faizi (%)" required>
         <Space.Compact style="width: 100%">

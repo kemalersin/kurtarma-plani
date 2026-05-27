@@ -6,6 +6,41 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.37]
+
+### Fixed — AI Asistan sağlayıcı uyarısı
+
+- Tam sayfa AI Asistan'da sohbet paneli içindeki "AI sağlayıcısı yapılandırılmadı." uyarısı kaldırıldı; sayfa üstündeki bilgilendirme yeterli.
+
+### Fixed — kredi kartı hareket tarihi
+
+- Kart hareketi tarihi, kartın açılış tarihinden önce seçilemez ve kaydedilemez; açılış öncesi dönemlerde yeni hareket eklenemez.
+- Kart düzenlemede açılış tarihi, ilk hareket tarihinden sonra seçilemez ve kaydedilemez.
+- Nakit avans: hareket tarihi açılış tarihinden önce olamaz; hesap düzenlemede açılış tarihi ilk hareketten sonra tarih seçicide seçilemez (kredi kartı ile aynı). Açılış öncesi hareketler borç hesabına dahil edilmez.
+- `LocaleDatePicker`: `disabled-date` attrs'ı AntDV `disabledDate` olarak aktarılır; mobil panelde devre dışı günler doğru uygulanır.
+
+### Fixed — taksit ödemesi sırası
+
+- Önceki taksit ödenmeden ödeme drawer'ında uyarı: önce hangi taksitin kapatılması gerektiği belirtilir (taksitli avans ve kredi).
+- Önceki dönem kapatılmamış olsa bile vadesi geçmiş taksitte gecikme günü (ve faiz özeti) bugüne göre gösterilir; ödeme tarihi seçilmeden 0 görünmez.
+
+### Fixed — taksitli avans ödeme drawer özeti
+
+- Dört bilgi kartı (gecikme faizi dahil) 2×2 ızgarada gösterilir.
+
+### Fixed — analiz borç taksit listesi
+
+- Taksitli nakit avans (ve kredi) satırlarında Tutar sütunu, grafikteki gibi gecikme rollup ve gecikme faizi dahil `dueAmount` gösterir.
+
+### Fixed — taksitli nakit avans tarihleri
+
+- İlk taksit tarihi, başlangıç tarihinden önce tarih seçicide seçilemez ve kaydedilemez; başlangıç ileri alınınca ilk taksit otomatik sıkıştırılır.
+
+### Fixed — analiz raporunda kart devreden bakiyesi
+
+- Devreden açılış bakiyesi artık dönem toplam ödeme (`Kart toplam ödeme`) satırına dahil; açılış tarihi kesim dönemi ortasındaysa da ilk ilgili ekstrede görünür.
+- Ayrı “devreden bakiye” satırı kaldırıldı; grafikte çift sayım ve tekrarlayan aylar önlendi.
+
 ## [0.1.36]
 
 ### Fixed — masaüstü menü hover peek
