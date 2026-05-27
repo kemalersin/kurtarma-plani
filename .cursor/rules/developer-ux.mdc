@@ -28,9 +28,10 @@ Kaynak: `docs/WIKI.md` §9. Bu kural tüm geliştirme oturumlarında geçerlidir
 - Ant Design Vue token sistemi; **Tailwind yok**
 - On-demand import; tek HTML bundle boyutunu gözet
 - **Sayfa genişliği:** AppShell `router-view` → `.kp-page`. Varsayılan dar sütun (`--kp-page-max-width: 800px`). **Liste sayfaları** route `meta.pageLayout: 'wide'` ile tam yatay genişlik (`.kp-page--wide`); **sekmeli liste** sayfalarında `wide-fill` (`.kp-page--fill`) — tablo/liste ekranlarında zorunlu
+- **Sol menü:** marka + alt footer sabit; profil + navigasyon **kaydırılabilir** (`kp-sider__nav-scroll`)
 - **Kaydırma çubukları:** `body` dışında yalnızca hover'da görünür (`app.css` global kural)
 - **Tooltip (mobil):** `KpTooltip`; `≤768px` tooltip yok (ui-patterns.mdc)
-- **Drawer (mobil):** `FormDrawer` tam ekran; stack sola kaydırma yok (ui-patterns.mdc)
+- **Drawer (mobil):** `FormDrawer` tam ekran; stack sola kaydırma yok; **Vazgeç/Kaydet footer'da** (ui-patterns.mdc)
 - **Drawer bilgi alert'leri:** bağlam/açıklama için `DismissibleDrawerAlert` + benzersiz `hint-key`; anlık form uyarıları istisna (ui-patterns.mdc)
 - **Modal:** kullanılabilir alanın dikey ortasında; JSON blokları `JsonCodeBlock` ile renklendirilmiş + satır kırılımı
 - **Sekmeli sayfalar:** seçili sekme URL'de (`?tab=`); yenilemede aynı sekme — `useRoutedTabs`
@@ -46,13 +47,14 @@ Kaynak: `docs/WIKI.md` §9. Bu kural tüm geliştirme oturumlarında geçerlidir
 
 | Bileşen | Gereksinim |
 |---------|------------|
-| Sol menü | Collapsible; **pin** ile sabitlenebilir (tercih localStorage) |
+| Sol menü | Collapsible; **pin** ile sabitlenebilir (tercih localStorage); marka + footer sabit, **profil + navigasyon kaydırılabilir** (`kp-sider__nav-scroll`) |
 | Navbar | **Global arama** — banka, hesap, borç, gelir, gider indeksi |
 | Formlar | **Drawer**; modal yerine tercih et |
 
 ## Drawer + combobox
 
-- Form drawer: **`FormDrawer`** + `stackId`; `useDrawerStack` — z-index artar; masaüstünde **alttaki drawer sola kayar** (44px/katman); **mobilde tam ekran, kaydırma yok**
+- Form drawer: **`FormDrawer`** + `stackId`; `useDrawerStack` — z-index artar; masaüstünde **alttaki drawer sola kayar** (44px/katman); **mobilde tam ekran, stack yatay kaydırma yok**
+- **Vazgeç / Kaydet:** `#actions` slot — masaüstü header, **mobil footer** (varsayılan `mobileActionsInFooter`); footer düğmeleri sağa dayalı, otomatik genişlik
 - Drawer üstü **bilgi alert'leri:** `DismissibleDrawerAlert` + benzersiz `hint-key` (ui-patterns.mdc)
 - Açılışta ilk form alanına otomatik focus
 - Liste/combobox **「Yeni Kayıt」** → drawer mevcut drawer **üstüne**; üst kapanınca alttaki kalır
@@ -69,7 +71,7 @@ Kaynak: `docs/WIKI.md` §9. Bu kural tüm geliştirme oturumlarında geçerlidir
 
 ## Grafik ve rapor
 
-- Önemli metrikler **ECharts** ile dashboard'da
+- Önemli metrikler **ECharts** ile dashboard'da; üst KPI satırı **`KpStatRow`** (`two-by-two-until-lg` ile `lg` altında 2×2)
 - Ayrı **analiz / rapor** sayfaları; ileride Excel/PDF yalnızca görünür tablo/grafikten
 
 ## Bölgesel biçim

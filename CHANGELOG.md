@@ -6,6 +6,21 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.39]
+
+### Changed — ana sayfa panel özeti
+
+- «Bu ay net» kartında mobilde (`≤640px`) gelir ve gider aynı anda gösterilmez; varsayılan gelir, kart sağ üstündeki geçiş düğmesiyle gider gösterilir. Masaüstünde tam ipucu metni korunur.
+- Üst KPI kartları Ant Design `lg` altında (`<992px`) 2×2, `lg` ve üzerinde tek satır (`KpStatRow` `two-by-two-until-lg`).
+
+### Changed — yan menü
+
+- Profil özeti ve navigasyon menüsü kısa viewport'ta kaydırılabilir; marka alanı ve alt sürüm/senkron satırı sabit kalır.
+
+### Changed — form drawer mobil aksiyonlar
+
+- Vazgeç ve Kaydet düğmeleri varsayılan olarak mobilde (`≤768px`) drawer footer'ında; sağa dayalı, otomatik genişlik. Masaüstünde header'da kalır (`FormDrawer` `mobileActionsInFooter` varsayılan `true`).
+
 ## [0.1.37]
 
 ### Fixed — AI Asistan sağlayıcı uyarısı

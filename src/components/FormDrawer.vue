@@ -15,7 +15,10 @@ interface Props {
   layout?: 'default' | 'table'
   /** #actions her zaman drawer footer'da (masaüstü + mobil). */
   actionsInFooter?: boolean
-  /** Mobilde #actions footer'da; masaüstünde header. Taksit planı vb. */
+  /**
+   * Mobilde #actions footer'da; masaüstünde header (varsayılan: açık).
+   * `false` ile eski davranış (mobilde de header).
+   */
   mobileActionsInFooter?: boolean
   /** Ek kök sınıfları (`kp-form-drawer--list-filter` vb.). */
   drawerClass?: string
@@ -28,7 +31,7 @@ const props = withDefaults(defineProps<Props>(), {
   maskClosable: true,
   layout: 'default',
   actionsInFooter: false,
-  mobileActionsInFooter: false,
+  mobileActionsInFooter: true,
   autoFocusFirst: true,
 })
 

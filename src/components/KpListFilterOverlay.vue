@@ -65,7 +65,6 @@ function openDrawer(): void {
       :open="!!open"
       :title="title"
       drawer-class="kp-form-drawer--list-filter"
-      mobile-actions-in-footer
       @update:open="open = $event"
     >
       <div class="kp-list-filter kp-list-filter--drawer">

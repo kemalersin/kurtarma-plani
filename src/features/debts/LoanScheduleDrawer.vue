@@ -227,7 +227,6 @@ function scheduleRowProps(row: ScheduleRow): Record<string, unknown> {
     :open="open"
     :title="loan ? `${loan.name} — taksit planı` : 'Taksit planı'"
     width="min(960px, 100vw)"
-    mobile-actions-in-footer
     @update:open="emit('update:open', $event)"
   >
     <template #actions>
