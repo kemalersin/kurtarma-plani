@@ -2,10 +2,55 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import { viteSingleFile } from 'vite-plugin-singlefile'
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: './',
-  plugins: [vue(), viteSingleFile()],
+  plugins: [
+    vue(),
+    VitePWA({
+      // SW kaydını koşullu yapabilmek için elle (main.ts) yönetiyoruz.
+      injectRegister: false,
+      registerType: 'prompt',
+      strategies: 'generateSW',
+      // Manifest `public/manifest.webmanifest` dosyasını kullanıyoruz; eklenti
+      // ayrıca kendi manifest'ini üretmesin.
+      manifest: false,
+      workbox: {
+        // viteSingleFile her şeyi `index.html` içine gömüyor; precache yalnız
+        // HTML kabuğu ve manifest/ikon yan dosyaları olmalı.
+        globPatterns: ['index.html', 'manifest.webmanifest', '*.svg'],
+        // Tek-dosya bundle 2 MB varsayılan eşiğini aşar; 12 MB güvenli üst sınır.
+        maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
+        // Hash routing (`#/...`) ile her yol `index.html` döndürmeli.
+        navigateFallback: 'index.html',
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: false,
+        runtimeCaching: [
+          {
+            // Google Fonts (steering istisnası): yazı tipi varlıkları uzun süre cache.
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'kp-google-fonts-webfonts',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'kp-google-fonts-stylesheets',
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
+    }),
+    viteSingleFile(),
+  ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

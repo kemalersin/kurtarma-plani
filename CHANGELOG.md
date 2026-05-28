@@ -6,6 +6,11 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+### Added — PWA desteği
+
+- Uygulama artık `kurtar.co` üzerinde Progressive Web App olarak yüklenebilir. `vite-plugin-pwa` ile üretilen `sw.js` `index.html`, manifest ve ikonları precache eder; hash routing için navigate fallback `index.html` üzerinden çalışır. Google Fonts varlıkları service worker tarafından cache'lenir (CacheFirst). `public/manifest.webmanifest`, `public/icon.svg`, `public/icon-maskable.svg` eklendi; `index.html` head bölümüne theme-color, apple-touch-icon ve manifest etiketleri yerleşti.
+- Service worker yeni bir sürüm hazırladığında ana sayfada «Yeni sürüm hazır» bildirimi gösterilir; kullanıcı **Yenile** ile bekleyen worker'ı aktive edip uygulamayı tazeleyebilir (`UpdateAvailableNotice`). `file://` veya http(s) dışı protokollerde service worker kaydı atlanır.
+
 ### Changed — form drawer mobil klavye
 
 - Mobilde form drawer açıkken `visualViewport` ile drawer yüksekliği klavyeye göre küçülür; Vazgeç/Kaydet footer'ı klavyenin üstünde kalır. Viewport meta: `interactive-widget=resizes-content`.

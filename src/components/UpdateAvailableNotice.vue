@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { Button, message } from 'ant-design-vue'
-import { CloudDownloadOutlined } from '@ant-design/icons-vue'
+import { CloudDownloadOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import KpNotice from '@/components/KpNotice.vue'
 import { APP_VERSION } from '@/core/constants'
 import { downloadAppReleaseIndex } from '@/core/util/download'
 import { useUpdateStore } from '@/stores/update'
+import { applyPwaUpdate, swNeedsRefresh } from '@/core/services/pwa'
 
 const updateStore = useUpdateStore()
 const downloading = ref(false)
+const reloading = ref(false)
 
 async function downloadRelease(): Promise<void> {
   const url = updateStore.releaseUrl
@@ -29,10 +31,40 @@ async function downloadRelease(): Promise<void> {
     downloading.value = false
   }
 }
+
+async function reloadFromServiceWorker(): Promise<void> {
+  if (reloading.value) return
+  reloading.value = true
+  try {
+    await applyPwaUpdate()
+  } finally {
+    reloading.value = false
+  }
+}
 </script>
 
 <template>
-  <div v-if="updateStore.showNotice" class="kp-update-notice-float">
+  <div v-if="swNeedsRefresh" class="kp-update-notice-float">
+    <KpNotice
+      tone="info"
+      title="Yeni sürüm hazır"
+      detail="Uygulamanın yeni sürümü arka planda indirildi. Yenile düğmesine basarak hemen güncelleyebilirsiniz."
+    >
+      <template #action>
+        <Button
+          size="small"
+          type="link"
+          class="kp-update-notice__link"
+          :loading="reloading"
+          @click="reloadFromServiceWorker"
+        >
+          <template #icon><ReloadOutlined /></template>
+          Yenile
+        </Button>
+      </template>
+    </KpNotice>
+  </div>
+  <div v-else-if="updateStore.showNotice" class="kp-update-notice-float">
     <KpNotice
       tone="info"
       :title="`Yeni sürüm mevcut: v${updateStore.remoteVersion}`"
