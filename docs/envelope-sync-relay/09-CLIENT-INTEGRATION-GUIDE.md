@@ -1,6 +1,16 @@
-# 09 — İstemci Entegrasyon Kılavuzu
+# 09 — İstemci Entegrasyon Kılavuzu (Advanced)
+
+> **Varsayılan yol:** [14-ESR-SYNC-FACADE.md](./14-ESR-SYNC-FACADE.md) — `EsrSync.connect()`. Bu belge düşük seviye `RelayClient` + manuel birleştirme içindir (CLI, test, özel scheduler).
 
 Bu belge, **herhangi bir uygulamanın** Envelope Sync Relay ile nasıl entegre olacağını adım adım açıklar. Uygulama-özel iş mantığı yalnızca `DocumentAdapter` içinde kalır.
+
+## 0. Hızlı yönlendirme
+
+| İhtiyaç | Belge / API |
+|---------|-------------|
+| Normal uygulama entegrasyonu | [14-ESR-SYNC-FACADE.md](./14-ESR-SYNC-FACADE.md) |
+| Çoklu namespace oturumu, özel akış | Bu belge — `RelayClient` |
+| Kimlik (namespaceId, recovery) | `@esr/protocol` — doc 14 §3 |
 
 ## 1. Entegrasyon mimarisi
 
@@ -20,7 +30,7 @@ Bu belge, **herhangi bir uygulamanın** Envelope Sync Relay ile nasıl entegre o
 └─────────────────┬───────────────────────┘
                   │
 ┌─────────────────▼───────────────────────┐
-│ @esr/protocol — ESR-DOC1                │
+│ @esr/protocol — ESR-DOC1, kimlik araçları │
 └─────────────────────────────────────────┘
 ```
 
@@ -44,7 +54,7 @@ export interface DocumentAdapter {
     resolvePassword(): Promise<string | undefined>
   }
 
-  /** Namespace kimliği — uygulama workspace/profil UUID */
+  /** Namespace kimliği — uygulama workspace/profil UUID veya `generateNamespaceId()` */
   namespaceId(): string
 
   /** UI etiketi */
@@ -54,7 +64,63 @@ export interface DocumentAdapter {
 
 ESR SDK uygulama entity şemasını **bilmez**.
 
-## 3. RelayClient yapılandırması
+Uygulamanın zaten sabit bir workspace/profil UUID'si varsa `namespaceId()` bunu döndürür; yoksa create öncesi `generateNamespaceId()` ile üretilen değeri kalıcı olarak saklar.
+
+## 3. Kimlik araçları (`@esr/protocol`)
+
+`namespaceId` ve recovery phrase **sunucuda üretilmez**; üretim ve hash işlemi `@esr/protocol` içinde tek kaynak olmalı. Uygulama bu fonksiyonları kopyalamaz veya yeniden implement etmez.
+
+### 3.1 Zorunlu export'lar
+
+| Fonksiyon | Paket | Açıklama |
+|-----------|--------|----------|
+| `generateNamespaceId()` | `@esr/protocol` | RFC 4122 UUID v4 (`crypto.randomUUID` veya test edilebilir polyfill) |
+| `isValidNamespaceId(id)` | `@esr/protocol` | UUID v4 format doğrulama (envelope + API path) |
+| `generateRecoveryPhrase()` | `@esr/protocol` | BIP39 İngilizce **24 kelime** (doc 05) |
+| `normalizeRecoveryPhrase(phrase)` | `@esr/protocol` | Boşluk/nfc normalizasyonu; verify/create öncesi |
+| `buildRecoveryKeyProof(phrase)` | `@esr/protocol` | Argon2id salt+hash → API `recoveryKeyProof` (doc 05 parametreleri) |
+| `verifyRecoveryKeyProof(phrase, proof)` | `@esr/protocol` | Recover akışında istemci tarafı ön doğrulama (opsiyonel UX) |
+
+`@esr/client` bu export'ları **re-export** eder; `RelayClient.createNamespace` / `recover` içinde `buildRecoveryKeyProof` kullanır.
+
+### 3.2 Referans API
+
+```typescript
+import {
+  generateNamespaceId,
+  isValidNamespaceId,
+  generateRecoveryPhrase,
+  normalizeRecoveryPhrase,
+  buildRecoveryKeyProof,
+  verifyRecoveryKeyProof,
+} from '@esr/protocol'
+
+// Yeni workspace — uygulamanın önceden id'si yoksa
+const namespaceId = generateNamespaceId()
+assert(isValidNamespaceId(namespaceId))
+
+// Namespace create — phrase yalnızca istemcide; sunucuya salt+hash
+const recoveryPhrase = generateRecoveryPhrase()
+const proof = await buildRecoveryKeyProof(recoveryPhrase)
+
+await client.createNamespace({
+  namespaceId,
+  namespaceLabel: 'My Vault',
+  recoveryKeyProof: proof,
+  deviceLabel: getDeviceName(),
+  clientDeviceId: getOrCreateClientDeviceId(),
+})
+
+await ui.showRecoveryPhrase(recoveryPhrase) // bir kez; sunucu phrase görmez
+```
+
+### 3.3 Uygulama sağladığı id (ör. mevcut profil UUID)
+
+Sabit `namespaceId` kaynağı varsa `generateNamespaceId()` **çağrılmaz**; yine de `isValidNamespaceId(adapter.namespaceId())` create öncesi doğrulanmalı.
+
+Recovery phrase her zaman `generateRecoveryPhrase()` ile üretilir (profil parolasından bağımsız — doc 05).
+
+## 4. RelayClient yapılandırması
 
 ```typescript
 import { RelayClient } from '@esr/client'
@@ -67,20 +133,23 @@ const client = new RelayClient({
 })
 ```
 
-## 4. İlk kurulum akışı
+## 5. İlk kurulum akışı
 
 ```typescript
+import { generateRecoveryPhrase, buildRecoveryKeyProof } from '@esr/protocol'
+
 async function setupSync(adapter: DocumentAdapter): Promise<SetupResult> {
-  // 1. Recovery phrase üret (istemci)
-  const recoveryPhrase = generateRecoveryPhrase24Words()
-  const { salt, hash } = await hashRecoveryPhrase(recoveryPhrase)
+  const namespaceId = adapter.namespaceId()
+
+  // 1. Recovery phrase — @esr/protocol (uygulama kendi üretmez)
+  const recoveryPhrase = generateRecoveryPhrase()
+  const recoveryKeyProof = await buildRecoveryKeyProof(recoveryPhrase)
 
   // 2. Namespace oluştur
   const result = await client.createNamespace({
-    namespaceId: adapter.namespaceId(),
+    namespaceId,
     namespaceLabel: adapter.namespaceLabel(),
-    recoveryKeySalt: salt,
-    recoveryKeyHash: hash,
+    recoveryKeyProof,
     deviceLabel: getDeviceName(),
     clientDeviceId: client.clientDeviceId,
   })
@@ -98,7 +167,7 @@ async function setupSync(adapter: DocumentAdapter): Promise<SetupResult> {
 }
 ```
 
-## 5. İkinci cihaz pairing
+## 6. İkinci cihaz pairing
 
 **Cihaz A (host):**
 
@@ -136,7 +205,7 @@ catch (e) {
 }
 ```
 
-## 6. SyncEngine davranışı
+## 7. SyncEngine davranışı
 
 SDK sağlar veya uygulama kopyalar:
 
@@ -215,7 +284,7 @@ class SyncEngine {
 }
 ```
 
-## 7. Conflict çözümü (istemci UI)
+## 8. Conflict çözümü (istemci UI)
 
 ```typescript
 async function resolveConflict(choice: 'remote' | 'local'): Promise<void> {
@@ -234,7 +303,7 @@ async function resolveConflict(choice: 'remote' | 'local'): Promise<void> {
 
 Sunucu merge yapmaz; **local wins** = push ile uzak ezilir.
 
-## 8. Cihaz yönetimi UI
+## 9. Cihaz yönetimi UI
 
 ```typescript
 const { devices, limits } = await client.listDevices(namespaceId)
@@ -246,25 +315,26 @@ await client.revokeDevice(namespaceId, deviceId)
 ui.render(`${devices.length} / ${limits.maxDevices} cihaz`)
 ```
 
-## 9. Unlock kodu
+## 10. Unlock kodu
 
 ```typescript
 await client.redeemUnlockCode(namespaceId, unlockCode)
 // retry pairing
 ```
 
-## 10. Recovery
+## 11. Recovery
 
 ```typescript
+import { buildRecoveryKeyProof } from '@esr/protocol'
+
 async function recoverNamespace(
   namespaceId: string,
   recoveryPhrase: string,
 ): Promise<void> {
-  const proof = await hashRecoveryPhrase(recoveryPhrase)
+  const recoveryKeyProof = await buildRecoveryKeyProof(recoveryPhrase)
   const result = await client.recover({
     namespaceId,
-    recoveryKeySalt: proof.salt,
-    recoveryKeyHash: proof.hash,
+    recoveryKeyProof,
     deviceLabel: getDeviceName(),
     clientDeviceId: newClientDeviceId(), // or reuse
   })
@@ -273,7 +343,7 @@ async function recoverNamespace(
 }
 ```
 
-## 11. Offline davranış
+## 12. Offline davranış
 
 | Durum | Davranış |
 |-------|----------|
@@ -283,7 +353,7 @@ async function recoverNamespace(
 | Push fail network | Retry exponential backoff |
 | Pull fail | Rozet hata; yerel veri korunur |
 
-## 12. WebSocket bildirimleri (v1.1)
+## 13. WebSocket bildirimleri (v1.1)
 
 ```typescript
 import { NotificationClient } from '@esr/client'
@@ -308,7 +378,7 @@ Tam spesifikasyon: [13-WEBSOCKET-NOTIFICATIONS.md](./13-WEBSOCKET-NOTIFICATIONS.
 - Reconnect sonrası `GET head/meta` zorunlu
 - Conflict: `onHeadChanged` → conflict UI, kör pull yok
 
-## 13. Scheduler hook'ları
+## 14. Scheduler hook'ları
 
 Uygulama mount:
 
@@ -328,7 +398,7 @@ entitiesStore.afterSave(() => syncEngine.notifyLocalChange())
 await syncEngine.flushPush()
 ```
 
-## 14. Durum rozeti
+## 15. Durum rozeti
 
 | Durum | Koşul |
 |-------|--------|
@@ -341,7 +411,7 @@ await syncEngine.flushPush()
 | limit_blocked | DEVICE_LIMIT_BLOCKED |
 | ws_connected | NotificationClient connected (opsiyonel UI) |
 
-## 15. Paket bağımlılıkları (referans)
+## 16. Paket bağımlılıkları (referans)
 
 ```json
 {
@@ -356,25 +426,21 @@ Browser: native `fetch`, `crypto.subtle` (PBKDF2, AES-GCM, SHA-256).
 
 Node: `undici` fetch, `crypto` module.
 
-## 16. Test (uygulama tarafı)
+## 17. Test (uygulama tarafı)
 
 - Mock RelayClient ile adapter round-trip
 - Conflict simulation: two revisions
 - Limit modal trigger codes
 - Recovery flow integration test against testcontainers ESR
 
-## 17. Checklist — entegrasyon tamamlandı mı?
+## 18. Checklist — entegrasyon tamamlandı mı?
+
+**Facade (önerilen):** [14-ESR-SYNC-FACADE.md §10](./14-ESR-SYNC-FACADE.md#10-uygulama-checklist-facade)
+
+**Advanced (bu belge):**
 
 - [ ] DocumentAdapter implement edildi
-- [ ] Create namespace + recovery UX
-- [ ] Pairing QR/code UX
-- [ ] Device list + revoke
-- [ ] Pull on startup / focus
-- [ ] Debounced push on save
-- [ ] Conflict modal
-- [ ] Unlock / limit blocked UX
-- [ ] Recovery flow
-- [ ] device_token secure storage
-- [ ] Error messages kullanıcı dostu
-- [ ] (v1.1) NotificationClient + WS disconnect poll fallback
-- [ ] Offline disabled state + açıklama
+- [ ] `RelayClient` + `SyncEngine` + `NotificationClient` birleşimi
+- [ ] `SyncStateStore` + token storage
+- [ ] Scheduler hook'ları (visibility, focus, debounce, poll)
+- [ ] Conflict / limit / recovery UX

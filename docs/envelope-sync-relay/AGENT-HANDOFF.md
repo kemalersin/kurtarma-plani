@@ -31,8 +31,8 @@ Sapma gerekirse `docs/DEVIATIONS.md` oluştur ve gerekçelendir.
 
 | Bileşen | Paket / path |
 |---------|----------------|
-| Protokol (Zod, crypto helpers) | `@esr/protocol` |
-| HTTP istemci + SyncEngine | `@esr/client` |
+| Protokol (Zod, crypto helpers, kimlik araçları) | `@esr/protocol` — `generateNamespaceId`, `generateRecoveryPhrase`, `buildRecoveryKeyProof` |
+| HTTP istemci + SyncEngine + **EsrSync facade** | `@esr/client` — doc [14-ESR-SYNC-FACADE.md](./14-ESR-SYNC-FACADE.md) |
 | REST API sunucusu | `packages/server` |
 | Admin CLI (unlock code) | `@esr/cli` |
 | Docker compose | `docker/docker-compose.yml` |
@@ -48,7 +48,8 @@ Sapma gerekirse `docs/DEVIATIONS.md` oluştur ve gerekçelendir.
 | Document id v1 | yalnızca `primary` |
 | Identity | UUID v4 `namespaceId` + device_token + recovery hash |
 | API prefix | `/v1/namespaces/{namespaceId}` — **tenant yok** |
-| Recovery phrase | İstemci üretir; sunucu yalnızca Argon2id hash |
+| `namespaceId` üretimi | `@esr/protocol.generateNamespaceId()` — uygulama kopyalamaz; mevcut workspace id varsa adapter döndürür |
+| Recovery phrase | `@esr/protocol.generateRecoveryPhrase()` + `buildRecoveryKeyProof()`; sunucu yalnızca Argon2id hash |
 | Conflict | Sunucu merge yapmaz; 409 + istemci UI |
 | Slot model | `max = free_device_limit + purchased_slots` |
 | Purchased slots | Birikimli; recovery'de korunur |
@@ -73,6 +74,7 @@ Sapma gerekirse `docs/DEVIATIONS.md` oluştur ve gerekçelendir.
 - [ ] 409 revision conflict doğru
 - [ ] Loglarda payload yok (test ile doğrula)
 - [ ] Example node script çalışır
+- [ ] `@esr/protocol` identity unit tests: UUID v4, recovery round-trip proof, normalize
 - [ ] (Faz 7b) A push → B WS notify → B HTTP pull
 
 ## Teknoloji
@@ -93,9 +95,9 @@ Public API sözleşmesi (`openapi.yaml`, `ESR-DOC1`) değişmemeli.
 
 1. `docs/envelope-sync-relay/README.md` oku
 2. `11-IMPLEMENTATION-PLAN.md` Faz 0 ile repo scaffold oluştur
-3. `packages/protocol` + fixtures + unit tests
+3. `packages/protocol` + kimlik araçları (`identity.ts`) + fixtures + unit tests
 4. Sırayla devam et
 
 ## Entegrasyon notu (agent için değil, operatör için)
 
-Tüketici uygulamalar yalnızca `@esr/client` + `DocumentAdapter` implement eder. Bu agent'ın kapsamı dışındadır.
+Tüketici uygulamalar varsayılan olarak `EsrSync.connect()` + `DocumentAdapter` kullanır (doc 14). Bu agent Faz 6c'de facade'yi teslim eder.

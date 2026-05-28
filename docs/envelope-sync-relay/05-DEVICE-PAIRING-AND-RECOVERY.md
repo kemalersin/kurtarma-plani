@@ -14,26 +14,33 @@ ESR'de kullanıcı hesabı yoktur. Kimlik üç unsurla oluşur:
 
 ### 2.1 Üretim (istemci — zorunlu)
 
-- 24 kelime BIP39 veya 256-bit random → base32 gruplu (implementer seçer; **BIP39 İngilizce 24 kelime önerilir**)
+- **BIP39 İngilizce 24 kelime** — `@esr/protocol.generateRecoveryPhrase()` (uygulama/implementer kendi üretmez)
 - Namespace create **öncesinde** istemci phrase üretir
 - Kullanıcıya bir kez gösterilir; kopyalama onayı UI'da
 
+`namespaceId` için uygulamanın sabit workspace/profil UUID'si yoksa `@esr/protocol.generateNamespaceId()` (UUID v4). Mevcut id varsa adapter döndürür; yine de `isValidNamespaceId()` ile doğrulanır (doc 09).
+
 ### 2.2 Sunucuya gönderim
 
-Sunucu phrase **asla** görmez.
+Sunucu phrase **asla** görmez. İstemci `@esr/protocol.buildRecoveryKeyProof(phrase)` ile `recoveryKeyProof` üretir:
 
 ```typescript
-const salt = randomBytes(16)
-const hash = argon2id({
-  password: normalizePhrase(recoveryPhrase),
-  salt,
-  memoryCost: 65536,  // 64 MiB
-  timeCost: 3,
-  parallelism: 4,
-  hashLength: 32,
-})
-// POST namespace create: { recoveryKeySalt: b64(salt), recoveryKeyHash: b64(hash) }
+import { generateRecoveryPhrase, buildRecoveryKeyProof } from '@esr/protocol'
+
+const recoveryPhrase = generateRecoveryPhrase()
+const recoveryKeyProof = await buildRecoveryKeyProof(recoveryPhrase)
+// POST namespace create: { recoveryKeyProof: { salt, hash } }
 ```
+
+Argon2id parametreleri (SSOT — `packages/protocol/src/identity.ts`):
+
+| Parametre | Değer |
+|-----------|--------|
+| memoryCost | 65536 (64 MiB) |
+| timeCost | 3 |
+| parallelism | 4 |
+| hashLength | 32 |
+| salt | 16 byte random |
 
 ### 2.3 Recovery doğrulama
 

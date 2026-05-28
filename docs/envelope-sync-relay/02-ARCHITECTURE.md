@@ -206,9 +206,9 @@ envelope-sync-relay/
 ## 9. İstemci SDK modülleri (evrensel)
 
 ```
-@esr/protocol     — envelope parse/build/verify
-@esr/client       — RelayTransport: push, pull, pair, revoke
-@esr/client       — SyncEngine: debounce, conflict, offline queue (opsiyonel)
+@esr/protocol     — envelope parse/build/verify; kimlik: generateNamespaceId, generateRecoveryPhrase, buildRecoveryKeyProof
+@esr/client       — EsrSync: varsayılan facade (doc 14) — connect, ensureNamespace, sync, pairing
+@esr/client       — RelayClient + SyncEngine + NotificationClient: advanced / dahili
 ```
 
 Uygulama yalnızca `DocumentAdapter` implement eder:

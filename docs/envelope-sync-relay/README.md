@@ -20,7 +20,8 @@ Servis, herhangi bir offline-first uygulamanın **şifreli snapshot zarfını** 
 | 6 | [06-SLOT-LICENSING.md](./06-SLOT-LICENSING.md) | Slot modeli, ödeme, unlock kodları (kayıt yok) |
 | 7 | [07-SERVER-CONFIGURATION.md](./07-SERVER-CONFIGURATION.md) | Sunucu ayarları, env, docker |
 | 8 | [08-SECURITY.md](./08-SECURITY.md) | Tehdit modeli, kripto, rate limit |
-| 9 | [09-CLIENT-INTEGRATION-GUIDE.md](./09-CLIENT-INTEGRATION-GUIDE.md) | Herhangi bir uygulama nasıl entegre eder |
+| 9 | [14-ESR-SYNC-FACADE.md](./14-ESR-SYNC-FACADE.md) | **`EsrSync` — varsayılan istemci API (önce bu)** |
+| 9b | [09-CLIENT-INTEGRATION-GUIDE.md](./09-CLIENT-INTEGRATION-GUIDE.md) | Gelişmiş entegrasyon (`RelayClient` doğrudan) |
 | 10 | [10-DATA-MODEL.md](./10-DATA-MODEL.md) | PostgreSQL şeması, indeksler |
 | 11 | [11-IMPLEMENTATION-PLAN.md](./11-IMPLEMENTATION-PLAN.md) | Fazlar, repo yapısı, test, kabul kriterleri |
 | 12 | [12-ERROR-CODES.md](./12-ERROR-CODES.md) | HTTP hata kodları ve istemci retry politikası |
@@ -68,6 +69,8 @@ This specification is application-agnostic. Each consumer app should maintain it
 **v1.0.1:** Tenant katmanı kaldırıldı — API `/v1/namespaces/{namespaceId}`; `namespaceId` UUID v4 zorunlu.
 
 **v1.1.0:** WebSocket bildirim kanalı — bkz. [13-WEBSOCKET-NOTIFICATIONS.md](./13-WEBSOCKET-NOTIFICATIONS.md).
+
+**v1.2.0 (planlanan):** `@esr/client` `EsrSync` facade — bkz. [14-ESR-SYNC-FACADE.md](./14-ESR-SYNC-FACADE.md).
 
 ---
 

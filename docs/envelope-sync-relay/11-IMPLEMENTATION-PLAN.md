@@ -23,6 +23,7 @@ Bu belge, implementasyon agent'ının sırasıyla ne inşa edeceğini, test bekl
 - [ ] Monorepo scaffold (npm/pnpm workspaces veya cargo workspace)
 - [ ] TypeScript strict, ESLint, Prettier
 - [ ] `packages/protocol` — ESR-DOC1 Zod, sha256, fixtures
+- [ ] `packages/protocol/src/identity.ts` — `generateNamespaceId`, `isValidNamespaceId`, `generateRecoveryPhrase`, `normalizeRecoveryPhrase`, `buildRecoveryKeyProof`, `verifyRecoveryKeyProof` (doc 05 Argon2id; doc 09)
 - [ ] CI: lint + test on push
 - [ ] Docker compose postgres only
 
@@ -81,9 +82,24 @@ Bu belge, implementasyon agent'ının sırasıyla ne inşa edeceğini, test bekl
 - [ ] `@esr/client` RelayClient all API methods
 - [ ] SyncEngine: pull/push/conflict/debounce
 - [ ] ENV-ENC1 encode/decode in protocol or client
-- [ ] Browser + Node export (`package.json` exports)
+- [ ] Browser + Node export (`package.json` exports`)
 
 **Çıktı:** example app or vitest mock server e2e
+
+### Faz 6c — `EsrSync` facade (3–4 gün)
+
+Bkz. [14-ESR-SYNC-FACADE.md](./14-ESR-SYNC-FACADE.md)
+
+- [ ] `EsrStorage` + `createLocalStorageAdapter` + `createMemoryStorageAdapter`
+- [ ] `createDocumentAdapter` factory
+- [ ] `EsrSync.connect` — dahili RelayClient + SyncEngine + NotificationClient + scheduler
+- [ ] `ensureNamespace`, `startPairing`, `joinPairing`, `recover`, `sync`, `notifyLocalChange`
+- [ ] Callback'ler: `onRecoveryPhrase`, `onConflict`, `onDeviceLimit`, `onStatusChange`
+- [ ] `EsrError` + protocol kimlik araçları entegrasyonu
+- [ ] Vitest: memory storage + mock relay e2e
+- [ ] Doc 14 minimal örnek çalışır durumda (example app)
+
+**Çıktı:** v1.2.0 client tag; entegrasyon checklist §10 yeşil
 
 ### Faz 7 — Hardening (2–3 gün)
 
@@ -133,8 +149,12 @@ envelope-sync-relay/
 │   │   └── package.json
 │   ├── client/
 │   │   ├── src/
+│   │   │   ├── esr-sync.ts              # facade (doc 14)
+│   │   │   ├── esr-sync-scheduler.ts
+│   │   │   ├── esr-storage.ts
+│   │   │   ├── document-adapter.ts
 │   │   │   ├── notification-client.ts
-│   │   ├── relay-client.ts
+│   │   │   ├── relay-client.ts
 │   │   │   ├── sync-engine.ts
 │   │   │   ├── sync-scheduler.ts
 │   │   │   ├── errors.ts

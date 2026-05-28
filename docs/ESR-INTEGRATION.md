@@ -19,7 +19,9 @@ ESR spesifikasyonu uygulama-bağımsızdır; bu belge yalnızca KP tarafındaki 
 | Ayarlar → Senkron (`SyncSettingsSection`) | UI genişletmesi |
 | `useSyncStore` | Relay transport + mevcut file transport |
 
-**Namespace:** Aktif profil UUID'si (`ProfileMeta.id`) — ESR'de global benzersiz `namespaceId`.
+**Namespace:** Aktif profil UUID'si (`ProfileMeta.id`) — ESR'de global benzersiz `namespaceId`. KP `generateNamespaceId()` **kullanmaz** (profil zaten UUID); doğrulama için `isValidNamespaceId(profile.id)` yeterli.
+
+**Recovery phrase:** `@esr/protocol.generateRecoveryPhrase()` + `buildRecoveryKeyProof()` — KP içinde BIP39/Argon2 kopyası yok.
 
 **Document:**
 
@@ -241,7 +243,7 @@ Senkron yöntemi:
 
 **Öneri (basit):** ESR recovery için KP kurulum akışında ayrı ESR recovery phrase üret ve göster; profil parolasından bağımsız. Alternatif: aynı phrase'in hash'ini hem KP hem ESR'de kullan (daha riskli UX — tek phrase iki amaç).
 
-MVP entegrasyon: **ESR recovery phrase ayrı** — Ayarlar → Senkron → «Recovery anahtarını göster».
+MVP entegrasyon: **ESR recovery phrase ayrı** — Ayarlar → Senkron → «Recovery anahtarını göster». Üretim yalnızca `@esr/protocol` (veya `@esr/client` re-export).
 
 ---
 
@@ -281,7 +283,7 @@ ESR servisi ayrı repo/agent'ta geliştirilir. KP entegrasyonu ESR v1 hazır old
 
 | Faz | KP iş | Bağımlılık |
 |-----|-------|------------|
-| **KP-R1** | `@esr/client` + `KpDocumentAdapter` + unit test | ESR protocol paketi |
+| **KP-R1** | `@esr/client` + `KpDocumentAdapter` + unit test; recovery `@esr/protocol` araçları | ESR protocol paketi (kimlik export'ları dahil) |
 | **KP-R2** | `SyncConfig.transport`, `relayUrl`, meta migration | — |
 | **KP-R3** | `RelayTransport` in sync-engine; push/pull/conflict | ESR server docker |
 | **KP-R4** | `SyncSettingsSection` relay UI, cihaz listesi, pairing | ESR pairing API |
