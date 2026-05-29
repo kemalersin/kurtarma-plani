@@ -6,6 +6,8 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.40]
+
 ### Changed — form drawer mobil klavye
 
 - Mobilde form drawer açıkken `visualViewport` ile drawer yüksekliği klavyeye göre küçülür; Vazgeç/Kaydet footer'ı klavyenin üstünde kalır. Viewport meta: `interactive-widget=resizes-content`.
