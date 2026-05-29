@@ -97,7 +97,7 @@ let suppressScrollPinUpdate = false
 const SCROLL_BOTTOM_THRESHOLD_PX = 64
 
 const MESSAGE_INPUT_PLACEHOLDER =
-  'Mesajınızı yazın veya dosya/görsel yapıştırıp yükleyin\n(Enter gönderir, Shift+Enter yeni satıra geçer)'
+  'Mesajınızı yazın veya dosya/görsel yükleyin\n(Enter gönderir, Shift+Enter yeni satıra geçer)'
 
 function isNearBottom(el: HTMLElement): boolean {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= SCROLL_BOTTOM_THRESHOLD_PX

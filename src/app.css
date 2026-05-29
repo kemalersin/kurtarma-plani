@@ -529,27 +529,23 @@ body {
     overflow: auto;
   }
 
-  /* Kayıt/değişiklik form drawer: kaydırma çubuğu gizli (tablo / filtre drawer hariç) */
-  .kp-form-drawer:not(:has(.kp-drawer-table-page)):not(.kp-form-drawer--list-filter)
-    .kp-form-drawer__body {
+  /* Mobil drawer gövdesi: kaydırma çubuğu gizli (tablo layout drawer hariç) */
+  .kp-form-drawer:not(:has(.kp-drawer-table-page)) .kp-form-drawer__body {
     scrollbar-width: none;
     scrollbar-color: transparent transparent;
   }
 
-  .kp-form-drawer:not(:has(.kp-drawer-table-page)):not(.kp-form-drawer--list-filter)
-    .kp-form-drawer__body::-webkit-scrollbar {
+  .kp-form-drawer:not(:has(.kp-drawer-table-page)) .kp-form-drawer__body::-webkit-scrollbar {
     display: none;
     width: 0;
     height: 0;
   }
 
-  .kp-form-drawer:not(:has(.kp-drawer-table-page)):not(.kp-form-drawer--list-filter)
-    .kp-form-drawer__body.kp-scrolling {
+  .kp-form-drawer:not(:has(.kp-drawer-table-page)) .kp-form-drawer__body.kp-scrolling {
     scrollbar-color: transparent transparent;
   }
 
-  .kp-form-drawer:not(:has(.kp-drawer-table-page)):not(.kp-form-drawer--list-filter)
-    .kp-form-drawer__body.kp-scrolling::-webkit-scrollbar-thumb {
+  .kp-form-drawer:not(:has(.kp-drawer-table-page)) .kp-form-drawer__body.kp-scrolling::-webkit-scrollbar-thumb {
     background-color: transparent;
   }
 
@@ -557,9 +553,9 @@ body {
     overflow: hidden;
   }
 
-  .kp-form-drawer--mobile-footer.ant-drawer .ant-drawer-body {
+  /* .kp-form-drawer--mobile-footer.ant-drawer .ant-drawer-body {
     padding-bottom: 0;
-  }
+  } */
 
   /** Taksit planı footer: tek aksiyon (Erken kapama) tam satır */
   .kp-form-drawer--mobile-footer

@@ -10,6 +10,7 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 - Uygulama artık `kurtar.co` üzerinde Progressive Web App olarak yüklenebilir. `vite-plugin-pwa` ile üretilen `sw.js` `index.html`, manifest ve ikonları precache eder; hash routing için navigate fallback `index.html` üzerinden çalışır. Google Fonts varlıkları service worker tarafından cache'lenir (CacheFirst). `public/manifest.webmanifest`, `public/icon.svg`, `public/icon-maskable.svg` eklendi; `index.html` head bölümüne theme-color, apple-touch-icon ve manifest etiketleri yerleşti.
 - Service worker yeni bir sürüm hazırladığında ana sayfada «Yeni sürüm hazır» bildirimi gösterilir; kullanıcı **Yenile** ile bekleyen worker'ı aktive edip uygulamayı tazeleyebilir (`UpdateAvailableNotice`). `file://` veya http(s) dışı protokollerde service worker kaydı atlanır.
+## [0.1.40]
 
 ### Changed — form drawer mobil klavye
 
