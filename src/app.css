@@ -58,6 +58,9 @@ body {
   --ant-color-fill-quaternary: rgba(255, 255, 255, 0.04);
   --ant-color-primary: #1677ff;
   --ant-color-link: #1677ff;
+  --ant-color-info: #1668dc;
+  --ant-color-info-bg: #111a2c;
+  --ant-color-info-border: #15325b;
   --ant-color-success: #49aa19;
   --ant-color-warning: #d89614;
   --ant-color-error: #dc4446;

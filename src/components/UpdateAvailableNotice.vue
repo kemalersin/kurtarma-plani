@@ -62,7 +62,8 @@ async function downloadRelease(): Promise<void> {
   position: fixed;
   top: 16px;
   left: 50%;
-  z-index: 1100;
+  /* AntDV message/notification (1010) ve tooltip (1070) üstünde kalmamalı */
+  z-index: 900;
   width: min(calc(100% - 32px), var(--kp-page-max-width, 800px));
   transform: translateX(-50%);
   pointer-events: none;
@@ -74,7 +75,7 @@ async function downloadRelease(): Promise<void> {
 }
 
 [data-theme='dark'] .kp-update-notice-float :deep(.kp-notice) {
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
 }
 
 .kp-update-notice__link {

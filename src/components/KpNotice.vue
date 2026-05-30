@@ -178,8 +178,8 @@ const icon = computed<Component>(() => {
 }
 
 [data-theme='dark'] .kp-notice[data-tone='info'] {
-  border-color: rgba(22, 119, 255, 0.35);
-  background: rgba(22, 119, 255, 0.12);
+  border-color: var(--ant-color-info-border, rgba(22, 119, 255, 0.35));
+  background: var(--ant-color-info-bg, rgba(22, 119, 255, 0.12));
 }
 
 [data-theme='dark'] .kp-notice[data-tone='info'] .kp-notice__icon {
