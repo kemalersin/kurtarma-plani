@@ -36,6 +36,7 @@ import ThemeToggle from '@/components/ThemeToggle.vue'
 import SyncStatusBadge from '@/components/SyncStatusBadge.vue'
 import AiContextExportButton from '@/components/AiContextExportButton.vue'
 import SyncConflictModal from '@/components/SyncConflictModal.vue'
+import SyncRecoveryPhraseModal from '@/components/SyncRecoveryPhraseModal.vue'
 import KpAiChatWidget from '@/components/KpAiChatWidget.vue'
 import { KP_HOVER_CAPABLE_MQ, KP_MOBILE_VIEWPORT_MQ, useMatchMedia } from '@/composables/useMatchMedia'
 import BrandMark from '@/components/icons/BrandMark.vue'
@@ -371,6 +372,7 @@ function gotoCrumb(name?: string): void {
     </Layout>
 
     <SyncConflictModal />
+    <SyncRecoveryPhraseModal />
     <KpAiChatWidget />
   </div>
 </template>

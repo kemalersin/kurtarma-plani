@@ -109,7 +109,7 @@ async function deleteProfile(id: string, name: string): Promise<void> {
       <Empty v-if="profilesSorted.length === 0" description="Henüz profil yok.">
         <Space direction="vertical" :size="8">
           <Button type="primary" @click="newProfile">Yeni profil oluştur</Button>
-          <Button @click="restoreProfile">Yedekten / senkron'dan geri yükle</Button>
+          <Button @click="restoreProfile">Yedekten geri yükle</Button>
         </Space>
       </Empty>
 

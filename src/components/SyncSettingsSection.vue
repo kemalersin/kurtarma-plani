@@ -6,26 +6,35 @@ import {
   Checkbox,
   Form,
   FormItem,
+  Input,
   InputPassword,
   Modal,
+  Radio,
   Space,
   Switch,
   Typography,
   message,
 } from 'ant-design-vue'
-import { CloudSyncOutlined, DownloadOutlined, FileAddOutlined, FolderOpenOutlined, UploadOutlined } from '@ant-design/icons-vue'
+import { CloudSyncOutlined, DownloadOutlined, FileAddOutlined, FolderOpenOutlined, LinkOutlined, MobileOutlined, UploadOutlined } from '@ant-design/icons-vue'
+import SyncPairingDrawer from '@/components/SyncPairingDrawer.vue'
+import SyncDeviceDrawer from '@/components/SyncDeviceDrawer.vue'
+import SyncUnlockModal from '@/components/SyncUnlockModal.vue'
+import DismissibleDrawerAlert from '@/components/DismissibleDrawerAlert.vue'
 import { useSyncStore } from '@/stores/sync'
 import { useProfileStore } from '@/stores/profile'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import { envelopeProfileMismatch } from '@/core/services/sync/sync-engine'
-import { createDefaultSyncConfig, type SyncConfig } from '@/core/types/sync'
+import { createDefaultSyncConfig, relayUrlFromEnv, appIdFromEnv, type SyncConfig, type SyncTransport } from '@/core/types/sync'
 
 const syncStore = useSyncStore()
 const profileStore = useProfileStore()
-const { formatDateLong } = useLocaleFormatters()
+const { formatDateTimeLong } = useLocaleFormatters()
 
 function draftFromConfig(config: SyncConfig) {
   return {
+    transport: config.transport,
+    relayUrl: config.relayUrl ?? relayUrlFromEnv() ?? '',
+    appId: config.appId ?? appIdFromEnv() ?? '',
     encryptFile: config.encryptFile,
     useProfilePassword: config.useProfilePassword,
     includeSensitive: config.includeSensitive,
@@ -42,7 +51,9 @@ const passwordModalOpen = ref(false)
 const syncPassword = ref('')
 const syncPasswordError = ref<string | null>(null)
 const rememberPassword = ref(true)
-const passwordModalMode = ref<'sync' | 'adopt' | 'manual-pull' | 'manual-push'>('sync')
+const passwordModalMode = ref<
+  'sync' | 'adopt' | 'manual-pull' | 'manual-push' | 'save-config'
+>('sync')
 const manualFileInput = ref<HTMLInputElement | null>(null)
 const pendingManualFile = ref<File | null>(null)
 
@@ -70,11 +81,23 @@ const canConfigure = computed(
   () => profileStore.unlocked && Boolean(profileStore.activeProfileId),
 )
 
-const passwordModalLabel = computed(() =>
-  draft.useProfilePassword && profileHasPassword.value
-    ? 'Profil parolası'
-    : 'Senkron dosyası parolası',
+const isRelayDraft = computed(() => draft.transport === 'relay')
+const isFileDraft = computed(() => draft.transport === 'file')
+
+const wantsRelaySync = computed(() => syncStore.isRelayMode || isRelayDraft.value)
+
+const relaySyncReady = computed(
+  () => syncStore.isRelayMode && syncStore.relaySettingsSaved,
 )
+
+const relayDevicesDrawerOpen = ref(false)
+
+const passwordModalLabel = computed(() => {
+  if (draft.useProfilePassword && profileHasPassword.value) {
+    return 'Profil parolası'
+  }
+  return isRelayDraft.value ? 'Senkron servisi parolası' : 'Senkron dosyası parolası'
+})
 
 const passwordModalTitle = computed(() => {
   switch (passwordModalMode.value) {
@@ -84,6 +107,8 @@ const passwordModalTitle = computed(() => {
       return 'Uzak dosya parolası'
     case 'manual-push':
       return 'İndirme parolası'
+    case 'save-config':
+      return 'Senkron parolası'
     default:
       return 'Senkron parolası'
   }
@@ -97,12 +122,47 @@ const passwordModalOkText = computed(() => {
       return 'Dosyayı oku'
     case 'manual-push':
       return 'İndir'
+    case 'save-config':
+      return 'Kaydet'
     default:
       return 'Senkronize et'
   }
 })
 
 const statusMessage = computed(() => {
+  if (syncStore.isRelayMode || isRelayDraft.value) {
+    if (isRelayDraft.value && !syncStore.relaySettingsSaved) {
+      return 'Relay ayarlarını kaydedin; ilk bağlantı «Senkron ayarlarını kaydet» ile kurulur.'
+    }
+    switch (syncStore.runtimeStatus) {
+      case 'disabled':
+        return 'Senkron kapalı.'
+      case 'pending_relay':
+        return (
+          syncStore.relayUserErrorMessage ??
+          'Relay ayarlarını kaydedin; bağlantı otomatik kurulur.'
+        )
+      case 'pending_push':
+        return syncStore.relayConnecting
+          ? 'Relay bağlantısı kuruluyor…'
+          : 'Yerel değişiklikler relay\'e gönderilmeyi bekliyor…'
+      case 'remote_pending':
+        return 'Uzak güncelleme var; «Şimdi senkronize et» ile alın.'
+      case 'conflict':
+        return 'Yerel ve uzak sürüm birbirinden ayrıldı; «Çakışmayı çöz» ile seçim yapın.'
+      case 'offline':
+        return 'Çevrimdışı — finans modülü çalışır; relay senkronu ağ gelince devam eder.'
+      case 'ws_connected':
+        return 'Relay bağlı — canlı bildirim aktif.'
+      case 'error':
+        return syncStore.relayUserErrorMessage ?? 'Relay bağlantı hatası.'
+      default:
+        return syncStore.config.relayUrl
+          ? `Relay — ${syncStore.config.relayUrl}`
+          : 'Relay bağlantısı hazır.'
+    }
+  }
+
   if (syncStore.isManualMode) {
     switch (syncStore.runtimeStatus) {
       case 'disabled':
@@ -180,9 +240,10 @@ watch(useProfilePasswordApplicable, (applicable) => {
 })
 
 async function onEnabledChange(checked: boolean | string | number): Promise<void> {
-  if (!syncStore.loaded) return
+  if (!syncStore.loaded || syncStore.saving) return
   const next = checked === true || checked === 'true' || checked === 1
   if (!canConfigure.value) return
+  if (next === syncStore.enabled) return
   try {
     await syncStore.setEnabled(next)
     message.success(next ? 'Otomatik senkron açıldı.' : 'Otomatik senkron kapatıldı.')
@@ -191,21 +252,59 @@ async function onEnabledChange(checked: boolean | string | number): Promise<void
   }
 }
 
-async function saveOptions(): Promise<void> {
+async function onSaveOptionsClick(): Promise<void> {
   if (!canConfigure.value) return
-  const useProfilePassword = useProfilePasswordApplicable.value && draft.useProfilePassword
+  if (needsPasswordPromptForDraft()) {
+    openPasswordModal('save-config')
+    return
+  }
   try {
-    await syncStore.saveConfig({
-      encryptFile: draft.encryptFile,
-      useProfilePassword,
-      includeSensitive: draft.includeSensitive,
-      includeSecrets: draft.includeSecrets,
-      autoPush: syncStore.isManualMode ? false : draft.autoPush,
-    })
-    message.success('Senkron ayarları kaydedildi.')
+    await saveOptions()
   } catch (error) {
     message.error(error instanceof Error ? error.message : 'Kaydedilemedi.')
   }
+}
+
+async function saveOptions(showToast = true): Promise<void> {
+  if (!canConfigure.value) return
+  const useProfilePassword = useProfilePasswordApplicable.value && draft.useProfilePassword
+
+  await syncStore.saveConfig({
+    transport: draft.transport,
+    relayUrl: draft.relayUrl.trim() || undefined,
+    appId: draft.appId.trim() || undefined,
+    relayEndpointLocked: true,
+    encryptFile: draft.encryptFile,
+    useProfilePassword,
+    includeSensitive: draft.includeSensitive,
+    includeSecrets: draft.includeSecrets,
+    autoPush: syncStore.isManualMode && isFileDraft.value ? false : draft.autoPush,
+  })
+
+  const relayDraft = draft.transport === 'relay'
+  if (relayDraft && syncStore.enabled && draft.relayUrl.trim()) {
+    const connected = await syncStore.ensureRelayConnection({ silent: true })
+    if (showToast) {
+      if (connected) {
+        message.success('Senkron ayarları kaydedildi.')
+      } else {
+        const hint =
+          syncStore.relayUserErrorMessage ??
+          syncStore.relayStatusHint ??
+          'Relay bağlantısı kurulamadı; cihazı yeniden eşleştirin.'
+        message.error(hint)
+      }
+    }
+    return
+  }
+
+  if (showToast) {
+    message.success('Senkron ayarları kaydedildi.')
+  }
+}
+
+async function onTransportChange(next: SyncTransport): Promise<void> {
+  draft.transport = next
 }
 
 async function onPickFile(): Promise<void> {
@@ -238,8 +337,60 @@ async function onCreateFile(): Promise<void> {
   }
 }
 
-function needsPasswordForSync(): boolean {
-  return draft.encryptFile
+function draftSyncPasswordConfig(): Pick<SyncConfig, 'encryptFile' | 'useProfilePassword'> {
+  return {
+    encryptFile: draft.encryptFile,
+    useProfilePassword: useProfilePasswordApplicable.value && draft.useProfilePassword,
+  }
+}
+
+/** Taslak ayarlara göre parola modalı gerekli mi (kaydedilmiş oturum parolası dahil). */
+function needsPasswordPromptForDraft(): boolean {
+  if (!draft.encryptFile) return false
+  return (
+    syncStore.getSyncPasswordRequirementError(
+      profileHasPassword.value,
+      draftSyncPasswordConfig(),
+    ) !== null
+  )
+}
+
+function openPasswordModal(mode: typeof passwordModalMode.value): void {
+  passwordModalMode.value = mode
+  syncPassword.value = ''
+  syncPasswordError.value = null
+  passwordModalOpen.value = true
+}
+
+async function executeRelaySyncNow(password?: string): Promise<void> {
+  if (!relaySyncReady.value) {
+    message.warning('Önce «Senkron ayarlarını kaydet» ile Senkron.la ayarlarını kaydedin.')
+    return
+  }
+
+  if (password) {
+    syncStore.rememberSessionPassword(password, rememberPassword.value)
+  }
+
+  try {
+    const result = await syncStore.runManualSync({
+      filePassword: password,
+      pullRemote: true,
+      passwordConfig: draftSyncPasswordConfig(),
+    })
+    message.success(
+      result.pulled
+        ? 'Uzak veri alındı; yerel veri güncellendi.'
+        : 'Yerel veriler relay\'e gönderildi.',
+    )
+    syncPassword.value = ''
+    passwordModalOpen.value = false
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Senkron başarısız.'
+    if (!syncStore.relayUserErrorMessage) {
+      message.error(msg)
+    }
+  }
 }
 
 async function executeManualSync(password?: string): Promise<void> {
@@ -322,11 +473,8 @@ async function executeAdopt(password?: string): Promise<void> {
 
 async function onAdoptFile(): Promise<void> {
   if (!canConfigure.value) return
-  if (needsPasswordForSync()) {
-    passwordModalMode.value = 'adopt'
-    syncPassword.value = ''
-    syncPasswordError.value = null
-    passwordModalOpen.value = true
+  if (needsPasswordPromptForDraft()) {
+    openPasswordModal('adopt')
     return
   }
   await executeAdopt()
@@ -334,6 +482,18 @@ async function onAdoptFile(): Promise<void> {
 
 async function onSyncNow(): Promise<void> {
   if (!canConfigure.value) return
+  if (wantsRelaySync.value) {
+    if (syncStore.conflictPending) {
+      syncStore.openConflictModal()
+      return
+    }
+    if (needsPasswordPromptForDraft()) {
+      openPasswordModal('sync')
+      return
+    }
+    await executeRelaySyncNow()
+    return
+  }
   if (!syncStore.hasHandle && !syncStore.isManualMode) {
     message.warning('Önce senkron dosyası seçin veya oluşturun.')
     return
@@ -346,11 +506,8 @@ async function onSyncNow(): Promise<void> {
     syncStore.openConflictModal()
     return
   }
-  if (needsPasswordForSync()) {
-    syncPassword.value = ''
-    syncPasswordError.value = null
-    passwordModalMode.value = 'sync'
-    passwordModalOpen.value = true
+  if (needsPasswordPromptForDraft()) {
+    openPasswordModal('sync')
     return
   }
   await executeManualSync()
@@ -366,12 +523,9 @@ async function onManualFileSelected(event: Event): Promise<void> {
   input.value = ''
   if (!file || !canConfigure.value) return
 
-  if (needsPasswordForSync()) {
+  if (needsPasswordPromptForDraft()) {
     pendingManualFile.value = file
-    syncPassword.value = ''
-    syncPasswordError.value = null
-    passwordModalMode.value = 'manual-pull'
-    passwordModalOpen.value = true
+    openPasswordModal('manual-pull')
     return
   }
 
@@ -413,11 +567,8 @@ async function onDownloadPush(): Promise<void> {
     syncStore.openConflictModal()
     return
   }
-  if (needsPasswordForSync()) {
-    syncPassword.value = ''
-    syncPasswordError.value = null
-    passwordModalMode.value = 'manual-push'
-    passwordModalOpen.value = true
+  if (needsPasswordPromptForDraft()) {
+    openPasswordModal('manual-push')
     return
   }
   await executeManualPushDownload()
@@ -439,7 +590,7 @@ async function confirmPasswordAndSync(): Promise<void> {
   syncPasswordError.value = null
   const pwd = syncPassword.value
   if (draft.encryptFile) {
-    if (draft.useProfilePassword && profileHasPassword.value) {
+    if (useProfilePasswordApplicable.value && draft.useProfilePassword) {
       if (!pwd.trim()) {
         syncPasswordError.value = 'Profil parolası gerekli.'
         return
@@ -448,6 +599,17 @@ async function confirmPasswordAndSync(): Promise<void> {
       syncPasswordError.value = 'Parola en az 6 karakter olmalı.'
       return
     }
+  }
+  if (passwordModalMode.value === 'save-config') {
+    syncStore.rememberSessionPassword(pwd || undefined, rememberPassword.value)
+    try {
+      await saveOptions()
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : 'Kaydedilemedi.')
+    }
+    syncPassword.value = ''
+    passwordModalOpen.value = false
+    return
   }
   if (passwordModalMode.value === 'adopt') {
     await executeAdopt(pwd || undefined)
@@ -463,6 +625,10 @@ async function confirmPasswordAndSync(): Promise<void> {
     await executeManualPushDownload(pwd || undefined)
     return
   }
+  if (passwordModalMode.value === 'sync' && wantsRelaySync.value) {
+    await executeRelaySyncNow(pwd || undefined)
+    return
+  }
   await executeManualSync(pwd || undefined)
 }
 </script>
@@ -470,15 +636,30 @@ async function confirmPasswordAndSync(): Promise<void> {
 <template>
   <div class="kp-sync-settings">
   <Space direction="vertical" :size="16" style="width: 100%">
-    <Alert
+    <DismissibleDrawerAlert
+      v-if="isRelayDraft"
+      hint-key="sync.settings.intro.relay"
       type="info"
-      show-icon
+      message="Senkronla"
+    >
+      <template #description>
+        Veriniz
+        <a href="https://senkron.la" target="_blank" rel="noopener noreferrer">Senkron.la</a>
+       sunucusunda zarf olarak saklanır. Her profil ayrı bir namespace'tir, zarfın şifrelenmesi için mutlaka senkron parolası belirleyin.
+       Sunucu verilerinizi kesinlikle okuyamaz.
+      </template>
+    </DismissibleDrawerAlert>
+
+    <DismissibleDrawerAlert
+      v-else
+      hint-key="sync.settings.intro.file"
+      type="info"
       message="Otomatik senkron dosyası"
       description="Her profilin kendi senkron dosyası vardır; profiller arası veri otomatik taşınmaz. Profil değiştirdiğinizde o profile ait dosyayı seçmeniz veya oluşturmanız gerekir."
     />
 
     <Alert
-      v-if="syncStore.isManualMode"
+      v-if="isFileDraft && syncStore.isManualMode"
       type="warning"
       show-icon
       message="Manuel senkron modu"
@@ -486,7 +667,7 @@ async function confirmPasswordAndSync(): Promise<void> {
     />
 
     <Alert
-      v-else-if="!syncStore.filePickerSupported"
+      v-else-if="isFileDraft && !syncStore.filePickerSupported"
       type="warning"
       show-icon
       message="Dosya erişimi sınırlı"
@@ -508,8 +689,30 @@ async function confirmPasswordAndSync(): Promise<void> {
     </div>
 
     <template v-if="syncStore.enabled">
+      <Form layout="vertical" :colon="false" class="kp-sync-form">
+        <FormItem label="Senkron yöntemi">
+          <Radio.Group
+            :value="draft.transport"
+            button-style="solid"
+            :disabled="!canConfigure || syncStore.saving"
+            @change="(e) => onTransportChange(e.target.value as SyncTransport)"
+          >
+            <Radio.Button value="file">Dosya</Radio.Button>
+            <Radio.Button value="relay">Senkron.la</Radio.Button>
+          </Radio.Group>
+        </FormItem>
+      </Form>
+
       <Alert
-        v-if="syncStore.profileMismatch"
+        v-if="syncStore.relayPendingRecovery && !syncStore.relayRecoveryModalOpen"
+        type="warning"
+        show-icon
+        message="Recovery anahtarı bekliyor"
+        description="Kaydedilmemiş recovery anahtarı var. Aşağıdaki düğme ile görüntüleyin."
+      />
+
+      <Alert
+        v-if="syncStore.profileMismatch && isFileDraft"
         type="warning"
         show-icon
         message="Senkron dosyası farklı profile ait"
@@ -551,7 +754,59 @@ async function confirmPasswordAndSync(): Promise<void> {
       />
 
       <Form layout="vertical" :colon="false" class="kp-sync-form">
-        <FormItem label="Senkron dosyası">
+        <template v-if="isRelayDraft">
+          <FormItem label="Sunucu adresi" required>
+            <Input
+              v-model:value="draft.relayUrl"
+              placeholder="https://sync.example.com/v1"
+              :disabled="!canConfigure || syncStore.syncing"
+            />
+          </FormItem>
+          <FormItem label="Uygulama kimliği">
+            <Input
+              v-model:value="draft.appId"
+              placeholder="esr_app_kurtarma_plani"
+              :disabled="!canConfigure || syncStore.syncing"
+            />
+            <Typography.Text type="secondary" class="kp-sync-relay-hint">
+              App registry açık relay (ESR - Envelope Sync Relay) sunucularında zorunlu.
+            </Typography.Text>
+          </FormItem>
+          <div class="kp-sync-relay-actions">
+            <Space wrap>
+            <Button
+              :disabled="!canConfigure || syncStore.syncing"
+              @click="syncStore.openRelayPairingDrawer('host')"
+            >
+              <template #icon><LinkOutlined /></template>
+              Cihaz eşleştirme
+            </Button>
+            <Button
+              :disabled="!canConfigure || syncStore.syncing"
+              @click="relayDevicesDrawerOpen = true"
+            >
+              <template #icon><MobileOutlined /></template>
+              Cihazlar
+            </Button>
+            <Button
+              v-if="syncStore.relayPendingRecovery"
+              :disabled="!canConfigure"
+              @click="syncStore.relayRecoveryModalOpen = true"
+            >
+              Recovery anahtarı
+            </Button>
+            <Button
+              v-if="syncStore.relayDeviceLimitContext?.code === 'DEVICE_LIMIT_PAYMENT_REQUIRED'"
+              :disabled="!canConfigure"
+              @click="syncStore.relayUnlockModalOpen = true"
+            >
+              Unlock kodu
+            </Button>
+            </Space>
+          </div>
+        </template>
+
+        <FormItem v-else label="Senkron dosyası">
           <div class="kp-sync-file">
             <Typography.Text type="secondary" class="kp-sync-file__name">
               {{ syncStore.activeFileName ?? 'Henüz seçilmedi' }}
@@ -601,7 +856,9 @@ async function confirmPasswordAndSync(): Promise<void> {
 
         <FormItem v-if="syncStore.loaded" class="kp-sync-form__checks">
           <Space direction="vertical" :size="4" style="width: 100%">
-            <Checkbox v-model:checked="draft.encryptFile">Dosyayı parolayla şifrele</Checkbox>
+            <Checkbox v-model:checked="draft.encryptFile">
+              {{ isRelayDraft ? 'Senkron verisini parolayla şifrele' : 'Dosyayı parolayla şifrele' }}
+            </Checkbox>
             <Checkbox
               v-if="profileHasPassword"
               v-model:checked="useProfilePasswordChecked"
@@ -615,22 +872,22 @@ async function confirmPasswordAndSync(): Promise<void> {
             <Checkbox v-model:checked="draft.includeSecrets">
               AI API anahtarları ve base URL'leri dahil et
             </Checkbox>
-            <Checkbox v-model:checked="draft.autoPush" :disabled="syncStore.isManualMode">
+            <Checkbox v-model:checked="draft.autoPush" :disabled="syncStore.isManualMode && isFileDraft">
               Değişikliklerden sonra otomatik yaz (2 sn gecikme)
             </Checkbox>
-            <Typography.Text v-if="syncStore.isManualMode" type="secondary" class="kp-sync-manual-hint">
+            <Typography.Text v-if="syncStore.isManualMode && isFileDraft" type="secondary" class="kp-sync-manual-hint">
               Manuel modda otomatik yazma kapalı; değişiklikleri «Yerel sürümü indir» ile gönderin.
             </Typography.Text>
           </Space>
         </FormItem>
 
         <Typography.Paragraph v-if="syncStore.config.lastSyncAt" class="kp-text-muted">
-          Son senkron: {{ formatDateLong(syncStore.config.lastSyncAt) }}
+          Son senkron: {{ formatDateTimeLong(syncStore.config.lastSyncAt) }}
         </Typography.Paragraph>
       </Form>
 
       <Space v-if="syncStore.loaded" wrap class="kp-sync-actions">
-        <Button type="primary" :loading="syncStore.saving" :disabled="!canConfigure" @click="saveOptions">
+        <Button type="primary" :loading="syncStore.saving" :disabled="!canConfigure" @click="onSaveOptionsClick">
           Senkron ayarlarını kaydet
         </Button>
         <Button
@@ -646,7 +903,13 @@ async function confirmPasswordAndSync(): Promise<void> {
         <Button
           type="default"
           :loading="syncStore.syncing"
-          :disabled="!canConfigure || syncStore.syncing || (!syncStore.isManualMode && (!syncStore.hasHandle || !syncStore.filePickerSupported))"
+          :disabled="
+            !canConfigure ||
+            syncStore.syncing ||
+            (wantsRelaySync
+              ? !relaySyncReady
+              : !syncStore.isManualMode && (!syncStore.hasHandle || !syncStore.filePickerSupported))
+          "
           @click="onSyncNow"
         >
           <template #icon><CloudSyncOutlined /></template>
@@ -675,6 +938,7 @@ async function confirmPasswordAndSync(): Promise<void> {
     :confirm-loading="syncStore.syncing"
     :ok-text="passwordModalOkText"
     cancel-text="İptal"
+    :body-style="{ overflow: 'hidden' }"
     @ok="confirmPasswordAndSync"
   >
     <Form layout="vertical" :colon="false">
@@ -684,6 +948,10 @@ async function confirmPasswordAndSync(): Promise<void> {
       <Checkbox v-model:checked="rememberPassword">Bu oturumda parolayı hatırla</Checkbox>
     </Form>
   </Modal>
+
+  <SyncPairingDrawer />
+  <SyncDeviceDrawer v-model:open="relayDevicesDrawerOpen" />
+  <SyncUnlockModal />
   </div>
 </template>
 
@@ -708,6 +976,10 @@ async function confirmPasswordAndSync(): Promise<void> {
 
 .kp-sync-form__checks :deep(.ant-form-item-control-input) {
   min-height: auto;
+}
+
+.kp-sync-form__checks {
+  margin-top: 8px;
 }
 
 .kp-sync-file {
@@ -788,5 +1060,17 @@ async function confirmPasswordAndSync(): Promise<void> {
   display: block;
   font-size: 12px;
   line-height: 1.4;
+}
+
+.kp-sync-relay-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.kp-sync-relay-actions {
+  display: block;
+  margin-bottom: 24px;
 }
 </style>

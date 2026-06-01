@@ -116,3 +116,17 @@ Tasarım: [docs/SYNC.md](./docs/SYNC.md). Açılıp kapatılabilir; backend yok;
 - [x] **S4:** Çakışma modal + durum rozeti
 - [x] **S5:** Manuel fallback (Safari / `file://`)
 - [ ] **S6:** (Opsiyonel) WebDAV transport
+
+## M11 — ESR relay senkronu
+
+Tasarım: [docs/ESR-INTEGRATION.md](./docs/ESR-INTEGRATION.md). M10 dosya sync korunur; `@senkronla/client` ile alternatif `transport: 'relay'`.
+
+- [x] **KP-R1:** `KpDocumentAdapter` + unit test
+- [x] **KP-R2:** `SyncConfig.transport`, `relayUrl`, `appId`; meta v7 migration
+- [x] **KP-R3:** `relay-session.ts` — `EsrSync.connect`, push/pull
+- [x] **KP-R4:** `useSyncStore` + scheduler transport delegasyonu
+- [x] **KP-R5:** `SyncSettingsSection` transport toggle + relay URL
+- [x] **KP-R6:** Recovery phrase modal + pairing UI
+- [x] **KP-R7:** Cihaz listesi, revoke, limit/unlock modal
+- [x] **KP-R8:** WebSocket bildirim + 2 cihaz E2E
+- [ ] **KP-R9:** Bundle ölçümü + dokümantasyon

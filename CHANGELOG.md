@@ -6,6 +6,142 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.42]
+
+### Fixed — kurulum Senkronla
+
+- Kurulumda eşleştirme: `saveConfig` eşleştirmeden önce relay bağlantısı kurmaz; çift tıklama / paralel redeem sonrası yanlış «kod geçersiz» uyarısı ve boş iskelet profil (yenilemede görünen) giderildi.
+- `PAIRING_CODE_INVALID` (SDK `Error.code`) toast’ta Türkçeleşir; başarısız eşleştirmede boş «Senkronla» iskelet profili silinir (önceki denemeden kalan dahil).
+
+### Changed — kurulum yedek geri yükleme
+
+- Yedek / senkron dosyası içe aktarımı başarılı olunca profil hemen açılır ve uygulamaya geçilir («Uygulamaya geç» adımı kaldırıldı).
+
+### Changed — kurulum navigasyon
+
+- İlk kurulumda (hiç profil yokken) «Profil seçimine dön» linki gösterilmez; yalnızca kuruluma girildiğinde zaten profil varsa (seçim ekranından) görünür.
+
+### Fixed — senkron ayarları kaydet
+
+- Relay kaydında geçersiz uygulama kimliği (`APP_NOT_FOUND`) için «Senkron ayarlarını kaydet» tek hata toast'ı gösterir (store + ayarlar bileşeni çift mesajı giderildi).
+
+### Fixed — Şimdi senkronize et (Senkron.la)
+
+- Senkron.la modunda «Şimdi senkronize et» relay `sync`/`flushPush` kullanır (dosya okuma akışı değil); parola şifreleme taslağı kaydedilmeden seçiliyse önce şifreleme bayrakları uygulanır; relay hatalarında toast gösterilir.
+- «Senkron ayarlarını kaydet» ile girilen oturum parolası «Şimdi senkronize et» sırasında da kullanılır (yalnızca modal şifresi aranıyordu).
+- «Şimdi senkronize et» relay'de önce `markLocalChange` + `flushPush` (sunucu revizyonu güncellenir), ardından isteğe bağlı `sync` (pull); yalnızca `sync()` push yapmıyordu.
+
+### Changed — kurulum Senkronla
+
+- «Senkron verisi parolayla şifreli» varsayılan kapalı (host şifreli kullanıyorsa kullanıcı açar).
+
+### Changed — ortam değişkenleri
+
+- Senkronla relay: `.env.development` / `.env.production` (+ `.example` şablonları); `.env.local` kaldırıldı.
+
+### Changed — cihaz eşleştirme drawer
+
+- Host modunda kod üretilince 6 haneli kod otomatik panoya kopyalanır.
+
+### Fixed — relay hata mesajları
+
+- «Pairing code is invalid…» ve SDK `onError` metinleri Türkçeleştirilir (`reportRelayUserError`, eşleştirme drawer).
+- Ayarlar → cihaza katılırken parola hatası tek toast (eşleştirme drawer açıkken store toast'u ertelenir).
+
+### Fixed — kurulum Senkronla parolası
+
+- Kurulum «Senkron.la» sekmesi: girilen senkron parolası `encryptFile` kaydedilmeden doğrulanır (oturum parolası / `sessionPwd`); «en az 6 karakter» yanlış uyarısı giderildi.
+- ENV-ENC1 / «Senkron parolası gerekli» çift toast giderildi; başarısız kurulumda boş «Senkronla» iskelet profili ve cihaz token'ı temizlenir; relay oturumu şifreleme ayarı değişince yeniden bağlanır.
+- Kurulumda parola doğrulaması profil seçilmeden önce yapılırken yanlış «Aktif profil yok» uyarısı giderildi.
+
+### Fixed — relay cihaz iptali
+
+- Host cihazda eşleştirme kaldırıldığında misafir cihaz: geçersiz token algılanır (`listDevices` doğrulaması, SDK `onError`, yakalanmamış `EsrError`); «Senkron güncel» yerine hata, Türkçe mesaj ve yeniden eşleştirme; ayar kaydında yalancı başarı toast'ı gösterilmez.
+
+### Fixed — Relay cihazları drawer
+
+- «Relay cihazları» her açılışta `listDevices` ile sunucudan yenilenir (önbellekte liste varken atlanmıyordu).
+
+### Changed — Cihaz eşleştirme drawer
+
+- Host modunda üretilen kodun altında `esr://` QR kodu gösterilir (Nayuki qrcodegen; harici `qrcode` paketi yok).
+
+### Changed — Relay cihazları drawer
+
+- Kota özeti (ilerleme çubuğu), dikey kart düzeni, bu cihaz vurgusu, kısa son görülme tarihi ve kimlik kopyalama; «Kaldır» düğmesi daha belirgin.
+- Uzun tarayıcı etiketi başlıktan ayrıldı (2 satır + tooltip); başlıkta kısa kimlik; tam kimlik kutuda (tooltip yok); «Kaldır» çakışması giderildi.
+
+### Fixed — profil silme ve ESR
+
+- Profil silinirken relay'e kayıtlı bu cihaz sunucuda `revokeDevice` ile kaldırılır; yerel `esr.{namespaceId}…` depolama ve senkron meta temizlenir (`onProfileDeleted`).
+
+### Added — kurulum Senkronla (ESR)
+
+- Kurulum → ayrı **«Senkronla»** sekmesi: host kodu veya `esr://` QR bağlantısı ile misafir cihaz; profil ve veri relay'den otomatik içe aktarılır (`parseEsrPairingInput`, `ensureSetupProfileStub`, `configureAndJoinRelayFromSetup`).
+- «Yedekten geri yükle» sekmesi (yedek / senkron dosyası); Senkronla için ayrı yedek gerekmez.
+- Kurulum ekranında çakışma / recovery modalları.
+
+### Fixed — senkron env varsayılanları
+
+- `appId` / `relayUrl` yalnızca Ayarlar'da «Senkron ayarlarını kaydet» ile `relayEndpointLocked` işaretlendiğinde IndexedDB'de kalır; aksi halde her okumada `VITE_ESR_*` env varsayılanları kullanılır.
+- Senkron tercihleri (`enabled`, `transport`, şifreleme vb.) profil başına `preferencesByProfile` ile saklanır; **yeni profil** oluşturulunca o profile ait senkron kaydı yoktur (diğer profiller etkilenmez). Meta DB v8 migration.
+
+### Added — ESR entegrasyon (KP-R1)
+
+- `KpDocumentAdapter`: `buildSnapshot` / `importSnapshot` ↔ `@senkronla/client` `DocumentAdapter` köprüsü (`kp-document-adapter.ts`).
+- Vitest + `tsconfig` yerel `@senkronla/*` path eşlemesi (npm paketi yayınlanana kadar).
+
+### Added — ESR entegrasyon (KP-R2)
+
+- `SyncConfig`: `transport` (`file` \| `relay`), `relayUrl`, `appId`, `relayConnectedByProfile`; meta DB v7 migration (mevcut kayıtlar `transport: file`).
+- Build-time varsayılanlar: `VITE_ESR_RELAY_URL`, `VITE_ESR_APP_ID`.
+
+### Added — ESR entegrasyon (KP-R3)
+
+- `relay-session.ts`: `EsrSync.connect` köprüsü, `ensureRelayNamespace`, `runRelaySync` (+ store reload), `notifyRelayLocalChange`, `flushRelayPush`, `validateRelayConfig`.
+
+### Added — ESR entegrasyon (KP-R4)
+
+- `useSyncStore` relay delegasyonu: `pushOnly` / `pullIfEnabled`, oturum yaşam döngüsü, çakışma gate, `sync-scheduler` relay dalı.
+- `sync-relay-bridge.ts`, `buildRelayConflictContext`; runtime durumları `pending_relay`, `offline`, `ws_connected`.
+
+### Added — ESR entegrasyon (KP-R5)
+
+- `SyncSettingsSection`: transport seçimi (dosya / relay), relay URL + appId, «Bağlan»; `SyncStatusBadge` relay durumları.
+
+### Added — ESR entegrasyon (KP-R6)
+
+- `SyncRecoveryPhraseModal`: ilk namespace kurulumunda 24 kelime recovery anahtarı (kopyala + onay).
+- `SyncPairingDrawer`: host kod üretimi, misafir eşleştirme (6 haneli kod), recovery ile yeniden bağlanma.
+- `useSyncStore`: `startRelayPairingHost`, `joinRelayPairing`, `recoverRelayWithPhrase`; namespace mevcut hatasında drawer yönlendirmesi.
+
+### Added — ESR entegrasyon (KP-R7)
+
+- `SyncDeviceList`: relay cihazları, limit özeti, revoke (bu cihaz hariç).
+- `SyncUnlockModal`: `DEVICE_LIMIT_PAYMENT_REQUIRED` → unlock kodu (`redeemUnlockCode`).
+- `useSyncStore`: `refreshRelayDevices`, `revokeRelayDevice`, `redeemRelayUnlockCode`; `onDeviceLimit` köprüsü.
+
+### Added — ESR entegrasyon (KP-R8)
+
+- WS `head_changed` pull sonrası otomatik store reload: `KpDocumentAdapter.onAfterImport` → `reloadStoresAfterSyncPull` + `onRemotePull` (`bumpPullRevision`, `lastSyncAt`).
+- Poll fallback (SDK scheduler + 45 sn `sync-scheduler`) aynı import yolunu kullanır; 2 cihaz E2E için manuel test planı `docs/ESR-INTEGRATION.md` §17.
+
+### Fixed — ESR dev ortamı
+
+- Sayfa yenilemede tekrarlayan `/namespaces/...` ve `/devices` istekleri: aynı profilde relay oturumu korunur, bootstrap çift `onActiveProfileChanged` yapmaz, bağlantı eşzamanlı istekler birleştirilir; cihaz listesi yalnızca Ayarlar UI'sinden istenir.
+- Relay: «Senkron verisini parolayla şifrele» kapatılıp ayarlar kaydedildiğinde eski oturum şifreli push yapmaya devam ediyordu; adapter ayarı değişince oturum yenilenir.
+- Relay/dosya: şifreleme taslakta açıkken «Kaydet» / «Bağlan» kayıtlı ayara bakıp parola sormuyordu; kontrol artık taslak `encryptFile` üzerinden yapılır.
+- Sayfa yenilemede «Relay bekleniyor»: relay bağlantısı profil açılmadan deneniyordu; otomatik yeniden bağlanma profil hazır olduktan sonra çalışır; parola eksikse ipucu gösterilir.
+- Parolasız profilde varsayılan senkron şifrelemesi kapalı (`encryptFile: false`); eski `encryptFile: true` + oturum parolası yoksa otomatik kapatılır.
+- Relay: «Bağlan» kaldırıldı; «Senkron ayarlarını kaydet» relay URL/appId kaydından sonra otomatik `ensureRelayConnection` çağırır.
+- `SyncDeviceDrawer`: cihazlar kart görünümünde ayrı drawer; «Cihazlar» düğmesi (inline liste kaldırıldı).
+
+- `@senkronla/protocol` tarayıcı uyumlu kripto (`@noble/hashes`, `hash-wasm`); `node:crypto` Vite externalize hatası giderildi (yerel `../senkronla` alias ile).
+- Relay «Bağlan»: şifreli senkron açıkken parola istenmeden sessiz başarısızlık giderildi; `lastError` artık somut mesaj gösterir.
+- Sayfa yüklemesinde otomatik relay denemesi parola eksikliğini `lastError`'a yazmaz; eski parola uyarıları temizlenir.
+- Relay «Bağlan»: namespace oluşturulmadan bildirim poll'u (`NAMESPACE_NOT_FOUND`) — oturum namespace hazır olunca etkinleştirilir.
+- `@senkronla/protocol`: recovery phrase `bip39` → `@scure/bip39` (`Buffer is not defined` tarayıcı hatası).
+
 ## [0.1.40]
 
 ### Changed — form drawer mobil klavye

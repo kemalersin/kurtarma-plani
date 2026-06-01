@@ -155,6 +155,16 @@ npm run typecheck
 
 `main` dalına her push'ta GitHub Actions derler ve `pages` dalına yazar; GitHub Pages bu dalı yayınlar. Yerel build: `npm run build` → `dist/index.html` (gitignore).
 
+### Ortam değişkenleri (Senkronla / relay)
+
+| Dosya | Kullanım |
+|-------|----------|
+| `.env.development` | `npm run dev` — yerel relay (`localhost:8080`) |
+| `.env.production` | `npm run build` ve CI — `https://senkron.la/api/v1` |
+| `.env.development.example` / `.env.production.example` | Şablon; dosya yoksa `cp …example .env.…` |
+
+İlk kurulumda örnek dosyalardan kopyalayın veya repodaki `.env.development` / `.env.production` dosyalarını kullanın.
+
 ### Sürüm ve CHANGELOG
 
 Tek semver kaynağı [`package.json`](package.json) `version` alanıdır. Değişiklik notları [Keep a Changelog](https://keepachangelog.com/) biçiminde [`CHANGELOG.md`](CHANGELOG.md) dosyasındadır.

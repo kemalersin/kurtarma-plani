@@ -26,11 +26,15 @@ const { visible, dismiss } = useDismissibleHint(props.hintKey)
     class="kp-dismissible-drawer-alert"
     :type="type"
     :message="message"
-    :description="description"
+    :description="$slots.description ? undefined : description"
     :show-icon="showIcon"
     closable
     @close="dismiss"
-  />
+  >
+    <template v-if="$slots.description" #description>
+      <slot name="description" />
+    </template>
+  </Alert>
 </template>
 
 <style>

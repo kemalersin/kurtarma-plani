@@ -1029,9 +1029,19 @@ body {
 }
 
 .ant-modal-wrap .ant-modal-body {
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
   flex: 1;
   min-height: 0;
+}
+
+/* Recovery anahtarı: checkbox satırı yükseklik sıçramasını sabitle */
+.kp-recovery-modal .ant-checkbox-wrapper {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  line-height: 1.5715;
 }
 
 /*

@@ -1,5 +1,15 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  readonly VITE_ESR_RELAY_URL?: string
+  readonly VITE_ESR_APP_ID?: string
+  readonly VITE_LOCAL_SENKRONLA?: string
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv
+}
+
 declare const __APP_VERSION__: string
 declare const __APP_BUILD_DATE__: string
 

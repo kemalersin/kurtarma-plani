@@ -24,9 +24,13 @@ const visible = computed(
 )
 
 const statusMeta = computed((): { label: string; color: string; pulse?: boolean } => {
+  const relayError = syncStore.relayUserErrorMessage
   const status: SyncRuntimeStatus = syncStore.runtimeStatus
-  if (syncStore.syncing) {
-    return { label: 'Senkronize ediliyor…', color: 'processing', pulse: true }
+  if (syncStore.syncing || syncStore.relayConnecting) {
+    return { label: syncStore.relayConnecting ? 'Relay bağlanıyor…' : 'Senkronize ediliyor…', color: 'processing', pulse: true }
+  }
+  if (relayError && (status === 'error' || status === 'pending_relay')) {
+    return { label: 'Senkron hatası', color: 'error' }
   }
   switch (status) {
     case 'pending_push':
@@ -38,9 +42,15 @@ const statusMeta = computed((): { label: string; color: string; pulse?: boolean 
     case 'profile_mismatch':
       return { label: 'Profil uyuşmazlığı', color: 'warning' }
     case 'error':
-      return { label: 'Senkron hatası', color: 'error' }
+      return { label: syncStore.config.lastError ?? 'Senkron hatası', color: 'error' }
     case 'pending_file':
       return { label: 'Dosya seçilmedi', color: 'warning' }
+    case 'pending_relay':
+      return { label: 'Relay bekleniyor', color: 'warning' }
+    case 'offline':
+      return { label: 'Senkron çevrimdışı', color: 'default' }
+    case 'ws_connected':
+      return { label: 'Relay canlı', color: 'success' }
     case 'idle':
       return { label: 'Senkron güncel', color: 'success' }
     default:
@@ -55,8 +65,17 @@ const tooltip = computed(() => {
   if (syncStore.conflictPending) {
     return 'Yerel ve uzak sürüm ayrıştı — tıklayın ve çözün'
   }
+  if (syncStore.isRelayMode && syncStore.relayUserErrorMessage) {
+    return syncStore.relayUserErrorMessage
+  }
   if (syncStore.config.lastError) {
     return syncStore.config.lastError
+  }
+  if (syncStore.relayStatusHint) {
+    return syncStore.relayStatusHint
+  }
+  if (syncStore.isRelayMode && syncStore.config.relayUrl) {
+    return `Relay: ${syncStore.config.relayUrl}`
   }
   if (syncStore.activeFileName) {
     return `Senkron dosyası: ${syncStore.activeFileName}`
@@ -103,6 +122,10 @@ function onClick(): void {
   margin: 0;
   cursor: pointer;
   user-select: none;
+  max-width: min(280px, 40vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .kp-sync-badge--menu {

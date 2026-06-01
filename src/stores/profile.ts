@@ -102,7 +102,7 @@ export const useProfileStore = defineStore('profile', () => {
     }
     unlocked.value = true
     const { onProfileUnlocked } = await import('@/core/services/sync/sync-scheduler')
-    void onProfileUnlocked()
+    await onProfileUnlocked()
   }
 
   async function createProfile(input: CreateProfileInput): Promise<ProfileMeta> {
@@ -152,7 +152,7 @@ export const useProfileStore = defineStore('profile', () => {
     unlocked.value = true
     appMeta.value = await updateAppMeta({ activeProfileId: id })
     const { onProfileUnlocked } = await import('@/core/services/sync/sync-scheduler')
-    void onProfileUnlocked()
+    await onProfileUnlocked()
     return true
   }
 
@@ -180,6 +180,10 @@ export const useProfileStore = defineStore('profile', () => {
   }
 
   async function removeProfile(id: string): Promise<void> {
+    const { useSyncStore } = await import('@/stores/sync')
+    const syncStore = useSyncStore()
+    await syncStore.onProfileDeleted(id)
+
     if (activeProfileId.value === id) {
       await lock()
     } else {

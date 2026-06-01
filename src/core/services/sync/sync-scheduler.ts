@@ -15,13 +15,12 @@ function clearDebounceTimer(): void {
   }
 }
 
-/** Entity kayıt/silme sonrası debounced push kuyruğu. */
-export function notifySyncLocalChange(): void {
-  const sync = useSyncStore()
-  sync.markLocalMutation()
-  if (!sync.canAutoPush) return
+/** Uzak import sonrası bekleyen otomatik yazmayı iptal eder. */
+export function cancelPendingSyncPush(): void {
+  clearDebounceTimer()
+}
 
-  sync.setPendingPush(true)
+function scheduleDebouncedPush(): void {
   clearDebounceTimer()
   debounceTimer = setTimeout(() => {
     debounceTimer = null
@@ -29,9 +28,27 @@ export function notifySyncLocalChange(): void {
   }, SYNC_PUSH_DEBOUNCE_MS)
 }
 
+/** Entity kayıt/silme sonrası debounced push kuyruğu. */
+export function notifySyncLocalChange(): void {
+  const sync = useSyncStore()
+  if (sync.isApplyingRemote || sync.syncing) return
+
+  sync.markLocalMutation()
+  if (!sync.canAutoPush) return
+
+  if (sync.isRelayMode) {
+    sync.relayMarkLocalChange()
+    scheduleDebouncedPush()
+    return
+  }
+
+  sync.setPendingPush(true)
+  scheduleDebouncedPush()
+}
+
 /** Bekleyen debounce'u atlayıp anında push (profil kilidi vb.). */
 export async function flushSyncPushNow(): Promise<void> {
-  clearDebounceTimer()
+  cancelPendingSyncPush()
   const sync = useSyncStore()
   sync.setPendingPush(false)
   if (!sync.canAutoPush) return
@@ -43,6 +60,11 @@ export async function onProfileUnlocked(): Promise<void> {
   const sync = useSyncStore()
   if (!sync.loaded) await sync.load()
   await sync.onActiveProfileChanged()
+}
+
+/** Relay modunda uzak güncelleme SDK WS/poll ile; dosyada focus/zamanlayıcı. */
+function shouldSchedulePollPull(): boolean {
+  return !useSyncStore().isRelayMode
 }
 
 async function pullIfStale(reason: 'bootstrap' | 'focus' | 'visibility' | 'interval'): Promise<void> {
@@ -59,15 +81,24 @@ export async function ensureSyncBootstrap(): Promise<void> {
 }
 
 async function pullOnVisibility(): Promise<void> {
-  if (document.visibilityState !== 'visible') return
+  if (document.visibilityState === 'hidden') {
+    const sync = useSyncStore()
+    if (sync.isRelayMode && sync.canAutoPush && sync.pendingPush) {
+      await flushSyncPushNow()
+    }
+    return
+  }
+  if (!shouldSchedulePollPull()) return
   await pullIfStale('visibility')
 }
 
 async function pullOnFocus(): Promise<void> {
+  if (!shouldSchedulePollPull()) return
   await pullIfStale('focus')
 }
 
 async function pullOnInterval(): Promise<void> {
+  if (!shouldSchedulePollPull()) return
   if (document.visibilityState !== 'visible') return
   await pullIfStale('interval')
 }

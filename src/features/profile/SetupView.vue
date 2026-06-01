@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Card,
@@ -23,20 +23,37 @@ import type { LocaleSettings } from '@/core/types/profile'
 import LocaleSettingsForm from '@/components/LocaleSettingsForm.vue'
 import AppDisclaimer from '@/components/AppDisclaimer.vue'
 import ProfileRestorePanel from '@/components/ProfileRestorePanel.vue'
-import type { ProfileRestoreOutcome } from '@/core/services/profile-restore'
+import ProfileRestoreEsrSection from '@/components/ProfileRestoreEsrSection.vue'
+import SyncConflictModal from '@/components/SyncConflictModal.vue'
+import SyncRecoveryPhraseModal from '@/components/SyncRecoveryPhraseModal.vue'
+import type { ProfileRestoreKind, ProfileRestoreOutcome } from '@/core/services/profile-restore'
 import { APP_NAME } from '@/core/constants'
+
+type SetupTab = 'new' | 'restore' | 'senkronla'
+
+function parseSetupTab(tab: unknown): SetupTab {
+  if (tab === 'restore' || tab === 'senkronla') return tab
+  return 'new'
+}
 
 const profileStore = useProfileStore()
 const router = useRouter()
 const route = useRoute()
 const submitting = ref(false)
+const restoreReadyProfileId = ref<string | null>(null)
+/** Kuruluma girildiğinde zaten profil vardı (seçim ekranından); ilk kurulumda false kalır. */
+const showBackToSelect = ref(false)
 
-const activeTab = ref<'new' | 'restore'>(route.query.tab === 'restore' ? 'restore' : 'new')
+onMounted(() => {
+  showBackToSelect.value = profileStore.profiles.length > 0
+})
+
+const activeTab = ref<SetupTab>(parseSetupTab(route.query.tab))
 
 watch(
   () => route.query.tab,
   (tab) => {
-    if (tab === 'restore') activeTab.value = 'restore'
+    activeTab.value = parseSetupTab(tab)
   },
 )
 
@@ -56,9 +73,9 @@ const form = reactive<{
   locale: { ...DEFAULT_LOCALE_SETTINGS },
 })
 
-async function openImportedProfile(profileId: string): Promise<boolean> {
+async function openImportedProfile(profileId: string, password?: string): Promise<boolean> {
   await profileStore.load()
-  const ok = await profileStore.selectProfile(profileId)
+  const ok = await profileStore.selectProfile(profileId, password)
   if (!ok) return false
   const { useSyncStore } = await import('@/stores/sync')
   const syncStore = useSyncStore()
@@ -67,7 +84,15 @@ async function openImportedProfile(profileId: string): Promise<boolean> {
   return true
 }
 
-async function onRestored(outcome: ProfileRestoreOutcome): Promise<void> {
+async function openRestoredProfile(profileId: string, password?: string): Promise<boolean> {
+  return openImportedProfile(profileId, password)
+}
+
+async function onRestored(
+  outcome: ProfileRestoreOutcome,
+  kind: ProfileRestoreKind,
+  unlockPassword?: string,
+): Promise<void> {
   const profileId = outcome.summary.targetProfileId
   if (!profileId) {
     message.error('Profil kimliği alınamadı.')
@@ -75,16 +100,48 @@ async function onRestored(outcome: ProfileRestoreOutcome): Promise<void> {
   }
   submitting.value = true
   try {
-    const ok = await openImportedProfile(profileId)
+    const ok = await openRestoredProfile(profileId, unlockPassword)
     if (ok) {
-      message.success('Profil geri yüklendi ve açıldı.')
+      restoreReadyProfileId.value = null
+      message.success(
+        kind === 'backup' ? 'Yedek içe aktarıldı.' : 'Profil geri yüklendi.',
+      )
       await router.push({ name: 'home' })
     } else {
+      restoreReadyProfileId.value = profileId
       message.warning('Profil içe aktarıldı; profil seçim ekranından açmayı deneyin.')
       await router.push({ name: 'select' })
     }
   } catch (error) {
     message.error(error instanceof Error ? error.message : 'Profil açılamadı.')
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function onRelayJoined(profileId: string): Promise<void> {
+  submitting.value = true
+  try {
+    const ok = await openRestoredProfile(profileId)
+    if (ok) {
+      message.success('Senkronla\'ya eklendi; veriler senkronize edildi.')
+      await router.push({ name: 'home' })
+    } else {
+      message.warning('Senkron tamamlandı; profili seçim ekranından açmayı deneyin.')
+      await router.push({ name: 'select' })
+    }
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : 'Profil açılamadı.')
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function continueToApp(): Promise<void> {
+  if (!restoreReadyProfileId.value) return
+  submitting.value = true
+  try {
+    await router.push({ name: 'home' })
   } finally {
     submitting.value = false
   }
@@ -115,6 +172,13 @@ async function submit(): Promise<void> {
     })
     const ok = await profileStore.selectProfile(profile.id, form.usePassword ? form.password : undefined)
     if (ok) {
+      const { useSyncStore } = await import('@/stores/sync')
+      const syncStore = useSyncStore()
+      if (!syncStore.loaded) await syncStore.load()
+      await syncStore.prepareNewProfileSync(profile.id)
+      if (!form.usePassword) {
+        await syncStore.saveConfig({ encryptFile: false, useProfilePassword: false })
+      }
       if (form.withSampleData) {
         const count = await profileStore.seedActiveProfileSampleData()
         message.success(`Profil oluşturuldu: ${profile.name} (${count} örnek kayıt)`)
@@ -144,8 +208,8 @@ function goSelect(): void {
   <div class="kp-center-page">
     <Card class="kp-card" :title="`${APP_NAME} · Kurulum`">
       <Typography.Paragraph class="kp-text-muted">
-        Yeni profil oluşturabilir veya başka cihazdan aldığınız yedek / senkron dosyası ile aynı
-        profil kimliğini koruyarak geri yükleyebilirsiniz.
+        Yeni profil oluşturabilir, yedek veya senkron dosyası ile geri yükleyebilir veya
+        «Senkronla» sekmesinden host cihaza eşleştirerek profili ve veriyi otomatik alabilirsiniz.
       </Typography.Paragraph>
 
       <AppDisclaimer :show-inline="true" />
@@ -206,13 +270,30 @@ function goSelect(): void {
           </Form>
         </TabPane>
 
-        <TabPane key="restore" tab="Yedekten / senkron'dan geri yükle">
+        <TabPane key="restore" tab="Yedekten geri yükle">
           <ProfileRestorePanel @restored="onRestored" />
+          <Button
+            v-if="restoreReadyProfileId"
+            type="primary"
+            block
+            class="kp-setup-continue"
+            :loading="submitting"
+            @click="continueToApp"
+          >
+            Uygulamaya geç
+          </Button>
+        </TabPane>
+
+        <TabPane key="senkronla" tab="Senkron.la">
+          <ProfileRestoreEsrSection @joined="onRelayJoined" />
         </TabPane>
       </Tabs>
 
+      <SyncConflictModal />
+      <SyncRecoveryPhraseModal />
+
       <Button
-        v-if="profileStore.hasAnyProfile"
+        v-if="showBackToSelect"
         type="link"
         class="kp-setup-back"
         @click="goSelect"
@@ -235,6 +316,10 @@ function goSelect(): void {
 .kp-setup-back {
   margin-top: 8px;
   padding-left: 0;
+}
+
+.kp-setup-continue {
+  margin-top: 16px;
 }
 
 .kp-setup-sample {

@@ -1,6 +1,12 @@
 import type { SyncFileEnvelope } from '@/core/types/sync'
 import { remoteRevisionChanged } from '@/core/services/sync/sync-engine'
 
+export interface RelayConflictSource {
+  remoteRevision: string
+  remoteWrittenAt: string
+  remoteDeviceId?: string
+}
+
 export interface SyncConflictContext {
   remoteRevision: string
   remoteWrittenAt: string
@@ -14,10 +20,34 @@ export function buildConflictContext(
   lastLocalMutationAt: string | null | undefined,
   lastPushAt: string | null | undefined,
 ): SyncConflictContext {
+  return buildConflictContextFromRemote(
+    {
+      remoteRevision: envelope.revision,
+      remoteWrittenAt: envelope.writtenAt,
+      remoteDeviceId: envelope.deviceId,
+    },
+    lastLocalMutationAt,
+    lastPushAt,
+  )
+}
+
+export function buildRelayConflictContext(
+  remote: RelayConflictSource,
+  lastLocalMutationAt: string | null | undefined,
+  lastPushAt: string | null | undefined,
+): SyncConflictContext {
+  return buildConflictContextFromRemote(remote, lastLocalMutationAt, lastPushAt)
+}
+
+function buildConflictContextFromRemote(
+  remote: RelayConflictSource,
+  lastLocalMutationAt: string | null | undefined,
+  lastPushAt: string | null | undefined,
+): SyncConflictContext {
   return {
-    remoteRevision: envelope.revision,
-    remoteWrittenAt: envelope.writtenAt,
-    remoteDeviceId: envelope.deviceId,
+    remoteRevision: remote.remoteRevision,
+    remoteWrittenAt: remote.remoteWrittenAt,
+    remoteDeviceId: remote.remoteDeviceId ?? '',
     localMutationAt: lastLocalMutationAt ?? null,
     lastKnownPushAt: lastPushAt ?? null,
   }

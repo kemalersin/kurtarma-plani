@@ -11,6 +11,8 @@ interface LocaleFormatters {
   formatDate(iso: string): string
   /** ISO tarihi profil locale + timezone'e göre uzun format (gün adı + ay adı). */
   formatDateLong(iso: string): string
+  /** Uzun tarih + saat (profil locale + timezone). */
+  formatDateTimeLong(iso: string): string
   /** Salt sayı (binlik, ondalık) profil locale'ine göre. */
   formatNumber(value: number | string, options?: Intl.NumberFormatOptions): string
   /** 0–1 kesir oranı → locale yüzde metni (toast / ipucu; form percent alanı ile uyumlu). */
@@ -63,6 +65,18 @@ export function useLocaleFormatters(): LocaleFormatters {
     }).format(new Date(iso))
   }
 
+  function formatDateTimeLong(iso: string): string {
+    return new Intl.DateTimeFormat(locale.value, {
+      timeZone: timeZone.value,
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(iso))
+  }
+
   function formatNumber(
     value: number | string,
     options: Intl.NumberFormatOptions = {},
@@ -76,5 +90,5 @@ export function useLocaleFormatters(): LocaleFormatters {
     return formatFractionAsPercent(fraction, locale.value)
   }
 
-  return { formatCurrency, formatDate, formatDateLong, formatNumber, formatPercentFromFraction }
+  return { formatCurrency, formatDate, formatDateLong, formatDateTimeLong, formatNumber, formatPercentFromFraction }
 }

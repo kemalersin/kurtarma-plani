@@ -83,7 +83,7 @@ Import: şema sürümü + Zod doğrulama; şifreli dosyada parola istenir.
 
 **Entity şeması değişince:** `entities.ts` veya Dexie migration ile birlikte AI bağlam (`ai-context-export`, `AI_CONTEXT_VERSION`) ve gerekiyorsa yedek/senkron (`ExportSnapshotSchema`, `buildSnapshot` / `importSnapshot`, `stripSecrets`; kırıcı değişiklikte `SCHEMA_VERSION`, senkron üst zarfında `SYNC_SCHEMA_VERSION`) aynı teslimatta gözden geçirilir. Yalnızca geriye uyumlu alan ekleme çoğu zaman export Zod’unu değiştirmez (`entities[].data` = `unknown`).
 
-**Otomatik senkron:** `KP-SYNC1` dış zarf + içeride export ile aynı snapshot (`KP-RAW1` / `KP-ENC1`). Ayrıntı [SYNC.md](./SYNC.md).
+**Otomatik senkron:** `KP-SYNC1` dış zarf + içeride export ile aynı snapshot (`KP-RAW1` / `KP-ENC1`). Ayrıntı [SYNC.md](./SYNC.md). Planlanan relay transport (`ESR-DOC1` / `ENV-ENC1`, `@senkronla/client`): [ESR-INTEGRATION.md](./ESR-INTEGRATION.md).
 
 Excel/PDF yalnızca UI’daki tablo/grafik export’u içindir; snapshot ile karıştırılmaz.
 

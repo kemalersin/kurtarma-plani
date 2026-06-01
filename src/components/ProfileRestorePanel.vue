@@ -25,7 +25,8 @@ import { supportsSyncFilePicker } from '@/core/services/sync/sync-file'
 import { formatImportSummaryMessage } from '@/core/services/snapshot'
 
 const emit = defineEmits<{
-  restored: [outcome: ProfileRestoreOutcome]
+  /** `unlockPassword`: şifreli dosya içe aktarımında girilen parola (profil açılışı için). */
+  restored: [outcome: ProfileRestoreOutcome, kind: ProfileRestoreKind, unlockPassword?: string]
 }>()
 
 const kind = ref<ProfileRestoreKind>('backup')
@@ -113,11 +114,12 @@ async function finishRestore(outcome: ProfileRestoreOutcome): Promise<void> {
     await saveSyncHandle(profileId, pendingSyncHandle.value, pendingSyncHandle.value.name)
   }
 
+  const unlockPassword = password.value.trim() || undefined
   passwordModalOpen.value = false
   pendingText.value = null
   password.value = ''
   message.success(formatImportSummaryMessage(outcome.summary))
-  emit('restored', outcome)
+  emit('restored', outcome, kind.value, unlockPassword)
 }
 
 async function submitPassword(): Promise<void> {
@@ -148,7 +150,7 @@ async function onPrimaryClick(): Promise<void> {
       type="info"
       show-icon
       message="Profil kimliği korunur"
-      description="Yedek veya senkron dosyasındaki profil kimliği (UUID) aynen içe aktarılır. Cihazlar arası senkron için bu yolu kullanın."
+      description="Yedek veya senkron dosyasındaki profil kimliği (UUID) aynen içe aktarılır. İkinci cihaz için dosya yerine «Senkronla» sekmesini de kullanabilirsiniz."
     />
 
     <FormItem label="Dosya türü" :colon="false" class="kp-restore-kind">

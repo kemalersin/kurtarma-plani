@@ -139,7 +139,8 @@ export function resolveSyncFilePasswordError(
   password?: string,
 ): string | null {
   if (!config.encryptFile) return null
-  if (config.useProfilePassword && profileHasPassword) {
+  const useProfilePwd = config.useProfilePassword && profileHasPassword
+  if (useProfilePwd) {
     if (!password?.trim()) return 'Senkron parolası gerekli (profil parolası).'
     return null
   }

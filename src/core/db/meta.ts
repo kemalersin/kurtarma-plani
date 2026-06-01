@@ -3,7 +3,7 @@ import { APP_VERSION, META_DB_NAME, SCHEMA_VERSION } from '@/core/constants'
 import type { AppMeta, ProfileMeta } from '@/core/types/profile'
 import type { BankingPresetRow } from '@/core/types/banking-preset'
 import type { ModelsCatalogRow } from '@/core/types/ai-catalog'
-import { newDeviceId, normalizeSyncConfig } from '@/core/types/sync'
+import { newDeviceId, normalizePersistedSyncConfig, resolveSyncConfigForProfile, syncConfigForPersist } from '@/core/types/sync'
 import { normalizeUpdateCheckConfig } from '@/core/types/update-check'
 
 const APP_META_KEY = 'app'
@@ -110,6 +110,42 @@ class MetaDatabase extends Dexie {
       }
       await tx.table('syncHandles').delete('active')
     })
+    this.version(7).stores({
+      appMeta: '&key',
+      profiles: '&id, name, lastOpenedAt',
+      bankingPreset: '&id',
+      modelsCatalog: '&id',
+      syncHandles: '&key',
+    }).upgrade(async (tx) => {
+      const row = await tx.table('appMeta').get(APP_META_KEY)
+      if (!row?.value?.sync) return
+      const value = row.value as AppMeta
+      await tx.table('appMeta').put({
+        key: APP_META_KEY,
+        value: toPlain({
+          ...value,
+          sync: syncConfigForPersist(normalizePersistedSyncConfig(value.sync)),
+        }),
+      })
+    })
+    this.version(8).stores({
+      appMeta: '&key',
+      profiles: '&id, name, lastOpenedAt',
+      bankingPreset: '&id',
+      modelsCatalog: '&id',
+      syncHandles: '&key',
+    }).upgrade(async (tx) => {
+      const row = await tx.table('appMeta').get(APP_META_KEY)
+      if (!row?.value?.sync) return
+      const value = row.value as AppMeta
+      await tx.table('appMeta').put({
+        key: APP_META_KEY,
+        value: toPlain({
+          ...value,
+          sync: syncConfigForPersist(normalizePersistedSyncConfig(value.sync)),
+        }),
+      })
+    })
   }
 }
 
@@ -152,7 +188,8 @@ export async function getAppMeta(): Promise<AppMeta> {
       await metaDb.appMeta.put({ key: APP_META_KEY, value: toPlain(value) })
     }
     if (value.sync) {
-      value = { ...value, sync: normalizeSyncConfig(value.sync) }
+      const persisted = normalizePersistedSyncConfig(value.sync)
+      value = { ...value, sync: resolveSyncConfigForProfile(persisted, value.activeProfileId) }
     }
     if (value.updateCheck) {
       value = { ...value, updateCheck: normalizeUpdateCheckConfig(value.updateCheck) }
@@ -181,7 +218,7 @@ export async function updateAppMeta(patch: Partial<AppMeta>): Promise<AppMeta> {
     updatedAt: new Date().toISOString(),
   }
   if (patch.sync !== undefined) {
-    next.sync = normalizeSyncConfig(patch.sync)
+    next.sync = syncConfigForPersist(normalizePersistedSyncConfig(patch.sync))
   }
   if (patch.updateCheck !== undefined) {
     next.updateCheck = normalizeUpdateCheckConfig(patch.updateCheck)
