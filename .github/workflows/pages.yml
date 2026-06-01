@@ -13,16 +13,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.version.outputs.should_deploy }}
+      app_version: ${{ steps.version.outputs.app_version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Compare package version
+        id: version
+        run: |
+          set -euo pipefail
+          CURRENT=$(python3 -c "import json; print(json.load(open('package.json'))['version'])")
+          echo "app_version=$CURRENT" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+            echo "Manual dispatch — deploy v$CURRENT"
+            exit 0
+          fi
+
+          PREVIOUS=$(git show HEAD~1:package.json 2>/dev/null \
+            | python3 -c "import sys, json; print(json.load(sys.stdin)['version'])" \
+            2>/dev/null || true)
+
+          if [ -z "$PREVIOUS" ] || [ "$CURRENT" != "$PREVIOUS" ]; then
+            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+            echo "Version changed: ${PREVIOUS:-<none>} → $CURRENT"
+          else
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+            echo "Version unchanged ($CURRENT); skipping build and deploy"
+          fi
+
   deploy:
+    needs: check-version
+    if: needs.check-version.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-
-      - name: Checkout Senkronla (ESR SDK — npm henüz yayımlı değil)
-        uses: actions/checkout@v5
-        with:
-          repository: kemalersin/senkronla
-          path: senkronla
 
       - uses: actions/setup-node@v5
         with:
@@ -31,12 +62,11 @@ jobs:
 
       - run: npm ci
       - run: npm run build
-        env:
-          SENKRONLA_ROOT: ${{ github.workspace }}/senkronla
 
       - name: Publish build to pages branch
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_VERSION: ${{ needs.check-version.outputs.app_version }}
         run: |
           set -euo pipefail
           touch dist/.nojekyll
@@ -65,7 +95,7 @@ jobs:
             echo "No changes to deploy"
             exit 0
           fi
-          git -C "$workdir" commit -m "deploy: ${{ github.sha }}"
+          git -C "$workdir" commit -m "deploy: v${APP_VERSION} (${{ github.sha }})"
 
           for attempt in 1 2 3; do
             if git -C "$workdir" push origin HEAD:pages; then
