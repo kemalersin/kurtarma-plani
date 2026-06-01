@@ -7,9 +7,20 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-/** Senkronla monorepo kökü — kendi yolunuza göre ayarlayın */
-const SENKRONLA_ROOT =
-  process.env.SENKRONLA_ROOT ?? path.resolve(__dirname, '../senkronla')
+/** Senkronla monorepo kökü — SENKRONLA_ROOT veya bilinen konumlar */
+function resolveSenkronlaRoot(): string {
+  const candidates = [
+    process.env.SENKRONLA_ROOT,
+    path.resolve(__dirname, '../senkronla'),
+    path.resolve(__dirname, 'senkronla'),
+  ].filter((p): p is string => Boolean(p))
+  for (const root of candidates) {
+    if (fs.existsSync(path.join(root, 'packages/client/src/index.ts'))) return root
+  }
+  return candidates[0] ?? path.resolve(__dirname, '../senkronla')
+}
+
+const SENKRONLA_ROOT = resolveSenkronlaRoot()
 
 const SENKRONLA_CLIENT_ENTRY = path.join(
   SENKRONLA_ROOT,
@@ -27,15 +38,20 @@ function senkronlaClientInNodeModules(): boolean {
   return fs.existsSync(path.join(__dirname, 'node_modules/@senkronla/client/package.json'))
 }
 
-/** `VITE_LOCAL_SENKRONLA` + mode; npm paketi yoksa yerel monorepo fallback. */
+/**
+ * Yerel monorepo alias: `VITE_LOCAL_SENKRONLA=true` zorlar;
+ * `false` = npm tercih (kuruluysa); npm yoksa yerel kaynak fallback (yayımlanmamış paket).
+ */
 function useLocalSenkronla(env: Record<string, string>, mode: string): boolean {
-  if (env.VITE_LOCAL_SENKRONLA === 'false') return false
   const localEntryExists = fs.existsSync(SENKRONLA_CLIENT_ENTRY)
+  const npmInstalled = senkronlaClientInNodeModules()
+
   if (env.VITE_LOCAL_SENKRONLA === 'true') return localEntryExists
+  if (env.VITE_LOCAL_SENKRONLA === 'false') return npmInstalled ? false : localEntryExists
+
   const isDevOrTest = mode === 'development' || mode === 'test'
   if (isDevOrTest && localEntryExists) return true
-  // npm henüz yayımlanmadıysa production build de yerel monorepo kullanır
-  return !senkronlaClientInNodeModules() && localEntryExists
+  return !npmInstalled && localEntryExists
 }
 
 export default defineConfig(({ mode }) => {

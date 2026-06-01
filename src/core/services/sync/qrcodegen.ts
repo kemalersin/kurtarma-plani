@@ -917,7 +917,7 @@ export namespace qrcodegen {
 
 /*---- Public helper enumeration ----*/
 
-namespace qrcodegen.QrCode {
+export namespace qrcodegen.QrCode {
 	
 	type int = number;
 	
@@ -950,7 +950,7 @@ namespace qrcodegen.QrCode {
 
 /*---- Public helper enumeration ----*/
 
-namespace qrcodegen.QrSegment {
+export namespace qrcodegen.QrSegment {
 	
 	type int = number;
 	

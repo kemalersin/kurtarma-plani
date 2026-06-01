@@ -165,6 +165,8 @@ npm run typecheck
 
 İlk kurulumda örnek dosyalardan kopyalayın veya repodaki `.env.development` / `.env.production` dosyalarını kullanın.
 
+**ESR SDK (`@senkronla/client`):** npm’de henüz yayımlı değil. Relay özellikleri için [Senkronla](https://github.com/kemalersin/senkronla) monoreposunu `../senkronla` (veya `SENKRONLA_ROOT`) konumuna klonlayın; `VITE_LOCAL_SENKRONLA=true` geliştirmede, production build’de paket yoksa Vite otomatik yerel kaynağa düşer. CI, `senkronla` reposunu workflow içinde çeker.
+
 ### Sürüm ve CHANGELOG
 
 Tek semver kaynağı [`package.json`](package.json) `version` alanıdır. Değişiklik notları [Keep a Changelog](https://keepachangelog.com/) biçiminde [`CHANGELOG.md`](CHANGELOG.md) dosyasındadır.

@@ -18,6 +18,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Checkout Senkronla (ESR SDK — npm henüz yayımlı değil)
+        uses: actions/checkout@v5
+        with:
+          repository: kemalersin/senkronla
+          path: senkronla
+
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -25,6 +31,8 @@ jobs:
 
       - run: npm ci
       - run: npm run build
+        env:
+          SENKRONLA_ROOT: ${{ github.workspace }}/senkronla
 
       - name: Publish build to pages branch
         env:
