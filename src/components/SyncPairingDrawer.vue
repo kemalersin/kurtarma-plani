@@ -327,14 +327,14 @@ async function copyText(label: string, value: string): Promise<void> {
   letter-spacing: 0.35em;
   text-align: center;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  padding: 12px 0 4px;
+  padding: 8px 0 0;
 }
 
 .kp-sync-pairing-qr {
   display: block;
   width: 220px;
   height: 220px;
-  margin: 8px auto 4px;
+  margin: 4px auto 0;
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
@@ -347,7 +347,7 @@ async function copyText(label: string, value: string): Promise<void> {
   text-align: center;
   gap: 8px;
   width: 100%;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .kp-sync-pairing-host-meta__expires {

@@ -4,6 +4,7 @@ import {
   Alert,
   Button,
   Checkbox,
+  Divider,
   Form,
   FormItem,
   Input,
@@ -26,6 +27,14 @@ import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import { envelopeProfileMismatch } from '@/core/services/sync/sync-engine'
 import { createDefaultSyncConfig, relayUrlFromEnv, appIdFromEnv, type SyncConfig, type SyncTransport } from '@/core/types/sync'
 
+const props = defineProps<{
+  syncNowVisitArmed?: boolean
+}>()
+
+const emit = defineEmits<{
+  consumeSyncNowVisit: []
+}>()
+
 const syncStore = useSyncStore()
 const profileStore = useProfileStore()
 const { formatDateTimeLong } = useLocaleFormatters()
@@ -42,6 +51,8 @@ function draftFromConfig(config: SyncConfig) {
     autoPush: config.autoPush,
   }
 }
+
+type SyncSettingsDraft = ReturnType<typeof draftFromConfig>
 
 const draft = reactive(
   draftFromConfig(syncStore.loaded ? syncStore.config : createDefaultSyncConfig()),
@@ -65,6 +76,48 @@ function shortProfileId(id: string | undefined): string {
 const profileHasPassword = computed(
   () => Boolean(profileStore.activeProfile?.password?.enabled),
 )
+
+function normalizeDraftSnapshot(source: SyncSettingsDraft): SyncSettingsDraft {
+  return {
+    ...source,
+    relayUrl: source.relayUrl.trim(),
+    appId: source.appId.trim(),
+    autoPush: syncStore.isManualMode && source.transport === 'file' ? false : source.autoPush,
+    useProfilePassword:
+      profileHasPassword.value && source.encryptFile ? source.useProfilePassword : false,
+  }
+}
+
+function mergeDraftOntoConfig(): SyncConfig {
+  return {
+    ...syncStore.config,
+    transport: draft.transport,
+    relayUrl: draft.relayUrl.trim() || undefined,
+    appId: draft.appId.trim() || undefined,
+    encryptFile: draft.encryptFile,
+    useProfilePassword: draft.useProfilePassword,
+    includeSensitive: draft.includeSensitive,
+    includeSecrets: draft.includeSecrets,
+    autoPush: draft.autoPush,
+  }
+}
+
+const hasDraftChanges = computed(() => {
+  if (!syncStore.loaded) return false
+  const saved = normalizeDraftSnapshot(draftFromConfig(syncStore.config))
+  const current = normalizeDraftSnapshot(draftFromConfig(mergeDraftOntoConfig()))
+  return (Object.keys(saved) as (keyof SyncSettingsDraft)[]).some(
+    (key) => saved[key] !== current[key],
+  )
+})
+
+const syncNowActionAllowed = computed(
+  () => Boolean(props.syncNowVisitArmed) || hasDraftChanges.value,
+)
+
+function disarmSyncNowVisit(): void {
+  emit('consumeSyncNowVisit')
+}
 
 const useProfilePasswordApplicable = computed(
   () => profileHasPassword.value && draft.encryptFile,
@@ -295,12 +348,14 @@ async function saveOptions(showToast = true): Promise<void> {
         message.error(hint)
       }
     }
+    disarmSyncNowVisit()
     return
   }
 
   if (showToast) {
     message.success('Senkron ayarları kaydedildi.')
   }
+  disarmSyncNowVisit()
 }
 
 async function onTransportChange(next: SyncTransport): Promise<void> {
@@ -385,6 +440,7 @@ async function executeRelaySyncNow(password?: string): Promise<void> {
     )
     syncPassword.value = ''
     passwordModalOpen.value = false
+    disarmSyncNowVisit()
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Senkron başarısız.'
     if (!syncStore.relayUserErrorMessage) {
@@ -451,6 +507,7 @@ async function executeManualSync(password?: string): Promise<void> {
     )
     syncPassword.value = ''
     passwordModalOpen.value = false
+    disarmSyncNowVisit()
   } catch (error) {
     message.error(error instanceof Error ? error.message : 'Senkron başarısız.')
   }
@@ -481,7 +538,7 @@ async function onAdoptFile(): Promise<void> {
 }
 
 async function onSyncNow(): Promise<void> {
-  if (!canConfigure.value) return
+  if (!canConfigure.value || !syncNowActionAllowed.value) return
   if (wantsRelaySync.value) {
     if (syncStore.conflictPending) {
       syncStore.openConflictModal()
@@ -905,6 +962,7 @@ async function confirmPasswordAndSync(): Promise<void> {
           :loading="syncStore.syncing"
           :disabled="
             !canConfigure ||
+            !syncNowActionAllowed ||
             syncStore.syncing ||
             (wantsRelaySync
               ? !relaySyncReady
@@ -917,6 +975,8 @@ async function confirmPasswordAndSync(): Promise<void> {
         </Button>
       </Space>
     </template>
+
+    <Divider v-if="syncStore.deviceId" class="kp-sync-device-divider" />
 
     <Typography.Paragraph v-if="syncStore.deviceId" class="kp-text-muted kp-sync-device">
       <span class="kp-sync-device__label">Cihaz kimliği:</span>
@@ -989,8 +1049,12 @@ async function confirmPasswordAndSync(): Promise<void> {
   gap: 8px 12px;
 }
 
+.kp-sync-device-divider {
+  margin: 12px 0 2px;
+}
+
 .kp-sync-device {
-  margin-top: 12px;
+  margin-top: 0;
   margin-bottom: 0 !important;
   font-size: 12px;
 }

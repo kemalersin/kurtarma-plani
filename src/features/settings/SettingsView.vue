@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { useRoutedTabs } from '@/composables/useRoutedTabs'
+import { useSyncNowVisitGate } from '@/composables/useSyncNowVisitGate'
 import {
   Card,
   Typography,
@@ -45,6 +46,14 @@ const deletingProfile = ref(false)
 const deleteConfirmTitle = ref('')
 const SETTINGS_TABS = ['profile', 'locale', 'security', 'banking', 'ai', 'data', 'sync', 'updates'] as const
 const { activeTab } = useRoutedTabs(SETTINGS_TABS, 'profile', { routeName: 'settings' })
+const { syncNowVisitArmed, consumeSyncNowVisit, resetSyncNowVisitGate } = useSyncNowVisitGate(
+  () => activeTab.value,
+  'sync',
+)
+
+onBeforeRouteLeave((_to, from) => {
+  if (from.name === 'settings') resetSyncNowVisitGate()
+})
 
 watch(
   profile,
@@ -212,7 +221,10 @@ function setDeleteConfirmTitle(): void {
 
       <TabPane key="sync" tab="Senkron">
         <Card title="Otomatik senkron">
-          <SyncSettingsSection />
+          <SyncSettingsSection
+            :sync-now-visit-armed="syncNowVisitArmed"
+            @consume-sync-now-visit="consumeSyncNowVisit"
+          />
         </Card>
       </TabPane>
 
