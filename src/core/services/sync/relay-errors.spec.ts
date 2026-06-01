@@ -8,6 +8,21 @@ import {
 } from '@/core/services/sync/relay-errors'
 
 describe('relay-errors', () => {
+  it('APP_ID_REQUIRED kısa Türkçe mesaj döner', () => {
+    expect(
+      relayErrorMessageFromUnknown({
+        code: 'APP_ID_REQUIRED',
+        message: 'Application context is required to create a namespace',
+      }),
+    ).toBe('Uygulama kimliği gerekli.')
+    expect(
+      relayErrorMessageFromUnknown({
+        code: 'APP_ID_REQUIRED',
+        message: 'X-ESR-App-Id header is required',
+      }),
+    ).toBe('Uygulama kimliği gerekli.')
+  })
+
   it('APP_NOT_FOUND kısa Türkçe mesaj döner', () => {
     expect(
       relayErrorMessageFromUnknown({ code: 'APP_NOT_FOUND', message: 'Application is not registered' }),

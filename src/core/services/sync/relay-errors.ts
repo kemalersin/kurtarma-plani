@@ -7,6 +7,7 @@ export function shortenSyncErrorMessage(message: string, maxLength = 56): string
 }
 
 const RELAY_ERROR_BY_CODE: Record<string, string> = {
+  APP_ID_REQUIRED: 'Uygulama kimliği gerekli.',
   APP_NOT_FOUND: 'Uygulama kimliği kayıtlı değil.',
   ESR_CLIENT_OFFLINE: 'Relay sunucusuna ulaşılamadı.',
   ESR_CLIENT_NAMESPACE_EXISTS: 'Profil başka cihazda kayıtlı.',
@@ -22,6 +23,8 @@ const RELAY_ERROR_BY_CODE: Record<string, string> = {
 }
 
 const RELAY_ERROR_BY_MESSAGE: Record<string, string> = {
+  'Application context is required to create a namespace': 'Uygulama kimliği gerekli.',
+  'X-ESR-App-Id header is required': 'Uygulama kimliği gerekli.',
   'Application is not registered': 'Uygulama kimliği kayıtlı değil.',
   'Device token is invalid or revoked':
     'Cihaz oturumu geçersiz; yeniden eşleştirin veya kurtarma anahtarı kullanın.',

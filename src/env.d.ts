@@ -3,7 +3,7 @@
 interface ImportMetaEnv {
   readonly VITE_ESR_RELAY_URL?: string
   readonly VITE_ESR_APP_ID?: string
-  readonly VITE_LOCAL_SENKRONLA?: string
+  readonly VITE_LOCAL_SENKRONLA_PACKAGES?: string
 }
 
 interface ImportMeta {

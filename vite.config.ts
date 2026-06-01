@@ -39,15 +39,15 @@ function senkronlaClientInNodeModules(): boolean {
 }
 
 /**
- * Yerel monorepo alias: `VITE_LOCAL_SENKRONLA=true` zorlar;
+ * Yerel monorepo alias: `VITE_LOCAL_SENKRONLA_PACKAGES=true` zorlar;
  * `false` = npm tercih (kuruluysa); npm yoksa yerel kaynak fallback (yayımlanmamış paket).
  */
 function useLocalSenkronla(env: Record<string, string>, mode: string): boolean {
   const localEntryExists = fs.existsSync(SENKRONLA_CLIENT_ENTRY)
   const npmInstalled = senkronlaClientInNodeModules()
 
-  if (env.VITE_LOCAL_SENKRONLA === 'true') return localEntryExists
-  if (env.VITE_LOCAL_SENKRONLA === 'false') return npmInstalled ? false : localEntryExists
+  if (env.VITE_LOCAL_SENKRONLA_PACKAGES === 'true') return localEntryExists
+  if (env.VITE_LOCAL_SENKRONLA_PACKAGES === 'false') return npmInstalled ? false : localEntryExists
 
   const isDevOrTest = mode === 'development' || mode === 'test'
   if (isDevOrTest && localEntryExists) return true

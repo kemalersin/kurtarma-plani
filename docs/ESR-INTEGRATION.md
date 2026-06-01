@@ -438,7 +438,7 @@ Profil değişiminde:
 **Dev alias** (mevcut `vite.config.ts`):
 
 ```typescript
-// SENKRONLA_ROOT=../senkronla, VITE_LOCAL_SENKRONLA !== 'false'
+// SENKRONLA_ROOT=../senkronla, VITE_LOCAL_SENKRONLA_PACKAGES !== 'false'
 '@senkronla/client' → packages/client/src
 '@senkronla/protocol' → packages/protocol/src
 ```

@@ -9,8 +9,6 @@ dist/
 .env
 .env.*
 !.env.example
-!.env.development
-!.env.production
 !.env.development.example
 !.env.production.example
 
