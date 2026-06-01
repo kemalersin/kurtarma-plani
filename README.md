@@ -160,7 +160,7 @@ npm run typecheck
 | Dosya | Kullanım |
 |-------|----------|
 | `.env.development` | `npm run dev` — yerel relay (`localhost:8080`) |
-| `.env.production` | `npm run build` ve CI — `https://senkron.la/api/v1` |
+| `.env.production` | `npm run build` ve CI — `https://sync.senkron.la/v1` |
 | `.env.development.example` / `.env.production.example` | Şablon; dosya yoksa `cp …example .env.…` |
 
 İlk kurulumda örnek dosyalardan kopyalayın veya repodaki `.env.development` / `.env.production` dosyalarını kullanın.
