@@ -29,7 +29,6 @@ const SENKRONLA_CLIENT_ENTRY = path.join(
 
 function senkronlaLocalAliases(): Record<string, string> {
   return {
-    '@senkronla/protocol': path.join(SENKRONLA_ROOT, 'packages/protocol/src'),
     '@senkronla/client': path.join(SENKRONLA_ROOT, 'packages/client/src'),
   }
 }
@@ -123,9 +122,7 @@ export default defineConfig(({ mode }) => {
         'echarts/components',
         'echarts/renderers',
       ],
-      exclude: localSenkronla
-        ? ['@senkronla/client', '@senkronla/protocol']
-        : [],
+      exclude: localSenkronla ? ['@senkronla/client'] : [],
     },
     test: {
       environment: 'node',

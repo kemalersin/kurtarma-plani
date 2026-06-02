@@ -18,7 +18,7 @@ Bu belge, **Kurtarma Planı** (KP) uygulamasına [Senkronla](https://github.com/
 | Belge | `documentId: primary` (tek snapshot; v1.2 çoklu belge gerekmez) |
 | İçerik | Mevcut `buildSnapshot` / `importSnapshot` — şema değişmez |
 | Offline-first | Korunur; relay yalnızca çevrimiçiyken I/O |
-| Bağımlılık | `@senkronla/client` + `@senkronla/protocol` (^0.1.9, npm veya dev alias) |
+| Bağımlılık | `@senkronla/client` (^0.1.x, npm veya dev alias; protocol client içinde transitif) |
 
 ---
 
@@ -129,7 +129,7 @@ KP-SYNC1 (plain meta: rev, sha256, profileId)
 
 ```
 ESR-DOC1 (relay meta: revision, documentId)
-  └── payload: ENV-RAW1 | ENV-ENC1    ← @senkronla/protocol
+  └── payload: ENV-RAW1 | ENV-ENC1    ← Senkronla SDK (client → protocol)
         └── ExportSnapshot JSON (aynı içerik)
 ```
 
@@ -430,17 +430,17 @@ Profil değişiminde:
 
 ```json
 {
-  "@senkronla/client": "^0.1.9",
-  "@senkronla/protocol": "^0.1.9"
+  "@senkronla/client": "^0.1.11"
 }
 ```
+
+KP yalnızca `@senkronla/client` import eder; `@senkronla/protocol` client bağımlılığıdır (doğrudan `package.json` veya alias yok).
 
 **Dev alias** (mevcut `vite.config.ts`):
 
 ```typescript
 // SENKRONLA_ROOT=../senkronla, VITE_LOCAL_SENKRONLA_PACKAGES !== 'false'
 '@senkronla/client' → packages/client/src
-'@senkronla/protocol' → packages/protocol/src
 ```
 
 **Build kısıtları korunur:**

@@ -1102,6 +1102,7 @@ async function confirmPasswordAndSync(): Promise<void> {
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
+    width: 100%;
   }
 
   .kp-sync-device__label {
@@ -1111,7 +1112,7 @@ async function confirmPasswordAndSync(): Promise<void> {
 
   .kp-sync-device__id {
     display: block;
-    max-width: 100%;
+    width: 100%;
     word-break: break-all;
   }
 }

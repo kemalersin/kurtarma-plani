@@ -6,6 +6,12 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.45]
+
+### Changed
+
+- `@senkronla/protocol` doğrudan bağımlılık ve Vite alias kaldırıldı; yalnızca `@senkronla/client` (protocol client içinde transitif).
+
 ## [0.1.42]
 
 ### Fixed — kurulum Senkronla
@@ -89,7 +95,7 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 ### Added — ESR entegrasyon (KP-R1)
 
 - `KpDocumentAdapter`: `buildSnapshot` / `importSnapshot` ↔ `@senkronla/client` `DocumentAdapter` köprüsü (`kp-document-adapter.ts`).
-- Vitest + `tsconfig` yerel `@senkronla/*` path eşlemesi (npm paketi yayınlanana kadar).
+- Vitest + `tsconfig` yerel `@senkronla/client` path eşlemesi (npm paketi yayınlanana kadar).
 
 ### Added — ESR entegrasyon (KP-R2)
 
@@ -136,11 +142,11 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 - Relay: «Bağlan» kaldırıldı; «Senkron ayarlarını kaydet» relay URL/appId kaydından sonra otomatik `ensureRelayConnection` çağırır.
 - `SyncDeviceDrawer`: cihazlar kart görünümünde ayrı drawer; «Cihazlar» düğmesi (inline liste kaldırıldı).
 
-- `@senkronla/protocol` tarayıcı uyumlu kripto (`@noble/hashes`, `hash-wasm`); `node:crypto` Vite externalize hatası giderildi (yerel `../senkronla` alias ile).
+- Senkronla SDK tarayıcı uyumlu kripto (`@noble/hashes`, `hash-wasm`); `node:crypto` Vite externalize hatası giderildi (yerel `../senkronla` alias ile).
 - Relay «Bağlan»: şifreli senkron açıkken parola istenmeden sessiz başarısızlık giderildi; `lastError` artık somut mesaj gösterir.
 - Sayfa yüklemesinde otomatik relay denemesi parola eksikliğini `lastError`'a yazmaz; eski parola uyarıları temizlenir.
 - Relay «Bağlan»: namespace oluşturulmadan bildirim poll'u (`NAMESPACE_NOT_FOUND`) — oturum namespace hazır olunca etkinleştirilir.
-- `@senkronla/protocol`: recovery phrase `bip39` → `@scure/bip39` (`Buffer is not defined` tarayıcı hatası).
+- Senkronla SDK: recovery phrase `bip39` → `@scure/bip39` (`Buffer is not defined` tarayıcı hatası).
 
 ## [0.1.40]
 

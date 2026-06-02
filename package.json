@@ -1,7 +1,7 @@
 {
   "name": "kurtarma-plani",
   "private": true,
-  "version": "0.1.44",
+  "version": "0.1.45",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -30,8 +30,7 @@
     "vue": "^3.5.17",
     "vue-router": "^4.5.1",
     "zod": "^4.4.3",
-    "@senkronla/client": "^0.1.11",
-    "@senkronla/protocol": "^0.1.11"
+    "@senkronla/client": "^0.1.11"
   },
   "devDependencies": {
     "@types/dompurify": "^3.0.5",
