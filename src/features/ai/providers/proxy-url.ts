@@ -8,6 +8,7 @@ const DEV_PROXY_PROVIDERS = new Set<AiProviderId>([
   'openai',
   'gemini',
   'deepseek',
+  'zai',
 ])
 
 export function usesDevAiProxy(provider: AiProviderId): boolean {
@@ -26,6 +27,8 @@ export function devAiProxyBaseUrl(provider: AiProviderId): string | undefined {
       return `${DEV_AI_PROXY_PREFIX}/gemini/v1beta`
     case 'deepseek':
       return `${DEV_AI_PROXY_PREFIX}/deepseek`
+    case 'zai':
+      return `${DEV_AI_PROXY_PREFIX}/zai/api/coding/paas/v4`
     default:
       return undefined
   }

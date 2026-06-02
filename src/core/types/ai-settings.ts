@@ -1,4 +1,4 @@
-export type AiProviderId = 'anthropic' | 'openai' | 'gemini' | 'deepseek' | 'ollama' | 'vllm'
+export type AiProviderId = 'anthropic' | 'openai' | 'gemini' | 'deepseek' | 'ollama' | 'vllm' | 'zai'
 
 export interface AiProviderConfig {
   id: string

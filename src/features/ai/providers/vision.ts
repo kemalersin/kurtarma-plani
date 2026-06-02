@@ -21,7 +21,7 @@ export function messagesHavePdf(messages: ChatTurnMessage[]): boolean {
 
 /** OpenAI `image_url` içerik dizisini destekleyen sağlayıcılar. */
 export function supportsOpenAiVisionFormat(provider: AiProviderId): boolean {
-  return provider === 'openai'
+  return provider === 'openai' || provider === 'zai'
 }
 
 /** Yerel / alternatif görsel API'si olan sağlayıcılar. */
@@ -63,6 +63,7 @@ export function visionNotSupportedMessage(provider: AiProviderId): string {
     deepseek: 'DeepSeek',
     ollama: 'Ollama',
     vllm: 'vLLM',
+    zai: 'Z.ai',
   }
   const name = labels[provider]
   if (provider === 'ollama') {
