@@ -70,6 +70,10 @@ export const SyncConfigSchema = z.object({
   relayConnectedByProfile: z.record(z.string(), z.boolean()).optional(),
   /** true: kullanıcı Ayarlar'da relay uç noktasını kaydetti; appId/relayUrl IndexedDB'de kalır. */
   relayEndpointLocked: z.boolean().optional(),
+  /** Bu kurulumda Senkron.la cihaz listesinde görünen ad (eşleştirme / namespace oluşturma). */
+  relayDeviceLabel: optionalTrimmedString,
+  /** WebSocket bildirimleri + poll yedeklemesi; kapalıyken yalnızca manuel/zamanlanmış senkron. */
+  relayNotificationsEnabled: z.boolean().default(true),
   /** Profil başına senkron tercihleri (enabled, transport, şifreleme vb.). */
   preferencesByProfile: z.record(z.string(), ProfileSyncPreferencesSchema).optional(),
 })
@@ -130,6 +134,25 @@ export function relayAdapterConfigKey(
     config.useProfilePassword,
     config.includeSensitive,
     config.includeSecrets,
+  ].join('\0')
+}
+
+/** Relay oturumu (`EsrSync.connect`) seçenekleri — adapter + cihaz adı + bildirimler. */
+export function relaySessionConfigKey(
+  config: Pick<
+    SyncConfig,
+    | 'encryptFile'
+    | 'useProfilePassword'
+    | 'includeSensitive'
+    | 'includeSecrets'
+    | 'relayDeviceLabel'
+    | 'relayNotificationsEnabled'
+  >,
+): string {
+  return [
+    relayAdapterConfigKey(config),
+    (config.relayDeviceLabel ?? '').trim(),
+    String(config.relayNotificationsEnabled !== false),
   ].join('\0')
 }
 
@@ -225,6 +248,7 @@ export function applyEnvRelayEndpoint(config: SyncConfig): SyncConfig {
 function createEmptyPersistedSyncConfig(): SyncConfig {
   return stripLegacyTopLevelProfileFields({
     ...defaultProfileSyncPreferences(),
+    relayNotificationsEnabled: true,
     remoteRevisionByProfile: {},
     fileNameByProfile: {},
     relayConnectedByProfile: {},
@@ -274,6 +298,8 @@ export function normalizePersistedSyncConfig(raw: unknown): SyncConfig {
     relayUrl: data.relayUrl,
     appId: data.appId,
     relayEndpointLocked: data.relayEndpointLocked,
+    relayDeviceLabel: data.relayDeviceLabel,
+    relayNotificationsEnabled: data.relayNotificationsEnabled ?? true,
     preferencesByProfile,
   })
 }
@@ -313,6 +339,8 @@ export function resolveSyncConfigForProfile(
     relayUrl: normalized.relayUrl,
     appId: normalized.appId,
     relayEndpointLocked: normalized.relayEndpointLocked,
+    relayDeviceLabel: normalized.relayDeviceLabel,
+    relayNotificationsEnabled: normalized.relayNotificationsEnabled ?? true,
     ...prefs,
   }
   return applyEnvRelayEndpoint(merged)
@@ -358,6 +386,10 @@ export function applySyncConfigPatch(
   if (patch.relayUrl !== undefined) next.relayUrl = patch.relayUrl
   if (patch.appId !== undefined) next.appId = patch.appId
   if (patch.relayEndpointLocked !== undefined) next.relayEndpointLocked = patch.relayEndpointLocked
+  if (patch.relayDeviceLabel !== undefined) next.relayDeviceLabel = patch.relayDeviceLabel
+  if (patch.relayNotificationsEnabled !== undefined) {
+    next.relayNotificationsEnabled = patch.relayNotificationsEnabled
+  }
 
   const profilePatch = pickProfileSyncPreferences(patch)
   if (Object.prototype.hasOwnProperty.call(patch, 'lastError')) {

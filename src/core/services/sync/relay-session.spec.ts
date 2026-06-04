@@ -62,8 +62,10 @@ import {
   markRelayLocalChange,
   cancelRelayDebouncedPush,
   notifyRelayLocalChange,
+  pickRelayConnectOptions,
   runRelaySync,
   runRelayManualSync,
+  suggestRelayDeviceLabel,
   validateRelayConfig,
 } from '@/core/services/sync/relay-session'
 
@@ -161,6 +163,7 @@ describe('connectRelaySession', () => {
         document: mockAdapter,
         pushDebounceMs: 2000,
         enabled: false,
+        notificationsEnabled: true,
         fetch: undefined,
         onRecoveryPhrase,
         onConflict,
@@ -182,6 +185,58 @@ describe('connectRelaySession', () => {
         },
       }),
     ).rejects.toThrow(/relay değil/)
+  })
+
+  it('cihaz adı ve bildirim seçeneklerini EsrSync.connect ile iletir', async () => {
+    await connectRelaySession({
+      profile: mockProfile,
+      dataKey: null,
+      config: {
+        ...relayConfig(),
+        relayDeviceLabel: 'Ev MacBook',
+        relayNotificationsEnabled: false,
+      },
+      resolveSyncPassword: async () => undefined,
+      callbacks: {
+        onRecoveryPhrase: vi.fn(),
+        onConflict: vi.fn(async () => 'cancel' as const),
+      },
+      storage: { get: vi.fn(), set: vi.fn(), remove: vi.fn() },
+    })
+
+    expect(connectMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceLabel: 'Ev MacBook',
+        notificationsEnabled: false,
+      }),
+    )
+  })
+})
+
+describe('pickRelayConnectOptions', () => {
+  it('boş etikette deviceLabel göndermez', () => {
+    expect(pickRelayConnectOptions({ relayNotificationsEnabled: true })).toEqual({
+      deviceLabel: undefined,
+      notificationsEnabled: true,
+    })
+  })
+
+  it('bildirimler kapalıyken notificationsEnabled false', () => {
+    expect(
+      pickRelayConnectOptions({
+        relayDeviceLabel: '  Ofis PC  ',
+        relayNotificationsEnabled: false,
+      }),
+    ).toEqual({
+      deviceLabel: 'Ofis PC',
+      notificationsEnabled: false,
+    })
+  })
+})
+
+describe('suggestRelayDeviceLabel', () => {
+  it('boş olmayan bir öneri döner', () => {
+    expect(suggestRelayDeviceLabel().length).toBeGreaterThan(0)
   })
 })
 

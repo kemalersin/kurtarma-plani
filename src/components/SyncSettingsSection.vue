@@ -26,6 +26,7 @@ import { useProfileStore } from '@/stores/profile'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import { envelopeProfileMismatch } from '@/core/services/sync/sync-engine'
 import { createDefaultSyncConfig, relayUrlFromEnv, appIdFromEnv, type SyncConfig, type SyncTransport } from '@/core/types/sync'
+import { suggestRelayDeviceLabel } from '@/core/services/sync/relay-session'
 
 const props = defineProps<{
   syncNowVisitArmed?: boolean
@@ -44,6 +45,8 @@ function draftFromConfig(config: SyncConfig) {
     transport: config.transport,
     relayUrl: config.relayUrl ?? relayUrlFromEnv() ?? '',
     appId: config.appId ?? appIdFromEnv() ?? '',
+    relayDeviceLabel: config.relayDeviceLabel ?? '',
+    relayNotificationsEnabled: config.relayNotificationsEnabled !== false,
     encryptFile: config.encryptFile,
     useProfilePassword: config.useProfilePassword,
     includeSensitive: config.includeSensitive,
@@ -82,6 +85,7 @@ function normalizeDraftSnapshot(source: SyncSettingsDraft): SyncSettingsDraft {
     ...source,
     relayUrl: source.relayUrl.trim(),
     appId: source.appId.trim(),
+    relayDeviceLabel: source.relayDeviceLabel.trim(),
     autoPush: syncStore.isManualMode && source.transport === 'file' ? false : source.autoPush,
     useProfilePassword:
       profileHasPassword.value && source.encryptFile ? source.useProfilePassword : false,
@@ -94,6 +98,8 @@ function mergeDraftOntoConfig(): SyncConfig {
     transport: draft.transport,
     relayUrl: draft.relayUrl.trim() || undefined,
     appId: draft.appId.trim() || undefined,
+    relayDeviceLabel: draft.relayDeviceLabel.trim() || undefined,
+    relayNotificationsEnabled: draft.relayNotificationsEnabled,
     encryptFile: draft.encryptFile,
     useProfilePassword: draft.useProfilePassword,
     includeSensitive: draft.includeSensitive,
@@ -144,6 +150,8 @@ const relaySyncReady = computed(
 )
 
 const relayDevicesDrawerOpen = ref(false)
+
+const relayDeviceLabelPlaceholder = suggestRelayDeviceLabel()
 
 const passwordModalLabel = computed(() => {
   if (draft.useProfilePassword && profileHasPassword.value) {
@@ -327,6 +335,8 @@ async function saveOptions(showToast = true): Promise<void> {
     relayUrl: draft.relayUrl.trim() || undefined,
     appId: draft.appId.trim() || undefined,
     relayEndpointLocked: true,
+    relayDeviceLabel: draft.relayDeviceLabel.trim() || undefined,
+    relayNotificationsEnabled: draft.relayNotificationsEnabled,
     encryptFile: draft.encryptFile,
     useProfilePassword,
     includeSensitive: draft.includeSensitive,
@@ -829,6 +839,33 @@ async function confirmPasswordAndSync(): Promise<void> {
               App registry açık relay (ESR - Envelope Sync Relay) sunucularında zorunlu.
             </Typography.Text>
           </FormItem>
+          <FormItem label="Cihaz adı">
+            <Input
+              v-model:value="draft.relayDeviceLabel"
+              :placeholder="relayDeviceLabelPlaceholder"
+              :disabled="!canConfigure || syncStore.syncing"
+              :maxlength="120"
+              allow-clear
+            />
+            <Typography.Text type="secondary" class="kp-sync-relay-hint">
+              Senkron.la cihaz listesinde görünür. Boş bırakılırsa tarayıcı bilgisi kullanılır;
+              yalnızca yeni namespace veya eşleştirmede sunucuya iletilir.
+            </Typography.Text>
+          </FormItem>
+          <div class="kp-sync-relay-notify">
+            <div class="kp-sync-relay-notify__head">
+              <Switch
+                :checked="draft.relayNotificationsEnabled"
+                :disabled="!canConfigure || syncStore.syncing"
+                @change="(checked) => { draft.relayNotificationsEnabled = checked === true }"
+              />
+              <Typography.Text strong>Bildirimler (WebSocket)</Typography.Text>
+            </div>
+            <Typography.Text type="secondary" class="kp-sync-relay-hint kp-sync-relay-notify__hint">
+              Açıkken uzak değişiklikler WebSocket ile anında alınır; kapalıyken yalnızca
+              «Şimdi senkronize et» ve otomatik yazma sonrası senkron kullanılır.
+            </Typography.Text>
+          </div>
           <div class="kp-sync-relay-actions">
             <Space wrap>
             <Button
@@ -1132,6 +1169,20 @@ async function confirmPasswordAndSync(): Promise<void> {
   margin-top: 4px;
   font-size: 12px;
   line-height: 1.4;
+}
+
+.kp-sync-relay-notify {
+  margin-bottom: 24px;
+}
+
+.kp-sync-relay-notify__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kp-sync-relay-notify__hint {
+  margin-top: 8px;
 }
 
 .kp-sync-relay-actions {

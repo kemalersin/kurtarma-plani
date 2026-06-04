@@ -91,6 +91,35 @@ export function createRelayPasswordResolver(
   }
 }
 
+/** Kullanıcı adı boşken placeholder — SDK `defaultDeviceLabel()` userAgent kullanır. */
+export function suggestRelayDeviceLabel(): string {
+  if (typeof navigator === 'undefined') return 'Kurtarma Planı'
+  const ua = navigator.userAgent
+  let browser = 'Tarayıcı'
+  if (ua.includes('Edg/')) browser = 'Edge'
+  else if (ua.includes('Firefox/')) browser = 'Firefox'
+  else if (ua.includes('Chrome/') && !ua.includes('Edg/')) browser = 'Chrome'
+  else if (ua.includes('Safari/') && !ua.includes('Chrome/')) browser = 'Safari'
+  const platform = navigator.platform ?? ''
+  let os = 'Cihaz'
+  if (/Mac/i.test(platform) || ua.includes('Mac OS')) os = 'macOS'
+  else if (/Win/i.test(platform)) os = 'Windows'
+  else if (/Linux/i.test(platform)) os = 'Linux'
+  else if (/iPhone|iPad/i.test(ua)) os = 'iOS'
+  else if (/Android/i.test(ua)) os = 'Android'
+  return `${browser} (${os})`
+}
+
+export function pickRelayConnectOptions(
+  config: Pick<SyncConfig, 'relayDeviceLabel' | 'relayNotificationsEnabled'>,
+): { deviceLabel?: string; notificationsEnabled: boolean } {
+  const label = config.relayDeviceLabel?.trim()
+  return {
+    deviceLabel: label || undefined,
+    notificationsEnabled: config.relayNotificationsEnabled !== false,
+  }
+}
+
 export async function connectRelaySession(params: ConnectRelaySessionParams): Promise<EsrSync> {
   const validation = validateRelayConfig(params.config)
   if (!validation.ok) {
@@ -118,6 +147,7 @@ export async function connectRelaySession(params: ConnectRelaySessionParams): Pr
   })
 
   const storage = params.storage ?? createLocalStorageAdapter()
+  const relayConnectOptions = pickRelayConnectOptions(params.config)
 
   const session = await EsrSync.connect({
     relayUrl: validation.relayUrl,
@@ -129,6 +159,8 @@ export async function connectRelaySession(params: ConnectRelaySessionParams): Pr
     enabled: false,
     pushDebounceMs: SYNC_PUSH_DEBOUNCE_MS,
     persistRecoveryPhrase: params.persistRecoveryPhrase ?? false,
+    deviceLabel: relayConnectOptions.deviceLabel,
+    notificationsEnabled: relayConnectOptions.notificationsEnabled,
     onRecoveryPhrase: params.callbacks.onRecoveryPhrase,
     onConflict: params.callbacks.onConflict,
     onDeviceLimit: params.callbacks.onDeviceLimit,

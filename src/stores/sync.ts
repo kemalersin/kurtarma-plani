@@ -74,7 +74,7 @@ import {
   omitProfileSyncState,
   pickProfileSyncPreferences,
   resolveSyncConfigForProfile,
-  relayAdapterConfigKey,
+  relaySessionConfigKey as buildRelaySessionConfigKey,
   syncConfigForPersist,
   syncFileNameForProfile,
   type SyncConfig,
@@ -1040,7 +1040,7 @@ export const useSyncStore = defineStore('sync', () => {
 
   async function getOrCreateRelaySession(silent = false): Promise<EsrSync | null> {
     if (relaySession.value) {
-      const expectedKey = relayAdapterConfigKey(config.value)
+      const expectedKey = buildRelaySessionConfigKey(config.value)
       if (relaySessionConfigKey.value === expectedKey) {
         return relaySession.value
       }
@@ -1165,7 +1165,7 @@ export const useSyncStore = defineStore('sync', () => {
           relayBoundProfileId.value = profile.id
           await markRelayProfileConnected(profile.id)
         }
-        relaySessionConfigKey.value = relayAdapterConfigKey(config.value)
+        relaySessionConfigKey.value = buildRelaySessionConfigKey(config.value)
         clearRelayUserError()
         return true
       } catch (error) {
@@ -1712,7 +1712,7 @@ export const useSyncStore = defineStore('sync', () => {
       profileId !== null &&
       relaySession.value !== null &&
       relayBoundProfileId.value === profileId &&
-      relaySessionConfigKey.value === relayAdapterConfigKey(config.value)
+      relaySessionConfigKey.value === buildRelaySessionConfigKey(config.value)
 
     if (!keepRelaySession) {
       teardownRelaySession()
@@ -1794,17 +1794,18 @@ export const useSyncStore = defineStore('sync', () => {
         resolvedBaseline,
       )
       const next = resolveSyncConfigForProfile(nextPersisted, profileId)
-      const adapterConfigChanged = relayAdapterConfigKey(base) !== relayAdapterConfigKey(next)
+      const relaySessionConfigChanged =
+        buildRelaySessionConfigKey(base) !== buildRelaySessionConfigKey(next)
       const relayEndpointChanged =
         isRelayTransport(next) &&
         (next.relayUrl?.trim() !== base.relayUrl?.trim() ||
           (next.appId ?? '').trim() !== (base.appId ?? '').trim())
       const transportChanged = next.transport !== base.transport
 
-      if ((adapterConfigChanged || relayEndpointChanged || transportChanged) && relaySession.value) {
+      if ((relaySessionConfigChanged || relayEndpointChanged || transportChanged) && relaySession.value) {
         teardownRelaySession()
       }
-      if (adapterConfigChanged && !next.encryptFile) {
+      if (relaySessionConfigChanged && !next.encryptFile) {
         clearSessionPassword()
       }
 
@@ -1816,7 +1817,7 @@ export const useSyncStore = defineStore('sync', () => {
 
       if (
         !opts?.skipRelayConnect &&
-        adapterConfigChanged &&
+        relaySessionConfigChanged &&
         isRelayTransport(next) &&
         next.relayEndpointLocked === true &&
         next.enabled &&

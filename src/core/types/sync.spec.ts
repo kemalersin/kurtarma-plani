@@ -12,6 +12,7 @@ import {
   normalizeSyncConfig,
   omitProfileSyncState,
   relayAdapterConfigKey,
+  relaySessionConfigKey,
   resolveSyncConfigForProfile,
   syncConfigForPersist,
 } from '@/core/types/sync'
@@ -60,6 +61,20 @@ describe('SyncConfigSchema', () => {
     expect(relayAdapterConfigKey(base)).not.toBe(
       relayAdapterConfigKey({ ...base, encryptFile: true }),
     )
+  })
+
+  it('relaySessionConfigKey cihaz adı ve bildirimleri ayırır', () => {
+    const base = createDefaultSyncConfig()
+    expect(relaySessionConfigKey(base)).not.toBe(
+      relaySessionConfigKey({ ...base, relayDeviceLabel: 'Ofis' }),
+    )
+    expect(relaySessionConfigKey(base)).not.toBe(
+      relaySessionConfigKey({ ...base, relayNotificationsEnabled: false }),
+    )
+  })
+
+  it('relayNotificationsEnabled varsayılan true', () => {
+    expect(createDefaultSyncConfig().relayNotificationsEnabled).toBe(true)
   })
 
   it('normalizeSyncConfig eski kayıtlara transport file ekler', () => {
