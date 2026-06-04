@@ -4,9 +4,11 @@ import type { AccountMovement } from '@/features/cashflow/movements'
 import { buildScheduleForLoan, remainingDebtForLoan } from '@/features/debts/loanHelpers'
 import type {
   Account,
+  CashAdvanceAccount,
   CashRegister,
   CreditCard,
   CreditCardTransaction,
+  InstallmentCashAdvance,
   Loan,
 } from '@/core/types/entities'
 
@@ -263,6 +265,121 @@ describe('debtTotalsByBankId', () => {
     let sum = 0
     for (const total of byBank.values()) sum += Number(total)
     expect(sum).toBeCloseTo(Number(snap.total), 2)
+  })
+
+  it('bağlı taksitli avans nakit avans borcuna değil taksitli avans borcuna yazılır', () => {
+    const account: CashAdvanceAccount = {
+      id: 'ca-1',
+      name: 'KMH',
+      bankId: 'b1',
+      currency: 'TRY',
+      limit: 50_000,
+      openingBalance: 0,
+      openingDate: '2026-01-01T00:00:00.000Z',
+      interestRate: 0.04,
+      interestPeriod: 'monthly',
+      createdAt: ISO,
+      updatedAt: ISO,
+    } as CashAdvanceAccount
+    const linkedAdvance: InstallmentCashAdvance = {
+      id: 'ia-1',
+      name: 'Taksitli avans',
+      bankId: 'b1',
+      cashAdvanceAccountId: 'ca-1',
+      currency: 'TRY',
+      principal: 25_000,
+      termMonths: 3,
+      startDate: '2026-03-15T00:00:00.000Z',
+      firstInstallmentDate: '2026-04-15T00:00:00.000Z',
+      interestRate: 0.04,
+      interestPeriod: 'monthly',
+      createdAt: ISO,
+      updatedAt: ISO,
+    } as InstallmentCashAdvance
+    const standaloneAdvance: InstallmentCashAdvance = {
+      ...linkedAdvance,
+      id: 'ia-2',
+      name: 'Bağımsız avans',
+      cashAdvanceAccountId: undefined,
+    }
+
+    const linkedSnap = debtSnapshot({
+      loans: [],
+      loanPayments: [],
+      creditCards: [],
+      creditCardTransactions: [],
+      cashAdvanceAccounts: [account],
+      cashAdvanceTransactions: [],
+      installmentAdvances: [linkedAdvance],
+      installmentAdvancePayments: [],
+      localCurrency: 'TRY',
+      asOf: '2026-04-01T00:00:00.000Z',
+    })
+    const standaloneSnap = debtSnapshot({
+      loans: [],
+      loanPayments: [],
+      creditCards: [],
+      creditCardTransactions: [],
+      cashAdvanceAccounts: [],
+      cashAdvanceTransactions: [],
+      installmentAdvances: [standaloneAdvance],
+      installmentAdvancePayments: [],
+      localCurrency: 'TRY',
+      asOf: '2026-04-01T00:00:00.000Z',
+    })
+
+    expect(Number(linkedSnap.byType.cashAdvances)).toBe(0)
+    expect(Number(linkedSnap.byType.installmentAdvances)).toBeGreaterThan(0)
+    expect(Number(standaloneSnap.byType.installmentAdvances)).toBeGreaterThan(0)
+    expect(Number(standaloneSnap.byType.cashAdvances)).toBe(0)
+  })
+
+  it('bağlı taksitli avans banka borcunda taksitli avans kaleminde sayılır', () => {
+    const account: CashAdvanceAccount = {
+      id: 'ca-1',
+      name: 'KMH',
+      bankId: 'b1',
+      currency: 'TRY',
+      limit: 50_000,
+      openingBalance: 0,
+      openingDate: '2026-01-01T00:00:00.000Z',
+      interestRate: 0.04,
+      interestPeriod: 'monthly',
+      createdAt: ISO,
+      updatedAt: ISO,
+    } as CashAdvanceAccount
+    const linkedAdvance: InstallmentCashAdvance = {
+      id: 'ia-1',
+      name: 'Taksitli avans',
+      bankId: 'b1',
+      cashAdvanceAccountId: 'ca-1',
+      currency: 'TRY',
+      principal: 25_000,
+      termMonths: 3,
+      startDate: '2026-03-15T00:00:00.000Z',
+      firstInstallmentDate: '2026-04-15T00:00:00.000Z',
+      interestRate: 0.04,
+      interestPeriod: 'monthly',
+      createdAt: ISO,
+      updatedAt: ISO,
+    } as InstallmentCashAdvance
+    const input = {
+      loans: [],
+      loanPayments: [],
+      creditCards: [],
+      creditCardTransactions: [],
+      cashAdvanceAccounts: [account],
+      cashAdvanceTransactions: [],
+      installmentAdvances: [linkedAdvance],
+      installmentAdvancePayments: [],
+      localCurrency: 'TRY',
+      asOf: '2026-04-01T00:00:00.000Z',
+    }
+    const snap = debtSnapshot(input)
+    const byBank = debtTotalsByBankId(input)
+    expect(Number(snap.byType.installmentAdvances)).toBeGreaterThan(0)
+    expect(Number(snap.byType.cashAdvances)).toBe(0)
+    expect(Number(byBank.get('b1') ?? '0')).toBe(Number(snap.byType.installmentAdvances))
   })
 })
 
