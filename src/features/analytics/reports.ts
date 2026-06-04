@@ -37,7 +37,7 @@ import {
   buildScheduleForInstallmentAdvance,
   installmentAdvanceLateFeeRates,
 } from '@/features/debts/installmentAdvanceHelpers'
-import { projectInstallmentRowDueAmount } from '@/features/debts/installmentDisplay'
+import { isInstallmentFullyPaid, projectInstallmentRowDueAmount } from '@/features/debts/installmentDisplay'
 import { monthlyCashflowSeries, monthsBetween } from '@/features/analytics/series'
 
 export interface AnalyticsDateRange {
@@ -180,10 +180,11 @@ function debtInstallmentDueForBalance(row: DebtInstallmentRow): ReturnType<typeo
   return D(row.dueAmount ?? row.amount)
 }
 
-/** Liste Tutar sütunu — kredi / taksitli avans bekleyen satırlarda grafikle aynı (rollup + gecikme). */
+/** Liste Tutar sütunu — plan taksit; kısmi ödemede kalan sonraki vadeye devredilir. */
 export function debtInstallmentTableAmount(row: DebtInstallmentRow): string {
   if (row.debtKind === 'loan' || row.debtKind === 'installmentAdvance') {
-    if (!row.paid || debtInstallmentPaidDisplay(row) > 0) {
+    if (!row.paid) {
+      if (debtInstallmentPaidDisplay(row) > 0) return row.amount
       return row.dueAmount ?? row.amount
     }
   }
@@ -345,7 +346,7 @@ export function debtInstallmentRows(
     const rates = loanLateFeeRates(loan)
     for (const row of schedule.rows) {
       const payment = payments.get(row.index)
-      const paid = Boolean(payment?.paidDate)
+      const paid = payment != null && isInstallmentFullyPaid(payment)
       out.push({
         key: `loan:${loan.id}:${row.index}`,
         debtKind: 'loan',
@@ -392,7 +393,7 @@ export function debtInstallmentRows(
     const rates = installmentAdvanceLateFeeRates(adv)
     for (const row of schedule.rows) {
       const payment = payments.get(row.index)
-      const paid = Boolean(payment?.paidDate)
+      const paid = payment != null && isInstallmentFullyPaid(payment)
       out.push({
         key: `adv:${adv.id}:${row.index}`,
         debtKind: 'installmentAdvance',

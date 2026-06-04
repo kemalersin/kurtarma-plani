@@ -32,7 +32,11 @@ import type { KpTableColumn } from '@/core/util/table-columns'
 import InstallmentAdvancePaymentDrawer from './InstallmentAdvancePaymentDrawer.vue'
 import SchedulePayoffDrawer from './SchedulePayoffDrawer.vue'
 import { payoffStatTooltip } from './payoffStatTooltip'
-import { projectInstallmentRowDueAmount } from './installmentDisplay'
+import {
+  isInstallmentFullyPaid,
+  isInstallmentPartiallyPaid,
+  displayInstallmentScheduleAmount,
+} from './installmentDisplay'
 
 interface Props {
   open: boolean
@@ -97,9 +101,11 @@ function formatMoney(value: string | number): string {
 }
 
 function installmentDisplay(row: ScheduleRow): string {
-  if (!props.advance || !schedule.value) return formatMoney(row.installment)
+  if (!props.advance || !schedule.value) {
+    return formatMoney(row.installment)
+  }
   return formatMoney(
-    projectInstallmentRowDueAmount(
+    displayInstallmentScheduleAmount(
       row,
       schedule.value.rows,
       paidIndex.value,
@@ -150,7 +156,8 @@ type RowStatus = 'paid' | 'late' | 'due' | 'upcoming'
 
 function statusFor(row: ScheduleRow): RowStatus {
   const payment = paymentMap.value.get(row.index)
-  if (payment?.paidDate) return 'paid'
+  if (payment && isInstallmentFullyPaid(payment)) return 'paid'
+  if (payment && isInstallmentPartiallyPaid(payment)) return 'late'
   const today = new Date()
   const due = parseISO(row.dueDate)
   const days = differenceInCalendarDays(due, today)

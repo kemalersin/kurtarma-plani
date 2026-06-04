@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch, computed } from 'vue'
+import { reactive, ref, watch, computed, nextTick } from 'vue'
 import {
   Form,
   FormItem,
@@ -25,9 +25,8 @@ import type { Loan, LoanPayment } from '@/core/types/entities'
 import type { ScheduleRow } from '@/finance/loan'
 import { computeLateFee } from '@/finance/loan'
 import { D } from '@/finance/decimal'
-import { isInstallmentUpcoming, canMarkInstallmentAsPaid, displayInstallmentDueAmount } from './installmentDisplay'
+import { isInstallmentUpcoming, canMarkInstallmentAsPaid, installmentDueWithLateFee } from './installmentDisplay'
 import {
-  indexPayments,
   loanLateFeeRates,
   paidThroughIndex,
 } from './loanHelpers'
@@ -117,6 +116,8 @@ const draft = reactive<Form>({
 })
 const saving = ref(false)
 const markAsPaid = ref(false)
+/** Drawer açılışında paidDate watcher'ın kayıtlı tutarı ezmesini engeller. */
+const syncingDraft = ref(false)
 
 const isUpcoming = computed(() =>
   props.row ? isInstallmentUpcoming(props.row.dueDate) : false,
@@ -129,17 +130,14 @@ const loanOwnPayments = computed(() => {
 
 const paidThrough = computed(() => paidThroughIndex(loanOwnPayments.value))
 
-const paymentMap = computed(() => indexPayments(loanOwnPayments.value))
-
-function paymentDueAmount(asOf?: Dayjs): string {
+function recommendedPaymentTotal(asOf?: Dayjs): string {
   if (!props.loan || !props.row) return '0'
   const asOfIso = (asOf ?? draft.paidDate ?? dayjs()).toISOString()
-  return displayInstallmentDueAmount(
+  return installmentDueWithLateFee(
     props.row.installment,
     props.row.dueDate,
     asOfIso,
     loanLateFeeRates(props.loan),
-    paymentMap.value.get(props.row.index),
   )
 }
 
@@ -175,7 +173,7 @@ const lateFee = computed<string>(() => {
 
 const totalDue = computed<string>(() => {
   if (!props.row) return '0'
-  if (markAsPaid.value) return paymentDueAmount()
+  if (markAsPaid.value) return recommendedPaymentTotal()
   return D(props.row.installment).plus(lateFee.value).toDecimalPlaces(2).toString()
 })
 
@@ -233,6 +231,7 @@ watch(
   () => [props.open, props.row?.index, props.existing?.id] as const,
   ([open]) => {
     if (!open) return
+    syncingDraft.value = true
     if (props.existing?.paidDate) {
       markAsPaid.value = true
       draft.paidDate = dayjs(props.existing.paidDate)
@@ -259,12 +258,15 @@ watch(
       draft.paidAmount = hasLaterPayments.value
         ? Number(props.row?.installment ?? 0)
         : Number(
-            markAsPaid.value ? paymentDueAmount(dayjs()) : props.row?.installment ?? 0,
+            markAsPaid.value ? recommendedPaymentTotal(dayjs()) : props.row?.installment ?? 0,
           )
       draft.sourceAccountId = undefined
       draft.sourceCashRegisterId = undefined
       draft.notes = ''
     }
+    void nextTick(() => {
+      syncingDraft.value = false
+    })
   },
 )
 
@@ -289,7 +291,7 @@ watch(markAsPaid, (paid) => {
 watch(
   () => draft.paidDate,
   () => {
-    if (!props.row || !markAsPaid.value) return
+    if (syncingDraft.value || !props.row || !markAsPaid.value) return
     draft.paidAmount = hasLaterPayments.value
       ? Number(props.row.installment)
       : Number(totalDue.value)

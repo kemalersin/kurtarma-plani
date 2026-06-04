@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  computePaidThroughIndex,
   displayInstallmentAmount,
   displayInstallmentDueAmount,
+  displayInstallmentScheduleAmount,
   findInstallmentRollupIndex,
   installmentDueWithLateFee,
+  isInstallmentFullyPaid,
+  isInstallmentPartiallyPaid,
   isInstallmentUpcoming,
   projectInstallmentRowDueAmount,
   unpaidInstallmentOverrides,
@@ -28,6 +32,66 @@ describe('isInstallmentUpcoming', () => {
   })
 })
 
+describe('isInstallmentFullyPaid', () => {
+  it('plan + gecikme faizi tam ödendiyse true', () => {
+    expect(
+      isInstallmentFullyPaid({
+        paidDate: '2026-05-01T00:00:00.000Z',
+        scheduledAmount: 7379,
+        lateFee: 89.31,
+        paidAmount: 7468.31,
+      }),
+    ).toBe(true)
+  })
+
+  it('ödenen tutar borçtan düşükse false', () => {
+    expect(
+      isInstallmentFullyPaid({
+        paidDate: '2026-05-30T00:00:00.000Z',
+        scheduledAmount: 7379,
+        lateFee: 89.31,
+        paidAmount: 6789.74,
+      }),
+    ).toBe(false)
+  })
+
+  it('paidDate yoksa false', () => {
+    expect(
+      isInstallmentFullyPaid({
+        scheduledAmount: 1000,
+        paidAmount: 1000,
+      }),
+    ).toBe(false)
+  })
+})
+
+describe('isInstallmentPartiallyPaid', () => {
+  it('eksik ödeme varsa true', () => {
+    expect(
+      isInstallmentPartiallyPaid({
+        paidDate: '2026-05-30T00:00:00.000Z',
+        scheduledAmount: 7379,
+        paidAmount: 6000,
+      }),
+    ).toBe(true)
+  })
+})
+
+describe('computePaidThroughIndex', () => {
+  it('kısmi ödemeyi tam ödenmiş saymaz', () => {
+    expect(
+      computePaidThroughIndex([
+        {
+          installmentIndex: 1,
+          scheduledAmount: 1000,
+          paidDate: '2026-05-01T00:00:00.000Z',
+          paidAmount: 600,
+        },
+      ]),
+    ).toBe(0)
+  })
+})
+
 describe('displayInstallmentAmount', () => {
   it('override kaydı plan tutarını gösterir', () => {
     expect(displayInstallmentAmount(1000, { scheduledAmount: 1200 })).toBe(1200)
@@ -41,6 +105,16 @@ describe('displayInstallmentAmount', () => {
         paidAmount: 1050,
       }),
     ).toBe(1050)
+  })
+
+  it('kısmi ödemede plan taksit tutarını gösterir', () => {
+    expect(
+      displayInstallmentAmount(7379.48, {
+        scheduledAmount: 7379.48,
+        paidDate: '2026-05-30T00:00:00.000Z',
+        paidAmount: 6789.74,
+      }),
+    ).toBe(7379.48)
   })
 })
 
@@ -59,10 +133,22 @@ describe('unpaidInstallmentOverrides', () => {
   it('yalnızca paidDate olmayan kayıtları alır', () => {
     const map = unpaidInstallmentOverrides([
       { installmentIndex: 2, scheduledAmount: 1200 },
-      { installmentIndex: 3, scheduledAmount: 800, paidDate: '2026-05-01T00:00:00.000Z' },
+      { installmentIndex: 3, scheduledAmount: 800, paidDate: '2026-05-01T00:00:00.000Z', paidAmount: 800 },
     ])
     expect(map.get(2)).toBe(1200)
     expect(map.has(3)).toBe(false)
+  })
+
+  it('kısmi ödemede kalan plan tutarını override olarak ekler', () => {
+    const map = unpaidInstallmentOverrides([
+      {
+        installmentIndex: 19,
+        scheduledAmount: 7379,
+        paidDate: '2026-05-30T00:00:00.000Z',
+        paidAmount: 6789.74,
+      },
+    ])
+    expect(map.get(19)).toBe(589.26)
   })
 })
 
@@ -129,11 +215,34 @@ describe('displayInstallmentDueAmount', () => {
         '2026-05-26T00:00:00.000Z',
         { contractRate },
         {
+          scheduledAmount: 10_000,
           paidDate: '2026-03-20T00:00:00.000Z',
           paidAmount: 10_320,
         },
       ),
     ).toBe('10320')
+  })
+
+  it('kısmi ödemede kalan borcu gösterir', () => {
+    const fullDue = displayInstallmentDueAmount(
+      10_000,
+      '2026-03-01T00:00:00.000Z',
+      '2026-05-26T00:00:00.000Z',
+      { contractRate },
+    )
+    expect(
+      displayInstallmentDueAmount(
+        10_000,
+        '2026-03-01T00:00:00.000Z',
+        '2026-05-26T00:00:00.000Z',
+        { contractRate },
+        {
+          scheduledAmount: 10_000,
+          paidDate: '2026-03-20T00:00:00.000Z',
+          paidAmount: 6000,
+        },
+      ),
+    ).toBe(D(fullDue).minus(6000).toFixed(2))
   })
 })
 
@@ -217,5 +326,93 @@ describe('projectInstallmentRowDueAmount', () => {
       contractRate,
     )
     expect(rolled).toBe(D(40_000).plus(fee1).plus(fee2).plus(fee3).toFixed(2))
+  })
+
+  it('kısmi ödenmiş geciken taksit kalanını sonraki vadeye devreder', () => {
+    const rows = scheduleRows('2026-03-01T00:00:00.000Z', 3, 7379.48)
+    const asOf = '2026-03-15T00:00:00.000Z'
+    const payments = new Map([
+      [
+        1,
+        {
+          scheduledAmount: 7379.48,
+          paidDate: '2026-03-10T00:00:00.000Z',
+          paidAmount: 6789.74,
+        },
+      ],
+    ])
+
+    const row1Due = projectInstallmentRowDueAmount(
+      rows[0]!,
+      rows,
+      0,
+      asOf,
+      { contractRate },
+      payments,
+    )
+    const row2Due = projectInstallmentRowDueAmount(
+      rows[1]!,
+      rows,
+      0,
+      asOf,
+      { contractRate },
+      payments,
+    )
+
+    expect(row1Due).toBe('0')
+    expect(Number(row2Due)).toBeGreaterThan(Number(rows[1]!.installment))
+  })
+
+  it('önceki taksit gecikmiş ve kısmi ödenmişse rollup yalnızca kalanı toplar', () => {
+    const rows = scheduleRows('2026-03-01T00:00:00.000Z', 3)
+    const asOf = '2026-03-20T00:00:00.000Z'
+    const payments = new Map([
+      [
+        1,
+        {
+          scheduledAmount: 10_000,
+          paidDate: '2026-03-15T00:00:00.000Z',
+          paidAmount: 6000,
+        },
+      ],
+    ])
+
+    const rolled = projectInstallmentRowDueAmount(
+      rows[1]!,
+      rows,
+      0,
+      asOf,
+      { contractRate },
+      payments,
+    )
+
+    expect(Number(rolled)).toBeGreaterThan(Number(rows[1]!.installment))
+    expect(Number(rolled)).toBeLessThan(D(10_000).plus(10_000).toNumber())
+  })
+})
+
+describe('displayInstallmentScheduleAmount', () => {
+  it('kısmi ödenmiş satırda plan, sonraki vadede rollup tutarı gösterir', () => {
+    const rows = scheduleRows('2026-03-01T00:00:00.000Z', 3, 7379.48)
+    const asOf = '2026-03-15T00:00:00.000Z'
+    const payments = new Map([
+      [
+        1,
+        {
+          scheduledAmount: 7379.48,
+          paidDate: '2026-03-10T00:00:00.000Z',
+          paidAmount: 6789.74,
+        },
+      ],
+    ])
+
+    expect(
+      displayInstallmentScheduleAmount(rows[0]!, rows, 0, asOf, { contractRate }, payments),
+    ).toBe('7379.48')
+    expect(
+      Number(
+        displayInstallmentScheduleAmount(rows[1]!, rows, 0, asOf, { contractRate }, payments),
+      ),
+    ).toBeGreaterThan(7379.48)
   })
 })

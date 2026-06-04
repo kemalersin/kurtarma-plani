@@ -56,6 +56,18 @@ describe('paidThroughIndex', () => {
     const pays = [payment(1, false), payment(2, false)]
     expect(paidThroughIndex(pays)).toBe(0)
   })
+
+  it('kısmi ödeme tam ödenmiş sayılmaz', () => {
+    const pays = [
+      payment(1, true),
+      payment(2, false, {
+        paidDate: ISO,
+        paidAmount: 600,
+        scheduledAmount: 1000,
+      }),
+    ]
+    expect(paidThroughIndex(pays)).toBe(1)
+  })
 })
 
 const sampleLoan = {
