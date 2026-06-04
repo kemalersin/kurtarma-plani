@@ -152,17 +152,10 @@ async function applyDecoded(text: string, password?: string): Promise<boolean> {
     }
   }
 
-  if (summary.overwritten) {
-    const { useEntitiesStore } = await import('@/stores/entities')
-    useEntitiesStore().reset()
-    const { useAiStore } = await import('@/stores/ai')
-    useAiStore().reset()
-    if (profileStore.activeProfileId) {
-      await useAiStore().load()
-    }
-  }
-
-  await profileStore.load()
+  const { reloadAppStoresAfterSnapshotImport } = await import(
+    '@/core/services/sync/sync-file'
+  )
+  await reloadAppStoresAfterSnapshotImport()
 
   const { useSyncStore } = await import('@/stores/sync')
   const syncStore = useSyncStore()

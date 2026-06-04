@@ -133,6 +133,8 @@ export interface SetupRelayJoinOptions {
   useProfilePassword?: boolean
   syncPassword?: string
   rememberSyncPassword?: boolean
+  /** Bu kurulumdaki cihazın Senkron.la cihaz listesinde görünen adı. */
+  relayDeviceLabel?: string
 }
 
 export interface JoinRelayPairingOptions {
@@ -1312,6 +1314,7 @@ export const useSyncStore = defineStore('sync', () => {
           relayUrl: validation.relayUrl,
           appId,
           relayEndpointLocked: true,
+          relayDeviceLabel: options.relayDeviceLabel?.trim() || undefined,
           encryptFile,
           useProfilePassword,
           autoPush: true,

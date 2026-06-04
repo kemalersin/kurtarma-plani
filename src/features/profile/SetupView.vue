@@ -77,6 +77,10 @@ async function openImportedProfile(profileId: string, password?: string): Promis
   await profileStore.load()
   const ok = await profileStore.selectProfile(profileId, password)
   if (!ok) return false
+  const { reloadAppStoresAfterSnapshotImport } = await import(
+    '@/core/services/sync/sync-file'
+  )
+  await reloadAppStoresAfterSnapshotImport()
   const { useSyncStore } = await import('@/stores/sync')
   const syncStore = useSyncStore()
   if (!syncStore.loaded) await syncStore.load()

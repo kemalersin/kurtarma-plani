@@ -261,6 +261,13 @@ export async function reloadStoresAfterSyncPull(): Promise<void> {
   await profileStore.load()
 }
 
+/** Yedek/snapshot içe aktarma sonrası bellek önbelleği + KeepAlive sayfalarını yeniler. */
+export async function reloadAppStoresAfterSnapshotImport(): Promise<void> {
+  await reloadStoresAfterSyncPull()
+  const { useSyncStore } = await import('@/stores/sync')
+  useSyncStore().bumpPullRevision('import')
+}
+
 export async function getActiveSyncHandle(
   profileId: string,
 ): Promise<StoredSyncHandle | null> {

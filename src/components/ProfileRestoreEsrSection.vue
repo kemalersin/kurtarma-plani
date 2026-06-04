@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import {
   Alert,
   Button,
@@ -18,6 +18,7 @@ import { useProfileStore } from '@/stores/profile'
 import { appIdFromEnv, relayUrlFromEnv } from '@/core/types/sync'
 import { relayErrorMessageFromUnknown } from '@/core/services/sync/relay-errors'
 import { parseEsrPairingInput } from '@/core/services/sync/relay-pairing'
+import { suggestRelayDeviceLabel } from '@/core/services/sync/relay-session'
 
 const emit = defineEmits<{
   joined: [profileId: string]
@@ -30,12 +31,21 @@ const busy = ref(false)
 const form = reactive({
   relayUrl: relayUrlFromEnv() ?? '',
   appId: appIdFromEnv() ?? '',
+  deviceLabel: '',
   pairingInput: '',
   namespaceId: '',
   profilePassword: '',
   encryptFile: false,
   useProfilePassword: true,
   syncPassword: '',
+})
+
+const deviceLabelPlaceholder = suggestRelayDeviceLabel()
+
+onMounted(async () => {
+  if (!syncStore.loaded) await syncStore.load()
+  const saved = syncStore.config.relayDeviceLabel?.trim()
+  if (saved) form.deviceLabel = saved
 })
 
 const parsedPairing = computed(() =>
@@ -110,6 +120,7 @@ async function onJoin(): Promise<void> {
       profilePassword: form.profilePassword.trim() || undefined,
       relayUrl: form.relayUrl,
       appId: form.appId.trim(),
+      relayDeviceLabel: form.deviceLabel.trim() || undefined,
       encryptFile: form.encryptFile,
       useProfilePassword: useProfilePasswordChecked.value,
       syncPassword: useProfilePasswordChecked.value
@@ -174,6 +185,19 @@ async function onJoin(): Promise<void> {
         />
         <Typography.Text type="secondary" class="kp-restore-esr-hint">
           App registry açık relay sunucularında zorunludur; host ile aynı değeri kullanın.
+        </Typography.Text>
+      </FormItem>
+
+      <FormItem label="Cihaz adı">
+        <Input
+          v-model:value="form.deviceLabel"
+          :placeholder="deviceLabelPlaceholder"
+          :maxlength="120"
+          allow-clear
+          :disabled="busy"
+        />
+        <Typography.Text type="secondary" class="kp-restore-esr-hint">
+          Senkron.la cihaz listesinde görünür. Boş bırakılırsa tarayıcı bilgisi kullanılır.
         </Typography.Text>
       </FormItem>
 
