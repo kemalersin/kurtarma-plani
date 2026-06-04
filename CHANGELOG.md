@@ -11,6 +11,11 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 ### Added
 
 - Ayarlar → Senkron.la: **Cihaz adı** (`deviceLabel`) ve **Bildirimler (WebSocket)** (`notificationsEnabled`) seçenekleri; kayıtta relay oturumu yeniden bağlanır.
+- Kurulum → Senkron.la sekmesi: **Cihaz adı** alanı; eşleştirmede `joinPairing` ile sunucuya iletilir.
+
+### Fixed
+
+- Ayarlar → yedek içe aktarma: tüm entity önbelleği temizlenir ve `pullRevision` artırılarak KeepAlive liste/panel sayfaları yeniden yüklenir (yalnızca yönetim güncellenip diğer modüllerin eski kalması giderildi).
 
 ## [0.1.45]
 
