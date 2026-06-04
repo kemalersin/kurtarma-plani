@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { paidThroughIndex } from './loanHelpers'
-import type { LoanPayment } from '@/core/types/entities'
+import { buildScheduleForLoan, listInstallmentAmountForLoan, paidThroughIndex } from './loanHelpers'
+import type { Loan, LoanPayment } from '@/core/types/entities'
 
 const ISO = '2026-05-01T00:00:00.000Z'
 
@@ -55,5 +55,38 @@ describe('paidThroughIndex', () => {
   it('hiç paidDate yoksa 0 döner', () => {
     const pays = [payment(1, false), payment(2, false)]
     expect(paidThroughIndex(pays)).toBe(0)
+  })
+})
+
+const sampleLoan = {
+  id: 'l1',
+  name: 'Test',
+  bankId: 'b1',
+  principal: 100000,
+  termMonths: 12,
+  interestRate: 2.5,
+  interestPeriod: 'monthly',
+  firstInstallmentDate: '2026-01-15T00:00:00.000Z',
+  startDate: '2026-01-01T00:00:00.000Z',
+  currency: 'TRY',
+  createdAt: ISO,
+  updatedAt: ISO,
+} as Loan
+
+describe('listInstallmentAmountForLoan', () => {
+  it('sıradaki taksit satırının plan tutarını döner (gecikme faizi yok)', () => {
+    const schedule = buildScheduleForLoan(sampleLoan)
+    const paidIdx = 11
+    const nextRow = schedule.rows.find((r) => r.index === paidIdx + 1)!
+    expect(listInstallmentAmountForLoan(schedule, [], paidIdx)).toBe(nextRow.installment)
+    if (schedule.installment !== nextRow.installment) {
+      expect(listInstallmentAmountForLoan(schedule, [], paidIdx)).not.toBe(schedule.installment)
+    }
+  })
+
+  it('ödenmemiş scheduledAmount override kullanır', () => {
+    const schedule = buildScheduleForLoan(sampleLoan)
+    const pays = [payment(1, false, { scheduledAmount: 1234.56 })]
+    expect(listInstallmentAmountForLoan(schedule, pays, 0)).toBe('1234.56')
   })
 })

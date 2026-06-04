@@ -18,7 +18,7 @@ import {
   compareProgressCounts,
   compareIsoDate,
 } from '@/features/debts/debtListSorters'
-import { buildScheduleForLoan, paidThroughIndex, remainingDebtForLoan } from './loanHelpers'
+import { buildScheduleForLoan, listInstallmentAmountForLoan, paidThroughIndex, remainingDebtForLoan } from './loanHelpers'
 import {
   installmentDebtStatusKey,
   installmentDebtStatusLabel,
@@ -117,7 +117,7 @@ const summaryCache = computed<Map<string, LoanSummary>>(() => {
     }).length
 
     map.set(loan.id, {
-      installment: schedule.installment,
+      installment: listInstallmentAmountForLoan(schedule, own, idx),
       remaining,
       paidCount: idx,
       totalCount: schedule.rows.length,
