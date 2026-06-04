@@ -1,6 +1,7 @@
 import type { Loan, LoanPayment } from '@/core/types/entities'
 import {
   unpaidInstallmentOverrides,
+  computePaidThroughIndex,
   type InstallmentLateFeeRates,
 } from './installmentDisplay'
 import { buildAnnuitySchedule, payoffAmount, remainingDebtTotal, remainingPrincipalBalance, type LoanSchedule } from '@/finance/loan'
@@ -56,13 +57,7 @@ export function indexPayments(payments: LoanPayment[]): Map<number, LoanPayment>
  * bağımsız ve sıralı amortizasyon invariant'ıyla tutarlı.
  */
 export function paidThroughIndex(payments: LoanPayment[]): number {
-  const paid = new Set<number>()
-  for (const p of payments) {
-    if (p.paidDate) paid.add(p.installmentIndex)
-  }
-  let last = 0
-  while (paid.has(last + 1)) last++
-  return last
+  return computePaidThroughIndex(payments)
 }
 
 function loanRateInput(loan: Loan) {

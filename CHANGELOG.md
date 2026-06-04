@@ -6,6 +6,14 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.50]
+
+### Fixed
+
+- İhtiyaç kredisi taksit ödemesi: ödenen tutar plan taksitinden (ve gecikme faizinden) düşükse taksit artık tam ödenmiş sayılmaz; kalan borç, sıradaki taksit kilidi ve analiz «Kısmi ödendi» durumu buna göre güncellenir.
+- Taksit ödemesi drawer: kayıtlı kısmi ödeme yeniden açıldığında «Ödenen tutar» alanı kalan borçla değil, kaydedilen tutarla doldurulur; «Önerilen toplam» kartı plan + gecikme faizini gösterir.
+- Kısmi ödenmiş geciken taksit: Tutar sütununda plan taksiti gösterilir; kalan borç + bugüne kadar biriken gecikme faizi sonraki vade satırına devredilir. Taksit planı drawer'ında aynı kural: kaynak satır plan tutarı, rollup hedef satır güncel vade borcu.
+
 ## [0.1.49]
 
 ### Changed

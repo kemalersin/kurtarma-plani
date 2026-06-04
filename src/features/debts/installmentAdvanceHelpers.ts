@@ -3,7 +3,7 @@ import type {
   InstallmentCashAdvancePayment,
 } from '@/core/types/entities'
 import type { InstallmentLateFeeRates } from './installmentDisplay'
-import { unpaidInstallmentOverrides } from './installmentDisplay'
+import { computePaidThroughIndex, unpaidInstallmentOverrides } from './installmentDisplay'
 import { buildAnnuitySchedule, payoffAmount, outstandingLateFeesTotal, remainingDebtTotal, remainingPrincipalBalance, type LoanSchedule } from '@/finance/loan'
 import { D, roundMoney } from '@/finance/decimal'
 
@@ -50,13 +50,7 @@ export function indexAdvancePayments(
 export function advancePaidThroughIndex(
   payments: InstallmentCashAdvancePayment[],
 ): number {
-  const paid = new Set<number>()
-  for (const p of payments) {
-    if (p.paidDate) paid.add(p.installmentIndex)
-  }
-  let last = 0
-  while (paid.has(last + 1)) last++
-  return last
+  return computePaidThroughIndex(payments)
 }
 
 function advanceRateInput(advance: InstallmentCashAdvance) {
