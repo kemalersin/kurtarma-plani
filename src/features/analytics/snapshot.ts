@@ -17,8 +17,7 @@ import type {
   Loan,
   LoanPayment,
 } from '@/core/types/entities'
-import { runRevolvingLedger } from '@/finance/cash-advance'
-import { revolvingRatesFromAccount } from '@/features/debts/cashAdvanceHelpers'
+import { cashAdvanceState } from '@/features/debts/cashAdvanceHelpers'
 import { cardCommittedTotal, type CardProjectionRateContext } from '@/features/debts/cardHelpers'
 import {
   accountBalance,
@@ -160,19 +159,12 @@ function cashAdvanceDebtTotal(
   asOf: string,
   taxRateMonthly?: number,
 ): string {
-  const txns = cashAdvanceTransactions.filter((t) => t.accountId === acc.id)
-  const ledger = runRevolvingLedger({
-    openingBalance: acc.openingBalance ?? 0,
-    openingDate: acc.openingDate,
-    transactions: txns.map((t) => ({
-      date: t.date,
-      amount: t.amount,
-      type: t.type,
-    })),
-    rates: revolvingRatesFromAccount(acc, taxRateMonthly),
+  return cashAdvanceState(
+    acc,
+    cashAdvanceTransactions,
     asOf,
-  })
-  return ledger.total
+    taxRateMonthly,
+  ).total
 }
 
 function remainingInstallmentAdvanceDebt(
@@ -228,7 +220,15 @@ export function debtTotalsByBankId(input: DebtSnapshotInput): Map<string, string
   for (const acc of input.cashAdvanceAccounts) {
     if (acc.archived) continue
     if (acc.currency !== input.localCurrency) continue
-    add(acc.bankId, cashAdvanceDebtTotal(acc, input.cashAdvanceTransactions, asOf, input.cashAdvanceTaxRateMonthly))
+    add(
+      acc.bankId,
+      cashAdvanceDebtTotal(
+        acc,
+        input.cashAdvanceTransactions,
+        asOf,
+        input.cashAdvanceTaxRateMonthly,
+      ),
+    )
   }
 
   for (const adv of input.installmentAdvances) {

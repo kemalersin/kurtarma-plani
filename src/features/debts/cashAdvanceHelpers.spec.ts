@@ -4,6 +4,7 @@ import type {
   CashAdvanceTransaction,
 } from '@/core/types/entities'
 import {
+  cashAdvanceAvailableLimit,
   cashAdvanceDrawCapacity,
   earliestCashAdvanceTransactionDate,
   isCashAdvanceOpeningDateOnOrBeforeFirstTxn,
@@ -134,5 +135,19 @@ describe('cashAdvanceDrawCapacity', () => {
     expect(
       cashAdvanceDrawCapacity(account, txns, '2026-06-10T12:00:00.000Z'),
     ).toBe(8_000)
+  })
+
+  it('limit aşıldığında negatif döner', () => {
+    const txns = [
+      txn({
+        id: 'd1',
+        date: '2026-06-01T00:00:00.000Z',
+        amount: 12_000,
+        type: 'draw',
+      }),
+    ]
+    expect(
+      cashAdvanceAvailableLimit(account, txns, '2026-06-15T12:00:00.000Z'),
+    ).toBe(-2_000)
   })
 })

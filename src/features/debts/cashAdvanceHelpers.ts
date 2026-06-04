@@ -8,7 +8,14 @@ import {
   simulateRevolvingLedger,
   type RevolvingRateConfig,
   type RevolvingState,
+  type RevolvingTxn,
 } from '@/finance/cash-advance'
+import {
+  linkedInstallmentLimitUsage,
+  type CashAdvanceLedgerContext,
+} from './linkedInstallmentCashAdvanceLedger'
+
+export type { CashAdvanceLedgerContext } from './linkedInstallmentCashAdvanceLedger'
 
 /** Hesap + opsiyonel preset vergi yükünden revolving faiz bağlamı. */
 export function revolvingRatesFromAccount(
@@ -59,7 +66,7 @@ export function isCashAdvanceOpeningDateOnOrBeforeFirstTxn(
 function mapTransactions(
   account: CashAdvanceAccount,
   transactions: CashAdvanceTransaction[],
-) {
+): RevolvingTxn[] {
   const openingKey = account.openingDate.slice(0, 10)
   return transactions
     .filter(
@@ -73,12 +80,13 @@ function mapTransactions(
     }))
 }
 
-/** Bir nakit avans hesabının bugünkü durumunu hesaplar. */
+/** Bir nakit avans hesabının bugünkü durumunu hesaplar (yalnızca manuel hareketler). */
 export function cashAdvanceState(
   account: CashAdvanceAccount,
   transactions: CashAdvanceTransaction[],
   asOf?: string,
   taxRateMonthly?: number,
+  _context?: CashAdvanceLedgerContext,
 ): RevolvingState {
   return runRevolvingLedger({
     openingBalance: account.openingBalance,
@@ -87,6 +95,27 @@ export function cashAdvanceState(
     rates: revolvingRatesFromAccount(account, taxRateMonthly),
     asOf,
   })
+}
+
+/**
+ * Kullanılabilir limit: limit − revolving anapara − bağlı taksitli avans kalan borcu.
+ * Bağlı taksitli avanslar anapara/faiz/asgari alanlarını etkilemez.
+ */
+export function cashAdvanceAvailableLimit(
+  account: CashAdvanceAccount,
+  transactions: CashAdvanceTransaction[],
+  asOf?: string,
+  taxRateMonthly?: number,
+  context?: CashAdvanceLedgerContext,
+): number {
+  const state = cashAdvanceState(account, transactions, asOf, taxRateMonthly)
+  const linked = linkedInstallmentLimitUsage(
+    account,
+    context?.installmentAdvances ?? [],
+    context?.installmentAdvancePayments ?? [],
+    asOf,
+  )
+  return account.limit - Number(state.principal) - linked
 }
 
 /** `YYYY-MM` ayının son günü (UTC öğlen). @deprecated `monthEndIsoFromKey` kullanın */
@@ -107,8 +136,7 @@ export interface CashAdvanceMonthlyDebt {
 
 /**
  * Revolving nakit avans hesabının ay sonu vadeleri (asgari + toplam bakiye).
- * Bakiye sıfır olan aylar listede yer almaz.
- * `todayIso` ayından sonraki aylar **dahil edilmez** (tahmini taşıma yok).
+ * Yalnızca manuel hareketler; bağlı taksitli avanslar dahil değildir.
  */
 export function cashAdvanceAccountMonthlyDebts(
   account: CashAdvanceAccount,
@@ -116,6 +144,7 @@ export function cashAdvanceAccountMonthlyDebts(
   months: string[],
   todayIso: string,
   taxRateMonthly?: number,
+  _context?: CashAdvanceLedgerContext,
 ): CashAdvanceMonthlyDebt[] {
   const own = transactions.filter((t) => t.accountId === account.id)
   const openingMonth = account.openingDate.slice(0, 7)
@@ -156,6 +185,7 @@ export function cashAdvancePaymentsInMonth(
   transactions: CashAdvanceTransaction[],
   asOf?: string,
   taxRateMonthly?: number,
+  _context?: CashAdvanceLedgerContext,
 ): number {
   const asOfIso = asOf ?? new Date().toISOString()
   const monthKey = asOfIso.slice(0, 7)
@@ -169,7 +199,7 @@ export function cashAdvancePaymentsInMonth(
   return periods.find((p) => p.monthKey === monthKey)?.paymentsInMonth ?? 0
 }
 
-/** Belirli tarihte yapılabilecek maksimum kullanım (limit − anapara). */
+/** Belirli tarihte yapılabilecek maksimum kullanım (limit − anapara − bağlı taksitli kullanım). */
 export function cashAdvanceDrawCapacity(
   account: CashAdvanceAccount,
   transactions: CashAdvanceTransaction[],
@@ -178,6 +208,7 @@ export function cashAdvanceDrawCapacity(
     taxRateMonthly?: number
     /** Düzenlemede mevcut hareket hariç tutulur (eski tutar kapasiteye geri eklenir). */
     excludeTransactionId?: string
+    context?: CashAdvanceLedgerContext
   },
 ): number {
   const openingKey = account.openingDate.slice(0, 10)
@@ -188,12 +219,11 @@ export function cashAdvanceDrawCapacity(
       t.date.slice(0, 10) >= openingKey &&
       t.date <= drawDateIso,
   )
-  const state = cashAdvanceState(
+  return cashAdvanceAvailableLimit(
     account,
     relevant,
     drawDateIso,
     options?.taxRateMonthly,
+    options?.context,
   )
-  const available = account.limit - Number(state.principal)
-  return available > 0 ? available : 0
 }

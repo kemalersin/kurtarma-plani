@@ -6,6 +6,16 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.52]
+
+### Added
+
+- Nakit avans + taksitli avans bağlantısı: bağlı kullanımlar yalnızca nakit avans **kullanılabilir limitini** düşürür (plandaki kalan borç); analiz tablosunda taksitli avanslar ayrı satır.
+
+### Fixed
+
+- Nakit avans tablosu: kullanılabilir limit limit aşımında sıfıra kısıtlanmaz; negatif değer gösterilir.
+
 ## [0.1.51]
 
 ### Changed

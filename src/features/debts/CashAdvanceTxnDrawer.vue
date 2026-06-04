@@ -34,6 +34,8 @@ import type {
   CashAdvanceAccount,
   CashAdvanceTransaction,
   CashAdvanceTxnType,
+  InstallmentCashAdvance,
+  InstallmentCashAdvancePayment,
 } from '@/core/types/entities'
 
 interface Props {
@@ -53,6 +55,10 @@ const { taxRateMonthly } = useCreditCardRateContext()
 const { formatCurrency, formatDate } = useLocaleFormatters()
 
 const cashAdvanceTxns = entities.list<CashAdvanceTransaction>('cashAdvanceTransaction')
+const installmentAdvances = entities.list<InstallmentCashAdvance>('installmentCashAdvance')
+const installmentAdvancePayments = entities.list<InstallmentCashAdvancePayment>(
+  'installmentCashAdvancePayment',
+)
 
 const profileCurrency = computed(
   () => profileStore.activeProfile?.localeSettings.currency ?? 'TRY',
@@ -107,6 +113,10 @@ const drawCapacity = computed(() => {
     {
       taxRateMonthly: taxRateMonthly.value,
       excludeTransactionId: props.txn?.id,
+      context: {
+        installmentAdvances: installmentAdvances.value,
+        installmentAdvancePayments: installmentAdvancePayments.value,
+      },
     },
   )
 })

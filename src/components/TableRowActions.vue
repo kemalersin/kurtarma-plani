@@ -7,6 +7,7 @@ import KpTooltip from '@/components/KpTooltip.vue'
 withDefaults(
   defineProps<{
     showDelete?: boolean
+    showEdit?: boolean
     deleteTitle?: string
     editLabel?: string
     deleteLabel?: string
@@ -15,6 +16,7 @@ withDefaults(
   }>(),
   {
     showDelete: true,
+    showEdit: true,
     deleteTitle: 'Bu kayıt silinsin mi?',
     editLabel: 'Düzenle',
     deleteLabel: 'Sil',
@@ -37,7 +39,7 @@ const emit = defineEmits<{
         </template>
       </Button>
     </KpTooltip>
-    <KpTooltip :title="editLabel">
+    <KpTooltip v-if="showEdit" :title="editLabel">
       <Button type="text" size="small" @click="emit('edit')">
         <template #icon><EditOutlined /></template>
       </Button>

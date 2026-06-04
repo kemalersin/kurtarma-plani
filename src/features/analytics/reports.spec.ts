@@ -317,6 +317,58 @@ describe('debtInstallmentRows', () => {
     )
   })
 
+  it('nakit avansa bağlı taksitli avans analizde ayrı satır olarak görünür', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        installmentAdvances: [
+          installmentAdvance({
+            cashAdvanceAccountId: 'ca-linked',
+          }),
+        ],
+      },
+      { range: { from: '2026-01-01', to: '2026-12-31' } },
+      '2026-03-15T00:00:00.000Z',
+    )
+    expect(rows.filter((r) => r.debtKind === 'installmentAdvance').length).toBeGreaterThan(0)
+    expect(rows.filter((r) => r.debtKind === 'cashAdvanceStatement')).toHaveLength(0)
+  })
+
+  it('yalnızca bağlı taksitli avans varken nakit avans toplam satırı üretilmez', () => {
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        cashAdvanceAccounts: [
+          {
+            id: 'ca1',
+            name: 'Avans Hesap',
+            bankId: 'b1',
+            currency: 'TRY',
+            limit: 175_000,
+            openingBalance: 0,
+            openingDate: '2026-01-01T00:00:00.000Z',
+            interestRate: 0.04,
+            interestPeriod: 'monthly',
+            createdAt: ISO,
+            updatedAt: ISO,
+          } as CashAdvanceAccount,
+        ],
+        installmentAdvances: [
+          installmentAdvance({
+            cashAdvanceAccountId: 'ca1',
+            principal: 14_314.19,
+            startDate: '2026-03-01T00:00:00.000Z',
+            firstInstallmentDate: '2026-04-01T00:00:00.000Z',
+          }),
+        ],
+      },
+      { range: { from: '2026-01-01', to: '2026-12-31' }, cardDueMode: 'statement' },
+      '2026-04-01T00:00:00.000Z',
+    )
+    expect(rows.filter((r) => r.debtKind === 'cashAdvanceStatement')).toHaveLength(0)
+    expect(rows.filter((r) => r.debtKind === 'installmentAdvance').length).toBeGreaterThan(0)
+  })
+
   it('geciken kredi taksitlerinde faiz bir sonraki vade satırına yansır', () => {
     const rows = debtInstallmentRows(
       {

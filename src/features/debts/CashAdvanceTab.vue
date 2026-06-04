@@ -13,10 +13,12 @@ import type {
   Bank,
   CashAdvanceAccount,
   CashAdvanceTransaction,
+  InstallmentCashAdvance,
+  InstallmentCashAdvancePayment,
 } from '@/core/types/entities'
 import { adminPrimaryNameColumn } from '@/features/admin/admin-list-columns'
 import { compareByDisplayLabel, compareNumeric } from '@/features/debts/debtListSorters'
-import { cashAdvanceState } from './cashAdvanceHelpers'
+import { cashAdvanceState, cashAdvanceAvailableLimit, type CashAdvanceLedgerContext } from './cashAdvanceHelpers'
 
 const entities = useEntitiesStore()
 const { formatCurrency } = useLocaleFormatters()
@@ -24,13 +26,24 @@ const { taxRateMonthly } = useCreditCardRateContext()
 
 const accounts = entities.list<CashAdvanceAccount>('cashAdvanceAccount')
 const txns = entities.list<CashAdvanceTransaction>('cashAdvanceTransaction')
+const installmentAdvances = entities.list<InstallmentCashAdvance>('installmentCashAdvance')
+const installmentAdvancePayments = entities.list<InstallmentCashAdvancePayment>(
+  'installmentCashAdvancePayment',
+)
 const banks = entities.list<Bank>('bank')
 const loading = computed(
   () =>
     entities.loading('cashAdvanceAccount').value ||
     entities.loading('cashAdvanceTransaction').value ||
+    entities.loading('installmentCashAdvance').value ||
+    entities.loading('installmentCashAdvancePayment').value ||
     entities.loading('bank').value,
 )
+
+const ledgerContext = computed<CashAdvanceLedgerContext>(() => ({
+  installmentAdvances: installmentAdvances.value,
+  installmentAdvancePayments: installmentAdvancePayments.value,
+}))
 
 const formOpen = ref(false)
 const ledgerOpen = ref(false)
@@ -47,6 +60,16 @@ onMounted(async () => {
     )
   if (!entities.loaded('bank').value)
     tasks.push(entities.load<Bank>('bank').catch(() => undefined))
+  if (!entities.loaded('installmentCashAdvance').value)
+    tasks.push(
+      entities.load<InstallmentCashAdvance>('installmentCashAdvance').catch(() => undefined),
+    )
+  if (!entities.loaded('installmentCashAdvancePayment').value)
+    tasks.push(
+      entities
+        .load<InstallmentCashAdvancePayment>('installmentCashAdvancePayment')
+        .catch(() => undefined),
+    )
   if (tasks.length) await Promise.all(tasks)
 })
 
@@ -100,13 +123,24 @@ const summaryCache = computed<
     }
   >()
   for (const account of accounts.value) {
-    const state = cashAdvanceState(account, txns.value, undefined, taxRateMonthly.value)
+    const state = cashAdvanceState(
+      account,
+      txns.value,
+      undefined,
+      taxRateMonthly.value,
+    )
     map.set(account.id, {
       principal: state.principal,
       accrued: state.accruedInterest,
       total: state.total,
       minPayment: state.minPayment,
-      available: account.limit - Number(state.principal),
+      available: cashAdvanceAvailableLimit(
+        account,
+        txns.value,
+        undefined,
+        taxRateMonthly.value,
+        ledgerContext.value,
+      ),
     })
   }
   return map

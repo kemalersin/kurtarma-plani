@@ -20,9 +20,8 @@ import {
   paidThroughIndex,
   remainingDebtForLoan,
 } from '@/features/debts/loanHelpers'
-import { revolvingRatesFromAccount } from '@/features/debts/cashAdvanceHelpers'
+import { cashAdvanceState } from '@/features/debts/cashAdvanceHelpers'
 import { D } from '@/finance/decimal'
-import { runRevolvingLedger } from '@/finance/cash-advance'
 
 export interface SettledDebtIndex {
   loanIds: ReadonlySet<string>
@@ -109,18 +108,12 @@ export function computeSettledDebtIndex(
   }
 
   for (const acc of input.cashAdvanceAccounts) {
-    const txns = input.cashAdvanceTransactions.filter((t) => t.accountId === acc.id)
-    const ledger = runRevolvingLedger({
-      openingBalance: acc.openingBalance ?? 0,
-      openingDate: acc.openingDate,
-      transactions: txns.map((t) => ({
-        date: t.date,
-        amount: t.amount,
-        type: t.type,
-      })),
-      rates: revolvingRatesFromAccount(acc, options.cashAdvanceTaxRateMonthly),
+    const ledger = cashAdvanceState(
+      acc,
+      input.cashAdvanceTransactions,
       asOf,
-    })
+      options.cashAdvanceTaxRateMonthly,
+    )
     if (isZeroDebt(ledger.total)) index.cashAdvanceAccountIds.add(acc.id)
   }
 

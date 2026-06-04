@@ -19,8 +19,15 @@ import type {
   CashAdvanceAccount,
   CashAdvanceTransaction,
   CashAdvanceTxnType,
+  InstallmentCashAdvance,
+  InstallmentCashAdvancePayment,
 } from '@/core/types/entities'
-import { cashAdvancePaymentsInMonth, cashAdvanceState } from './cashAdvanceHelpers'
+import {
+  cashAdvancePaymentsInMonth,
+  cashAdvanceState,
+  cashAdvanceAvailableLimit,
+  type CashAdvanceLedgerContext,
+} from './cashAdvanceHelpers'
 import CashAdvanceTxnDrawer from './CashAdvanceTxnDrawer.vue'
 
 interface Props {
@@ -38,6 +45,15 @@ const { taxRateMonthly } = useCreditCardRateContext()
 const isMobileViewport = useMobileViewport()
 
 const txns = entities.list<CashAdvanceTransaction>('cashAdvanceTransaction')
+const installmentAdvances = entities.list<InstallmentCashAdvance>('installmentCashAdvance')
+const installmentAdvancePayments = entities.list<InstallmentCashAdvancePayment>(
+  'installmentCashAdvancePayment',
+)
+
+const ledgerContext = computed<CashAdvanceLedgerContext>(() => ({
+  installmentAdvances: installmentAdvances.value,
+  installmentAdvancePayments: installmentAdvancePayments.value,
+}))
 
 const own = computed<CashAdvanceTransaction[]>(() => {
   if (!props.account) return []
@@ -48,7 +64,12 @@ const own = computed<CashAdvanceTransaction[]>(() => {
 
 const state = computed(() => {
   if (!props.account) return null
-  return cashAdvanceState(props.account, txns.value, undefined, taxRateMonthly.value)
+  return cashAdvanceState(
+    props.account,
+    txns.value,
+    undefined,
+    taxRateMonthly.value,
+  )
 })
 
 const TYPE_LABELS: Record<CashAdvanceTxnType, string> = {
@@ -102,7 +123,9 @@ const columns = computed<KpTableColumn<CashAdvanceTransaction>[]>(() => [
   {
     key: 'description',
     title: 'Açıklama',
-    dataIndex: 'description',
+    kpMinWidth: 160,
+    customRender: ({ record }) => (record as CashAdvanceTransaction).description ?? '—',
+    kpDisplay: (record) => record.description ?? '—',
     ellipsis: { showTitle: false },
   },
   {
@@ -149,6 +172,7 @@ const stats = computed<KpStat[]>(() => {
       txns.value,
       undefined,
       taxRateMonthly.value,
+      ledgerContext.value,
     )
     items.push({
       label: 'Bu ay ödenen',
@@ -166,12 +190,20 @@ const stats = computed<KpStat[]>(() => {
       value: formatCurrency(s?.total ?? 0, ccy),
       tone: 'danger',
     },
-    {
-      label: 'Kullanılabilir',
-      value: formatCurrency(props.account.limit - Number(s?.principal ?? 0), ccy),
-      tone: 'success',
-    },
   )
+
+  const available = cashAdvanceAvailableLimit(
+    props.account,
+    txns.value,
+    undefined,
+    taxRateMonthly.value,
+    ledgerContext.value,
+  )
+  items.push({
+    label: 'Kullanılabilir',
+    value: formatCurrency(available, ccy),
+    tone: available < 0 ? 'danger' : 'success',
+  })
 
   return items
 })
@@ -192,7 +224,7 @@ const stats = computed<KpStat[]>(() => {
       <DismissibleDrawerAlert
         hint-key="cash-advance-ledger.info"
         message="Revolving hesap"
-        description="Anapara üzerinden günlük akdi faiz (vergi dahil efektif oran) işler. Ay sonunda limit tier'ına göre asgari ödeme hesaplanır; asgari altı ödemede ödenmeyen asgari kısma gecikme faizi yansır. Ödeme önce tahakkuk eden faizi, sonra anaparayı kapatır."
+        description="Anapara üzerinden günlük akdi faiz (vergi dahil efektif oran) işler. Bağlı taksitli avansların kalan borcu yalnızca kullanılabilir limiti düşürür; anapara, faiz ve asgari ödeme alanlarını etkilemez. Ay sonunda limit tier'ına göre asgari ödeme hesaplanır."
       />
 
       <KpStatRow :items="stats" />

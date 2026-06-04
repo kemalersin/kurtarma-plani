@@ -38,6 +38,8 @@ const props = withDefaults(
     deleteTitle?: string
     /** Sil düğmesi gösterilsin mi (kayıt bazlı). */
     canDelete?: (record: T) => boolean
+    /** Düzenle düğmesi gösterilsin mi (kayıt bazlı). */
+    canEdit?: (record: T) => boolean
   }>(),
   {
     pagination: false,
@@ -47,6 +49,7 @@ const props = withDefaults(
     rowActions: false,
     deleteTitle: 'Bu kayıt silinsin mi?',
     canDelete: () => true,
+    canEdit: () => true,
   },
 )
 
@@ -233,6 +236,10 @@ watch(
 function showDeleteFor(record: T): boolean {
   return props.canDelete(record)
 }
+
+function showEditFor(record: T): boolean {
+  return props.canEdit(record)
+}
 </script>
 
 <template>
@@ -271,6 +278,7 @@ function showDeleteFor(record: T): boolean {
         </template>
         <template v-if="rowActions" #actions>
           <TableRowActions
+            :show-edit="showEditFor(record)"
             :show-delete="showDeleteFor(record)"
             :delete-title="deleteTitle"
             @edit="emit('edit', record)"
@@ -312,6 +320,7 @@ function showDeleteFor(record: T): boolean {
       <template #bodyCell="scope">
         <template v-if="scope.column.key === '__actions' && rowActions">
           <TableRowActions
+            :show-edit="showEditFor(scope.record as T)"
             :show-delete="showDeleteFor(scope.record as T)"
             :delete-title="deleteTitle"
             @edit="emit('edit', scope.record as T)"
