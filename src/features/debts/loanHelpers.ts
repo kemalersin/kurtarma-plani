@@ -1,6 +1,8 @@
 import type { Loan, LoanPayment } from '@/core/types/entities'
-import type { InstallmentLateFeeRates } from './installmentDisplay'
-import { unpaidInstallmentOverrides } from './installmentDisplay'
+import {
+  unpaidInstallmentOverrides,
+  type InstallmentLateFeeRates,
+} from './installmentDisplay'
 import { buildAnnuitySchedule, payoffAmount, remainingDebtTotal, remainingPrincipalBalance, type LoanSchedule } from '@/finance/loan'
 
 export function buildScheduleForLoan(loan: Loan): LoanSchedule {
@@ -15,6 +17,26 @@ export function buildScheduleForLoan(loan: Loan): LoanSchedule {
     firstInstallmentDate: loan.firstInstallmentDate,
     taxRateMonthly: loan.taxRateMonthly,
   })
+}
+
+/** Krediler listesinde «Aylık taksit» — plandaki tutar (gecikme faizi ve rollup yok). */
+export function listInstallmentAmountForLoan(
+  schedule: LoanSchedule,
+  payments: LoanPayment[],
+  paidThroughIdx: number,
+): string {
+  const paymentMap = indexPayments(payments)
+  const nextIndex = paidThroughIdx + 1
+  if (nextIndex > schedule.rows.length) {
+    return schedule.rows[0]?.installment ?? schedule.installment
+  }
+  const row = schedule.rows.find((r) => r.index === nextIndex)
+  if (!row) return schedule.installment
+  const payment = paymentMap.get(row.index)
+  if (payment?.scheduledAmount != null && !payment.paidDate) {
+    return String(payment.scheduledAmount)
+  }
+  return row.installment
 }
 
 /** Bir kredinin ödemelerini installmentIndex ile dizin haline getir. */

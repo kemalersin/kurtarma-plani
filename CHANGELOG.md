@@ -15,6 +15,7 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ### Fixed
 
+- Borçlar → Krediler: «Aylık taksit» sütunu plandaki taksit tutarını gösterir (gecikme faizi/rollup yok; son ay yuvarlama satır tutarı kullanılır).
 - Ayarlar → yedek içe aktarma: tüm entity önbelleği temizlenir ve `pullRevision` artırılarak KeepAlive liste/panel sayfaları yeniden yüklenir (yalnızca yönetim güncellenip diğer modüllerin eski kalması giderildi).
 
 ## [0.1.45]
