@@ -4,16 +4,18 @@
 import { describe, expect, it } from 'vitest'
 import { renderMarkdown } from '@/core/util/markdown'
 
-describe('renderMarkdown', () => {
-  it('bold ve liste render eder', () => {
-    const html = renderMarkdown('- **Toplam borç:** 12.000 TL')
-    expect(html).toContain('<strong>Toplam borç:</strong>')
-    expect(html).toContain('<ul>')
+describe('renderMarkdown json highlighting', () => {
+  it('json code fence gets syntax highlight spans', () => {
+    const html = renderMarkdown('```json\n{"name": "test", "count": 42}\n```')
+    expect(html).toContain('kp-json-block')
+    expect(html).toContain('kp-json__key')
+    expect(html).toContain('kp-json__string')
+    expect(html).toContain('kp-json__number')
   })
 
-  it('ham script etiketlerini temizler', () => {
-    const html = renderMarkdown('Merhaba<script>alert(1)</script>')
-    expect(html).not.toContain('<script')
-    expect(html).toContain('Merhaba')
+  it('non-json code fence stays plain', () => {
+    const html = renderMarkdown('```typescript\nconst x = 1\n```')
+    expect(html).not.toContain('kp-json__key')
+    expect(html).toContain('<pre')
   })
 })

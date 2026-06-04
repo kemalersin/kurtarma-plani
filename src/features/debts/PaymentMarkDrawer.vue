@@ -224,6 +224,11 @@ const statItems = computed(() =>
   }),
 )
 
+const statColumns = computed(() => {
+  const n = statItems.value.length
+  return n >= 4 ? 2 : n
+})
+
 watch(
   () => [props.open, props.row?.index, props.existing?.id] as const,
   ([open]) => {
@@ -408,7 +413,7 @@ function close(): void {
     @update:open="emit('update:open', $event)"
   >
     <Space direction="vertical" :size="16" style="width: 100%">
-      <KpStatRow :columns="statItems.length" :items="statItems" />
+      <KpStatRow :columns="statColumns" :items="statItems" />
 
       <DismissibleDrawerAlert
         v-if="priorInstallmentToPay != null"

@@ -69,7 +69,7 @@ const html = computed(() => renderMarkdown(props.source))
   background: rgba(0, 0, 0, 0.06);
 }
 
-.kp-markdown :deep(pre) {
+.kp-markdown :deep(pre:not(.kp-json-block)) {
   margin: 0 0 0.65em;
   padding: 10px 12px;
   border-radius: 6px;
@@ -78,9 +78,14 @@ const html = computed(() => renderMarkdown(props.source))
   border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-.kp-markdown :deep(pre code) {
+.kp-markdown :deep(pre:not(.kp-json-block) code) {
   padding: 0;
   background: transparent;
+  font-size: 0.88em;
+}
+
+.kp-markdown :deep(pre.kp-json-block) {
+  margin: 0 0 0.65em;
   font-size: 0.88em;
 }
 
@@ -116,7 +121,7 @@ const html = computed(() => renderMarkdown(props.source))
   color: rgba(255, 255, 255, 0.88);
 }
 
-[data-theme='dark'] .kp-markdown :deep(pre) {
+[data-theme='dark'] .kp-markdown :deep(pre:not(.kp-json-block)) {
   background: rgba(0, 0, 0, 0.35);
   border-color: rgba(255, 255, 255, 0.1);
 }

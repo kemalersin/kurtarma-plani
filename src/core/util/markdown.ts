@@ -1,9 +1,24 @@
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
+import { highlightJson } from '@/core/util/json-highlight'
 
 marked.setOptions({
   gfm: true,
   breaks: true,
+})
+
+function isJsonFenceLang(lang: string | undefined): boolean {
+  const normalized = (lang ?? '').toLowerCase()
+  return normalized === 'json' || normalized === 'kp-proposals'
+}
+
+marked.use({
+  renderer: {
+    code({ text, lang }) {
+      if (!isJsonFenceLang(lang)) return false
+      return `<pre class="kp-json-block"><code>${highlightJson(text)}</code></pre>\n`
+    },
+  },
 })
 
 let hooksInstalled = false

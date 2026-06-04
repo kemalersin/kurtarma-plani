@@ -230,9 +230,6 @@ watch([drawerOpen, relayReady], ([visible, ready]) => {
             </div>
 
             <div v-if="deviceLabel(device)" class="kp-relay-device-card__label-wrap">
-              <Typography.Text type="secondary" class="kp-relay-device-card__meta-label">
-                Tarayıcı / cihaz
-              </Typography.Text>
               <KpTooltip :title="deviceLabel(device)!">
                 <p class="kp-relay-device-card__label">{{ deviceLabel(device) }}</p>
               </KpTooltip>

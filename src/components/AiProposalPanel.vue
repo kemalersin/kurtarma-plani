@@ -5,6 +5,7 @@ import { Alert, Button, List, Popconfirm, Space, Typography, message } from 'ant
 import { DatabaseOutlined } from '@ant-design/icons-vue'
 import { useAiProposalApply } from '@/composables/useAiProposalApply'
 import { KP_AI_CHAT_OVERLAY_Z_INDEX_KEY } from '@/components/kp-ai-chat-overlay'
+import JsonCodeBlock from '@/components/JsonCodeBlock.vue'
 import { summarizeProposalItems } from '@/features/ai/proposals/labels'
 import { proposalBundleKey } from '@/features/ai/proposals/parse'
 import type { AiProposalBundle } from '@/features/ai/proposals/types'
@@ -35,6 +36,8 @@ const isApplied = computed(() => {
 })
 
 const summaryItems = computed(() => summarizeProposalItems(props.bundle.items))
+
+const bundleJson = computed(() => JSON.stringify(props.bundle, null, 2))
 
 async function onApply(): Promise<void> {
   applying.value = true
@@ -74,6 +77,7 @@ async function onApply(): Promise<void> {
         <List.Item class="kp-ai-proposals__item">{{ item.label }}</List.Item>
       </template>
     </List>
+    <JsonCodeBlock :code="bundleJson" max-height="min(40vh, 280px)" class="kp-ai-proposals__json" />
     <Alert
       v-if="lastError"
       type="error"
@@ -118,6 +122,10 @@ async function onApply(): Promise<void> {
 }
 
 .kp-ai-proposals__list {
+  margin-bottom: 8px;
+}
+
+.kp-ai-proposals__json {
   margin-bottom: 8px;
 }
 
