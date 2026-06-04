@@ -345,6 +345,7 @@ export function debtInstallmentRows(
     const payments = indexPayments(ownPayments)
     const rates = loanLateFeeRates(loan)
     for (const row of schedule.rows) {
+      if (!inRange(row.dueDate, range)) continue
       const payment = payments.get(row.index)
       const paid = payment != null && isInstallmentFullyPaid(payment)
       out.push({
@@ -392,6 +393,7 @@ export function debtInstallmentRows(
     }
     const rates = installmentAdvanceLateFeeRates(adv)
     for (const row of schedule.rows) {
+      if (!inRange(row.dueDate, range)) continue
       const payment = payments.get(row.index)
       const paid = payment != null && isInstallmentFullyPaid(payment)
       out.push({

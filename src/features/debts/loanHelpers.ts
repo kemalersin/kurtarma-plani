@@ -15,6 +15,7 @@ export function buildScheduleForLoan(loan: Loan): LoanSchedule {
       loan.lateInterestRate !== undefined && loan.lateInterestPeriod
         ? { value: loan.lateInterestRate, period: loan.lateInterestPeriod }
         : undefined,
+    startDate: loan.startDate,
     firstInstallmentDate: loan.firstInstallmentDate,
     taxRateMonthly: loan.taxRateMonthly,
   })
@@ -105,6 +106,7 @@ export function payoffForLoan(
     paidThroughIndex,
     asOfDate,
     installmentOverrides: unpaidInstallmentOverrides(payments),
+    startDate: loan.startDate,
     ...loanRateInput(loan),
   })
 }

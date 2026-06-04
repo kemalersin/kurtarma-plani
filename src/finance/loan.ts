@@ -14,7 +14,15 @@ export interface LoanInput {
   lateInterestRate?: RateInput
   /** İlk taksit tarihi (ISO). Genellikle başlangıç + 1 ay */
   firstInstallmentDate: string
-  /** Aylık vergi/giderler (KKDF + BSMV vb.) — toplam oran, faize eklenir */
+  /** Kullanım / sözleşme başlangıcı — ilk dönem kıst faizi için */
+  startDate?: string
+  /**
+   * İlk dönem faiz katsayısı (0–1). Verilmezse `startDate` → ilk taksit gün sayısı / 30.
+   */
+  firstPeriodInterestFactor?: number
+  /**
+   * KKDF + BSMV toplam oranı — **faiz tutarı üzerinden** (örn. 0,15 + 0,15 = 0,30).
+   */
   taxRateMonthly?: DecimalInput
 }
 
@@ -24,8 +32,10 @@ export interface ScheduleRow {
   dueDate: string
   /** Taksit tutarı (eşit) */
   installment: string
-  /** Bu dönemin faizi (vergi dahil) */
+  /** Bu dönemin sözleşme faizi (vergi hariç) */
   interest: string
+  /** KKDF + BSMV vb. (faiz üzerinden) */
+  tax: string
   /** Bu dönemin anapara payı */
   principal: string
   /** Ödenmeden önce dönem başı kalan */
@@ -37,23 +47,103 @@ export interface ScheduleRow {
 export interface LoanSchedule {
   installment: string
   totalInterest: string
+  totalTax: string
   totalPayment: string
   effectiveMonthlyRate: string
   rows: ScheduleRow[]
 }
 
+const STANDARD_MONTH_DAYS = 30
+
+/** Başlangıç → ilk taksit arası kıst faiz katsayısı (max 1, 30 gün = tam ay). */
+export function firstPeriodInterestFactorFromDates(
+  startDate: string | undefined,
+  firstInstallmentDate: string,
+): number {
+  if (!startDate) return 1
+  const days = differenceInCalendarDays(
+    parseISO(firstInstallmentDate.slice(0, 10)),
+    parseISO(startDate.slice(0, 10)),
+  )
+  if (days <= 0) return 1
+  if (days >= STANDARD_MONTH_DAYS) return 1
+  // Kullandırım günü faiz yürümez; kalan günler 30 günlük aya oranlanır.
+  return Math.max(0, days - 1) / STANDARD_MONTH_DAYS
+}
+
+function resolveFirstPeriodFactor(input: LoanInput): Decimal {
+  if (input.firstPeriodInterestFactor != null) {
+    return D(input.firstPeriodInterestFactor)
+  }
+  return D(firstPeriodInterestFactorFromDates(input.startDate, input.firstInstallmentDate))
+}
+
+function endBalanceAfterPayments(
+  principal: Decimal,
+  termMonths: number,
+  payment: Decimal,
+  monthlyRate: Decimal,
+  taxOnInterest: Decimal,
+  firstPeriodFactor: Decimal,
+): Decimal {
+  let balance = principal
+  for (let i = 1; i <= termMonths; i++) {
+    const periodFactor = i === 1 ? firstPeriodFactor : D(1)
+    const contractInterest = balance.times(monthlyRate).times(periodFactor)
+    const taxAmount = contractInterest.times(taxOnInterest)
+    balance = balance.minus(payment.minus(contractInterest).minus(taxAmount))
+  }
+  return balance
+}
+
+/** Eşit taksit tutarını ikili arama ile bulur (vergi faiz üzerinden + kıst ilk dönem). */
+function solveEqualInstallment(
+  principal: Decimal,
+  termMonths: number,
+  monthlyRate: Decimal,
+  taxOnInterest: Decimal,
+  firstPeriodFactor: Decimal,
+): Decimal {
+  if (monthlyRate.isZero() && taxOnInterest.isZero()) {
+    return roundMoney(principal.div(termMonths))
+  }
+
+  const maxFinance = monthlyRate.times(firstPeriodFactor).times(D(1).plus(taxOnInterest))
+  let lo = principal.div(termMonths)
+  let hi = principal.div(termMonths).plus(principal.times(maxFinance))
+
+  for (let iter = 0; iter < 80; iter++) {
+    const mid = lo.plus(hi).div(2)
+    const end = endBalanceAfterPayments(
+      principal,
+      termMonths,
+      mid,
+      monthlyRate,
+      taxOnInterest,
+      firstPeriodFactor,
+    )
+    if (end.gt(0)) {
+      lo = mid
+    } else {
+      hi = mid
+    }
+  }
+
+  return roundMoney(lo.plus(hi).div(2))
+}
+
 /**
  * Anüite (eşit taksitli) amortisman planı.
  *
- * A = P * (i * (1+i)^n) / ((1+i)^n - 1)
- *
- * `taxRateMonthly` verilirse efektif aylık oran `i + tax` olarak alınır
- * (KKDF/BSMV gibi sabit oranlı vergileri faize gömmek için basit yöntem).
+ * Sözleşme faizi kalan anapara × aylık oran; KKDF/BSMV faiz tutarı üzerinden eklenir.
+ * İlk dönemde başlangıç → ilk taksit gün sayısına göre kıst faiz uygulanır
+ * (kullandırım günü hariç; 30 takvim günü = tam ay).
  */
 export function buildAnnuitySchedule(input: LoanInput): LoanSchedule {
-  const baseMonthly = toMonthly(input.interestRate)
-  const taxMonthly = input.taxRateMonthly ? D(input.taxRateMonthly) : ZERO
-  const effective = baseMonthly.times(D(1).plus(taxMonthly))
+  const monthlyRate = toMonthly(input.interestRate)
+  const taxOnInterest = input.taxRateMonthly ? D(input.taxRateMonthly) : ZERO
+  const firstPeriodFactor = resolveFirstPeriodFactor(input)
+  const effectiveMonthlyRate = monthlyRate.times(D(1).plus(taxOnInterest))
 
   const principal = D(input.principal)
   const n = input.termMonths
@@ -61,31 +151,31 @@ export function buildAnnuitySchedule(input: LoanInput): LoanSchedule {
     throw new Error('Vade sıfırdan büyük olmalı.')
   }
 
-  let installment: Decimal
-  if (effective.isZero()) {
-    installment = principal.div(n)
-  } else {
-    const onePlusI = D(1).plus(effective)
-    const pow = onePlusI.pow(n)
-    installment = principal.times(effective).times(pow).div(pow.minus(1))
-  }
+  const installmentR = solveEqualInstallment(
+    principal,
+    n,
+    monthlyRate,
+    taxOnInterest,
+    firstPeriodFactor,
+  )
 
-  const installmentR = roundMoney(installment)
   const rows: ScheduleRow[] = []
   let balance = principal
   let totalInterest = ZERO
+  let totalTax = ZERO
   const firstDate = parseISO(input.firstInstallmentDate)
 
   for (let i = 1; i <= n; i++) {
-    const interest = balance.times(effective)
-    let principalPart = installmentR.minus(interest)
+    const periodFactor = i === 1 ? firstPeriodFactor : D(1)
+    const contractInterest = balance.times(monthlyRate).times(periodFactor)
+    const taxAmount = contractInterest.times(taxOnInterest)
+    let principalPart = installmentR.minus(contractInterest).minus(taxAmount)
     let installmentForRow = installmentR
     let ending = balance.minus(principalPart)
 
-    // Son taksitte yuvarlama farkını kapat
     if (i === n) {
       principalPart = balance
-      installmentForRow = roundMoney(principalPart.plus(interest))
+      installmentForRow = roundMoney(principalPart.plus(contractInterest).plus(taxAmount))
       ending = ZERO
     }
 
@@ -94,13 +184,15 @@ export function buildAnnuitySchedule(input: LoanInput): LoanSchedule {
       index: i,
       dueDate: dueDate.toISOString(),
       installment: roundMoney(installmentForRow).toString(),
-      interest: roundMoney(interest).toString(),
+      interest: roundMoney(contractInterest).toString(),
+      tax: roundMoney(taxAmount).toString(),
       principal: roundMoney(principalPart).toString(),
       beginningBalance: roundMoney(balance).toString(),
       endingBalance: roundMoney(ending).toString(),
     })
 
-    totalInterest = totalInterest.plus(interest)
+    totalInterest = totalInterest.plus(contractInterest)
+    totalTax = totalTax.plus(taxAmount)
     balance = ending
   }
 
@@ -109,8 +201,9 @@ export function buildAnnuitySchedule(input: LoanInput): LoanSchedule {
   return {
     installment: roundMoney(installmentR).toString(),
     totalInterest: roundMoney(totalInterest).toString(),
+    totalTax: roundMoney(totalTax).toString(),
     totalPayment: roundMoney(totalPayment).toString(),
-    effectiveMonthlyRate: effective.toString(),
+    effectiveMonthlyRate: effectiveMonthlyRate.toString(),
     rows,
   }
 }
@@ -171,6 +264,8 @@ export interface RemainingDebtParams {
   lateRate?: RateInput
   /** Ödenmemiş taksitler için kullanıcı override (index → tutar) */
   installmentOverrides?: ReadonlyMap<number, number>
+  /** Sözleşme başlangıcı — ilk dönem erken kapama faiz tahakkuku için */
+  startDate?: string
 }
 
 /** Plan taksiti veya override tutarı. */
@@ -187,17 +282,43 @@ function accruedPayoffInterest(
   nextDueDate: string,
   asOfDate: string,
   dailyMonthly: Decimal,
+  accrualStartDate?: string,
+  /** disbursement: kullandırım günü sayılmaz; installmentDue: son ödeme vadesi dahil */
+  accrualStartKind?: 'disbursement' | 'installmentDue',
 ): Decimal {
-  const daysToNext = differenceInCalendarDays(parseISO(nextDueDate), parseISO(asOfDate))
+  const asOf = parseISO(asOfDate.slice(0, 10))
+  const nextDue = parseISO(nextDueDate.slice(0, 10))
+  const daysToNext = differenceInCalendarDays(nextDue, asOf)
   const daily = toDailyFromMonthly(dailyMonthly)
 
-  if (daysToNext > 0 && daysToNext < 30) {
-    return lastPaidEnd.times(daily).times(30 - daysToNext)
+  const daysAccruedFromStart = accrualStartDate
+    ? (() => {
+        const raw = differenceInCalendarDays(
+          asOf,
+          parseISO(accrualStartDate.slice(0, 10)),
+        )
+        if (accrualStartKind === 'disbursement') return Math.max(0, raw - 1)
+        if (accrualStartKind === 'installmentDue') return Math.max(0, raw + 1)
+        return Math.max(0, raw)
+      })()
+    : daysToNext > 0 && daysToNext < STANDARD_MONTH_DAYS
+      ? STANDARD_MONTH_DAYS - daysToNext
+      : 0
+
+  if (daysToNext > 0 && daysAccruedFromStart > 0) {
+    return lastPaidEnd
+      .times(daily)
+      .times(Math.min(daysAccruedFromStart, STANDARD_MONTH_DAYS))
   }
   if (daysToNext <= 0) {
     const daysOverdue = lateDays(nextDueDate, asOfDate)
     if (daysOverdue > 0) {
       return lastPaidEnd.times(daily).times(daysOverdue)
+    }
+    if (daysAccruedFromStart > 0) {
+      return lastPaidEnd
+        .times(daily)
+        .times(Math.min(daysAccruedFromStart, STANDARD_MONTH_DAYS))
     }
   }
   return ZERO
@@ -223,11 +344,23 @@ export function payoffAmount(params: RemainingDebtParams): string {
       : D(schedule.rows[0]!.beginningBalance)
 
   const nextRow = remaining[0]!
+  const accrualStartDate =
+    paidThroughIndex > 0
+      ? schedule.rows[paidThroughIndex - 1]!.dueDate
+      : params.startDate
+  const accrualStartKind =
+    paidThroughIndex > 0
+      ? ('installmentDue' as const)
+      : params.startDate
+        ? ('disbursement' as const)
+        : undefined
   const partialInterest = accruedPayoffInterest(
     lastPaidEnd,
     nextRow.dueDate,
     asOfDate,
     D(schedule.effectiveMonthlyRate),
+    accrualStartDate,
+    accrualStartKind,
   )
 
   const lateFees = outstandingLateFeesTotal({

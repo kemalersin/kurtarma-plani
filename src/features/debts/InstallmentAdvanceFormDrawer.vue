@@ -79,6 +79,16 @@ function clampFirstInstallmentDate(): void {
 const banks = entities.list<Bank>('bank')
 const cashAdvances = entities.list<CashAdvanceAccount>('cashAdvanceAccount')
 
+const filteredCashAdvances = computed(() => {
+  if (!draft.bankId) return []
+  return cashAdvances.value.filter((a) => a.bankId === draft.bankId)
+})
+
+async function ensureCashAdvanceAccountsLoaded(): Promise<void> {
+  if (entities.loaded('cashAdvanceAccount').value) return
+  await entities.load<CashAdvanceAccount>('cashAdvanceAccount').catch(() => undefined)
+}
+
 const PERIOD_OPTIONS: { value: RatePeriodEnum; label: string }[] = [
   { value: 'monthly', label: 'Aylık' },
   { value: 'annual', label: 'Yıllık' },
@@ -144,6 +154,7 @@ const preview = computed(() => {
         value: draft.interestRate / 100,
         period: draft.interestPeriod,
       },
+      startDate: draft.startDate.toISOString(),
       firstInstallmentDate: draft.firstInstallmentDate.toISOString(),
       taxRateMonthly:
         draft.taxRateMonthly !== undefined ? draft.taxRateMonthly / 100 : undefined,
@@ -177,8 +188,9 @@ const previewStats = computed<KpStat[]>(() => {
 
 watch(
   () => [props.open, props.advance?.id] as const,
-  ([open]) => {
+  async ([open]) => {
     if (!open) return
+    await ensureCashAdvanceAccountsLoaded()
     if (props.advance) {
       Object.assign(draft, {
         name: props.advance.name,
@@ -215,6 +227,17 @@ watch(
   () => draft.startDate?.valueOf(),
   () => {
     if (props.open) clampFirstInstallmentDate()
+  },
+)
+
+watch(
+  () => draft.bankId,
+  (bankId) => {
+    if (!bankId || !draft.cashAdvanceAccountId) return
+    const selected = cashAdvances.value.find((a) => a.id === draft.cashAdvanceAccountId)
+    if (selected && selected.bankId !== bankId) {
+      draft.cashAdvanceAccountId = undefined
+    }
   },
 )
 
@@ -370,8 +393,11 @@ function close(): void {
       <FormItem label="Bağlı nakit avans hesabı">
         <SelectWithCreate
           v-model:value="draft.cashAdvanceAccountId"
-          :options="cashAdvances"
-          placeholder="Opsiyonel — bağlı hesap"
+          :options="filteredCashAdvances"
+          :disabled="!draft.bankId"
+          :placeholder="
+            draft.bankId ? 'Opsiyonel — bağlı hesap' : 'Önce banka seçin'
+          "
           create-label="Yeni nakit avans hesabı"
           @create="openCaDrawer"
         />

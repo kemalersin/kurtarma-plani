@@ -1,5 +1,10 @@
-import { computed, type ComputedRef, type WritableComputedRef } from 'vue'
+import { computed, onActivated, onMounted, type ComputedRef, type WritableComputedRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useProfileStore } from '@/stores/profile'
+import {
+  defaultAnalyticsDateRange,
+  isLegacyDefaultAnalyticsDateRange,
+} from '@/features/analytics/defaultDateRange'
 import type { AnalyticsDateRange, AnalyticsFilters, CardDebtDueMode } from '@/features/analytics/reports'
 
 export interface AnalyticsFilterState {
@@ -26,18 +31,6 @@ function readStr(raw: unknown): string {
   return ''
 }
 
-function defaultRange(): AnalyticsDateRange {
-  const today = new Date()
-  const back = new Date(today)
-  back.setMonth(back.getMonth() - 6)
-  const fwd = new Date(today)
-  fwd.setMonth(fwd.getMonth() + 6)
-  return {
-    from: back.toISOString().slice(0, 10),
-    to: fwd.toISOString().slice(0, 10),
-  }
-}
-
 /**
  * Analiz sayfası filtrelerini URL query ile senkronlar.
  * Anahtarlar: `from`, `to`, `bank`, `endpoint`, `category`, `cardDue`.
@@ -46,7 +39,10 @@ function defaultRange(): AnalyticsDateRange {
 export function useAnalyticsFilters(): AnalyticsFilterState {
   const route = useRoute()
   const router = useRouter()
-  const defaults = defaultRange()
+  const profileStore = useProfileStore()
+  const defaults = computed(() =>
+    defaultAnalyticsDateRange(profileStore.activeProfile?.localeSettings.timeZone),
+  )
 
   function replaceQuery(patch: Record<string, string | undefined>): void {
     const query = { ...route.query }
@@ -59,13 +55,13 @@ export function useAnalyticsFilters(): AnalyticsFilterState {
 
   const range = computed<AnalyticsDateRange>({
     get: () => ({
-      from: readStr(route.query.from) || defaults.from,
-      to: readStr(route.query.to) || defaults.to,
+      from: readStr(route.query.from) || defaults.value.from,
+      to: readStr(route.query.to) || defaults.value.to,
     }),
     set: (next) => {
       replaceQuery({
-        from: next.from === defaults.from ? undefined : next.from,
-        to: next.to === defaults.to ? undefined : next.to,
+        from: next.from === defaults.value.from ? undefined : next.from,
+        to: next.to === defaults.value.to ? undefined : next.to,
       })
     },
   })
@@ -108,10 +104,10 @@ export function useAnalyticsFilters(): AnalyticsFilterState {
   }>): void {
     const next: Record<string, string | undefined> = {}
     if ('from' in p) {
-      next.from = p.from === defaults.from ? undefined : p.from
+      next.from = p.from === defaults.value.from ? undefined : p.from
     }
     if ('to' in p) {
-      next.to = p.to === defaults.to ? undefined : p.to
+      next.to = p.to === defaults.value.to ? undefined : p.to
     }
     if ('bank' in p) next.bank = p.bank || undefined
     if ('endpoint' in p) next.endpoint = p.endpoint || undefined
@@ -132,6 +128,17 @@ export function useAnalyticsFilters(): AnalyticsFilterState {
       cardDue: undefined,
     })
   }
+
+  function migrateLegacyRangeQuery(): void {
+    const from = readStr(route.query.from)
+    const to = readStr(route.query.to)
+    if (from && to && isLegacyDefaultAnalyticsDateRange(from, to)) {
+      replaceQuery({ from: undefined, to: undefined })
+    }
+  }
+
+  onMounted(migrateLegacyRangeQuery)
+  onActivated(migrateLegacyRangeQuery)
 
   return { range, bankId, endpointId, categoryId, cardDueMode, filters, patch, reset }
 }

@@ -247,7 +247,7 @@ describe('debtInstallmentRows', () => {
     expect(rows.some((r) => r.status === 'upcoming')).toBe(true)
   })
 
-  it('kredi planı aralıkla kesişiyorsa tüm taksitleri listeler (son vadeler aralık dışında olsa bile)', () => {
+  it('kredi planı aralıkla kesişiyorsa yalnızca aralıktaki taksitleri listeler', () => {
     const rows = debtInstallmentRows(
       {
         ...emptyDebtInput,
@@ -264,11 +264,11 @@ describe('debtInstallmentRows', () => {
       '2026-05-26T00:00:00.000Z',
     )
     const loanRows = rows.filter((r) => r.debtKind === 'loan')
-    expect(loanRows).toHaveLength(12)
-    expect(loanRows.map((r) => r.installmentIndex).sort((a, b) => a - b)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
-    ])
-    expect(loanRows.some((r) => r.dueDate.startsWith('2027-'))).toBe(true)
+    expect(loanRows.length).toBeGreaterThan(0)
+    expect(loanRows.length).toBeLessThan(12)
+    expect(loanRows.every((r) => r.dueDate.slice(0, 10) <= '2026-11-26')).toBe(true)
+    expect(loanRows.every((r) => r.dueDate.slice(0, 10) >= '2025-11-26')).toBe(true)
+    expect(loanRows.some((r) => r.dueDate.startsWith('2027-'))).toBe(false)
   })
 
   it('kredi planı aralıkla kesişmiyorsa listede görünmez', () => {

@@ -11,6 +11,7 @@ import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
 import type {
   Bank,
+  CashAdvanceAccount,
   InstallmentCashAdvance,
   InstallmentCashAdvancePayment,
 } from '@/core/types/entities'
@@ -45,7 +46,8 @@ const loading = computed(
   () =>
     entities.loading('installmentCashAdvance').value ||
     entities.loading('installmentCashAdvancePayment').value ||
-    entities.loading('bank').value,
+    entities.loading('bank').value ||
+    entities.loading('cashAdvanceAccount').value,
 )
 
 const formOpen = ref(false)
@@ -67,6 +69,10 @@ onMounted(async () => {
     )
   if (!entities.loaded('bank').value)
     tasks.push(entities.load<Bank>('bank').catch(() => undefined))
+  if (!entities.loaded('cashAdvanceAccount').value)
+    tasks.push(
+      entities.load<CashAdvanceAccount>('cashAdvanceAccount').catch(() => undefined),
+    )
   if (tasks.length) await Promise.all(tasks)
 })
 

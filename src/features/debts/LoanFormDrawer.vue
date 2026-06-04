@@ -106,6 +106,7 @@ const preview = computed(() => {
         value: draft.interestRate / 100,
         period: draft.interestPeriod,
       },
+      startDate: draft.startDate.toISOString(),
       firstInstallmentDate: draft.firstInstallmentDate.toISOString(),
       taxRateMonthly:
         draft.taxRateMonthly !== undefined ? draft.taxRateMonthly / 100 : undefined,

@@ -30,6 +30,7 @@ export function buildScheduleForInstallmentAdvance(
       advance.lateInterestRate !== undefined && advance.lateInterestPeriod
         ? { value: advance.lateInterestRate, period: advance.lateInterestPeriod }
         : undefined,
+    startDate: advance.startDate,
     firstInstallmentDate: advance.firstInstallmentDate,
     taxRateMonthly: advance.taxRateMonthly,
   })
@@ -113,6 +114,7 @@ export function payoffForInstallmentAdvance(
     paidThroughIndex,
     asOfDate,
     installmentOverrides,
+    startDate: advance.startDate,
     ...rates,
   })
 }

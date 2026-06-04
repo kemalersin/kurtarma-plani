@@ -6,6 +6,22 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.51]
+
+### Changed
+
+- Analiz & rapor tabloları: varsayılan tarih aralığının başlangıcı profil timezone'unda bir önceki ayın ilk günü (bitiş: bugünden 6 ay sonrası).
+- Analiz & rapor: kredi ve taksitli avans tabloları tarih aralığına göre yalnızca aralıktaki vade satırlarını gösterir (kart/nakit avans ile aynı kural).
+- Eski ±6 ay UTC varsayılanı URL'de kalmışsa otomatik temizlenir; yeni varsayılan aralık uygulanır.
+
+### Fixed
+
+- Erken kapama kısmi dönem faizi: son ödenen taksit vadesinden bugüne takvim günü (vade günü dahil); ilk dönemde kullandırım günü hariç.
+- Taksitli nakit avans formu: «Bağlı nakit avans hesabı» listesi yalnızca seçili bankaya ait hesapları gösterir; banka değişince uyumsuz seçim temizlenir.
+- Taksitli nakit avans formu: içe aktarma sonrası «Bağlı nakit avans hesabı» alanı UUID yerine hesap adını gösterir (`cashAdvanceAccount` koleksiyonu yüklenir).
+- `KpSelect`: devre dışı olsa da aktif görünüm korunur (soluk arka plan / metin rengi yok); yalnızca etkileşim engellenir.
+- `KpSelect`: `Space.Compact` içinde (faiz + dönem + referans satırı) sarmalayıcı düzeni bozmaz.
+
 ## [0.1.50]
 
 ### Fixed

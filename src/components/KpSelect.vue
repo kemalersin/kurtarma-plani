@@ -152,19 +152,24 @@ defineExpose({ closeSheet })
 </script>
 
 <template>
-  <Select
+  <div
     v-if="!isMobileViewport"
-    v-bind="desktopBind"
-    @update:value="emitValue"
+    class="kp-select"
+    :class="{ 'kp-select--disabled': disabled }"
   >
-    <template v-if="slots.footer" #dropdownRender="{ menuNode }">
-      <component :is="menuNode" />
-      <Divider style="margin: 4px 0" />
-      <div class="kp-select-footer" @mousedown.prevent>
-        <slot name="footer" />
-      </div>
-    </template>
-  </Select>
+    <Select
+      v-bind="desktopBind"
+      @update:value="emitValue"
+    >
+      <template v-if="slots.footer" #dropdownRender="{ menuNode }">
+        <component :is="menuNode" />
+        <Divider style="margin: 4px 0" />
+        <div class="kp-select-footer" @mousedown.prevent>
+          <slot name="footer" />
+        </div>
+      </template>
+    </Select>
+  </div>
 
   <template v-else>
     <div class="kp-select-mobile-root" v-bind="attrs">
@@ -272,6 +277,34 @@ defineExpose({ closeSheet })
 </template>
 
 <style scoped>
+.kp-select {
+  /* Space.Compact içinde ara eleman olarak kullanıldığında düzeni bozmaz */
+  display: contents;
+}
+
+.kp-select--disabled :deep(.ant-select-disabled) {
+  cursor: not-allowed;
+}
+
+.kp-select--disabled :deep(.ant-select-disabled .ant-select-selector) {
+  color: var(--ant-color-text, rgba(0, 0, 0, 0.88));
+  background: var(--ant-color-bg-container, #fff);
+  cursor: not-allowed;
+}
+
+.kp-select--disabled :deep(.ant-select-disabled .ant-select-selection-item) {
+  color: var(--ant-color-text, rgba(0, 0, 0, 0.88));
+}
+
+.kp-select--disabled :deep(.ant-select-disabled .ant-select-selection-placeholder) {
+  color: var(--ant-color-text-placeholder, rgba(0, 0, 0, 0.25));
+}
+
+.kp-select--disabled :deep(.ant-select-disabled .ant-select-arrow),
+.kp-select--disabled :deep(.ant-select-disabled .ant-select-clear) {
+  color: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25));
+}
+
 .kp-select-mobile-root {
   display: block;
   width: 100%;
@@ -305,8 +338,6 @@ defineExpose({ closeSheet })
 }
 
 .kp-select-trigger--disabled {
-  color: var(--ant-color-text-disabled, rgba(0, 0, 0, 0.25));
-  background: var(--ant-color-bg-container-disabled, rgba(0, 0, 0, 0.04));
   cursor: not-allowed;
 }
 

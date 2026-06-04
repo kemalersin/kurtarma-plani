@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildAnnuitySchedule,
   computeLateFee,
+  firstPeriodInterestFactorFromDates,
   lateDays,
   payoffAmount,
   remainingInstallmentsTotal,
@@ -72,9 +73,32 @@ describe('buildAnnuitySchedule', () => {
       firstInstallmentDate: FIRST,
     })
     expect(D(taxed.installment).gt(base.installment)).toBe(true)
+    expect(D(taxed.totalTax).gt(0)).toBe(true)
   })
 
-  it('toplam ödeme = anapara + toplam faiz', () => {
+  it('vergi faiz üzerinden ayrı hesaplanır (sözleşme faizi ≠ faiz+vergi)', () => {
+    const schedule = buildAnnuitySchedule({
+      principal: 25_320,
+      termMonths: 3,
+      interestRate: { value: 0.0425, period: 'monthly' },
+      taxRateMonthly: 0.3,
+      firstInstallmentDate: '2026-04-23T00:00:00.000Z',
+      startDate: '2026-03-26T00:00:00.000Z',
+    })
+    expect(D(schedule.installment).toNumber()).toBeCloseTo(9340.17, 0)
+    expect(D(schedule.rows[0]!.interest).toNumber()).toBeCloseTo(968.49, 0)
+    expect(D(schedule.rows[0]!.tax).toNumber()).toBeCloseTo(290.54, 0)
+    expect(D(schedule.rows[1]!.interest).toNumber()).toBeCloseTo(732.65, 0)
+    expect(D(schedule.rows[2]!.interest).toNumber()).toBeCloseTo(376.17, 0)
+  })
+
+  it('ilk dönem kıst: 30+ gün aralıkta tam ay faizi uygulanır', () => {
+    expect(
+      firstPeriodInterestFactorFromDates('2026-02-20', '2026-03-22'),
+    ).toBe(1)
+  })
+
+  it('toplam ödeme = anapara + faiz + vergi', () => {
     const schedule = buildAnnuitySchedule({
       principal: 75_000,
       termMonths: 24,
@@ -82,8 +106,7 @@ describe('buildAnnuitySchedule', () => {
       firstInstallmentDate: FIRST,
     })
     const total = D(schedule.totalPayment)
-    const expected = D(75_000).plus(schedule.totalInterest)
-    // Yuvarlama farkı kuruş seviyesinde olabilir
+    const expected = D(75_000).plus(schedule.totalInterest).plus(schedule.totalTax)
     expect(moneyEquals(total, expected, '0.05')).toBe(true)
   })
 })
@@ -196,6 +219,25 @@ describe('payoffAmount', () => {
       contractRate: { value: 0.03, period: 'monthly' },
     })
     expect(amount).toBe('0')
+  })
+
+  it('son taksitten sonra kısmi faiz son ödeme vadesinden bugüne takvim günü ile tahakkuk eder', () => {
+    const schedule = buildAnnuitySchedule({
+      principal: 25_320,
+      termMonths: 3,
+      interestRate: { value: 0.0425, period: 'monthly' },
+      taxRateMonthly: 0.3,
+      firstInstallmentDate: '2026-04-23T00:00:00.000Z',
+      startDate: '2026-03-26T00:00:00.000Z',
+    })
+    const amount = payoffAmount({
+      schedule,
+      paidThroughIndex: 2,
+      asOfDate: '2026-06-04T00:00:00.000Z',
+      contractRate: { value: 0.0425, period: 'monthly' },
+      startDate: '2026-03-26T00:00:00.000Z',
+    })
+    expect(D(amount).toNumber()).toBeCloseTo(9063.05, 0)
   })
 })
 
