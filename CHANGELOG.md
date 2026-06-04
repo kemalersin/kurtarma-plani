@@ -6,6 +6,8 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.46]
+
 ### Added
 
 - Ayarlar → Senkron.la: **Cihaz adı** (`deviceLabel`) ve **Bildirimler (WebSocket)** (`notificationsEnabled`) seçenekleri; kayıtta relay oturumu yeniden bağlanır.
