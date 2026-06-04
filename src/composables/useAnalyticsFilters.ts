@@ -13,6 +13,7 @@ export interface AnalyticsFilterState {
   endpointId: WritableComputedRef<string>
   categoryId: WritableComputedRef<string>
   cardDueMode: WritableComputedRef<CardDebtDueMode>
+  hideCashAdvanceLimit: WritableComputedRef<boolean>
   filters: ComputedRef<AnalyticsFilters>
   patch(patch: Partial<{
     from: string
@@ -21,6 +22,7 @@ export interface AnalyticsFilterState {
     endpoint: string
     category: string
     cardDue: CardDebtDueMode | ''
+    caHideLimit: boolean | ''
   }>): void
   reset(): void
 }
@@ -86,12 +88,18 @@ export function useAnalyticsFilters(): AnalyticsFilterState {
     set: (v) => replaceQuery({ cardDue: v === 'statement' ? undefined : v }),
   })
 
+  const hideCashAdvanceLimit = computed<boolean>({
+    get: () => readStr(route.query.caHideLimit) === '1',
+    set: (v) => replaceQuery({ caHideLimit: v ? '1' : undefined }),
+  })
+
   const filters = computed<AnalyticsFilters>(() => ({
     range: range.value,
     bankId: bankId.value || undefined,
     endpointId: endpointId.value || undefined,
     categoryId: categoryId.value || undefined,
     cardDueMode: cardDueMode.value,
+    hideCashAdvanceLimit: hideCashAdvanceLimit.value || undefined,
   }))
 
   function patch(p: Partial<{
@@ -101,6 +109,7 @@ export function useAnalyticsFilters(): AnalyticsFilterState {
     endpoint: string
     category: string
     cardDue: CardDebtDueMode | ''
+    caHideLimit: boolean | ''
   }>): void {
     const next: Record<string, string | undefined> = {}
     if ('from' in p) {
@@ -115,6 +124,9 @@ export function useAnalyticsFilters(): AnalyticsFilterState {
     if ('cardDue' in p) {
       next.cardDue = !p.cardDue || p.cardDue === 'statement' ? undefined : p.cardDue
     }
+    if ('caHideLimit' in p) {
+      next.caHideLimit = p.caHideLimit ? '1' : undefined
+    }
     if (Object.keys(next).length) replaceQuery(next)
   }
 
@@ -126,6 +138,7 @@ export function useAnalyticsFilters(): AnalyticsFilterState {
       endpoint: undefined,
       category: undefined,
       cardDue: undefined,
+      caHideLimit: undefined,
     })
   }
 
@@ -140,5 +153,5 @@ export function useAnalyticsFilters(): AnalyticsFilterState {
   onMounted(migrateLegacyRangeQuery)
   onActivated(migrateLegacyRangeQuery)
 
-  return { range, bankId, endpointId, categoryId, cardDueMode, filters, patch, reset }
+  return { range, bankId, endpointId, categoryId, cardDueMode, hideCashAdvanceLimit, filters, patch, reset }
 }

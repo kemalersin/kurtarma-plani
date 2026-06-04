@@ -117,9 +117,11 @@ const stats = computed<KpStat[]>(() => {
 
   return [
     {
-      label: 'Kalan borç',
+      label: 'Kalan taksit borcu',
       value: formatMoney(remainingDebt.value),
       tone: 'primary',
+      labelTooltip:
+        'Ödenmemiş taksit tutarlarının toplamı + biriken gecikme faizi. Erken kapama tutarından farklıdır; erken kapama yalnızca kalan anapara + kısmi dönem faizi + gecikme faizini içerir.',
     },
     payoffStat,
     { label: 'Toplam ödenen', value: formatMoney(totalPaid.value), tone: 'success' },

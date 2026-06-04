@@ -6,6 +6,12 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.53]
+
+### Added
+
+- Borç analizi: «Limiti gizle» toggle — nakit avans satırlarında borçtan hesap limiti düşülür (yalnızca limit üstü gösterilir).
+
 ## [0.1.52]
 
 ### Added
@@ -14,7 +20,8 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ### Fixed
 
-- Nakit avans tablosu: kullanılabilir limit limit aşımında sıfıra kısıtlanmaz; negatif değer gösterilir.
+- Kredi erken kapama: kalan taksit borcu − vadesi gelmemiş taksitlerin plan faiz/vergisi; ileride vadesi olan taksit varsa erken kapama daha düşük, tüm kalan taksitler gecikmişse eşit.
+- Kredi taksit planı: «Kalan borç» etiketi «Kalan taksit borcu» olarak netleştirildi (erken kapama ile karıştırılmaması için).
 
 ## [0.1.51]
 

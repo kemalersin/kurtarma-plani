@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyCashAdvanceLimitHide,
+  cashAdvanceDebtExceedingLimit,
   cashflowMonthRows,
   debtInstallmentMonthlySeries,
   debtInstallmentRows,
@@ -7,6 +9,7 @@ import {
   debtInstallmentTypeLabel,
   filterCashflowRecords,
   movementRows,
+  type DebtInstallmentRow,
 } from './reports'
 import { cashAdvanceState } from '@/features/debts/cashAdvanceHelpers'
 import type { AccountMovement } from '@/features/cashflow/movements'
@@ -741,6 +744,71 @@ describe('debtInstallmentRows', () => {
     expect(caRows.length).toBeGreaterThan(0)
     expect(caRows.every((r) => r.dueDate.slice(0, 7) <= '2026-06')).toBe(true)
     expect(caRows.some((r) => r.dueDate.startsWith('2026-07'))).toBe(false)
+  })
+
+  it('limiti gizle: nakit avans borcundan limit düşülür', () => {
+    expect(cashAdvanceDebtExceedingLimit(185_000, 150_000)).toBe('35000')
+    expect(cashAdvanceDebtExceedingLimit(120_000, 150_000)).toBe('0')
+  })
+
+  it('hideCashAdvanceLimit filtresi analiz satırlarını günceller', () => {
+    const baseRow: DebtInstallmentRow = {
+      key: 'ca:ca1:total:2026-06',
+      debtKind: 'cashAdvanceStatement',
+      debtId: 'ca1',
+      debtName: 'KMH',
+      bankId: 'b1',
+      bankName: 'Bank',
+      installmentIndex: 0,
+      dueDate: '2026-06-30T00:00:00.000Z',
+      amount: '185000',
+      paid: false,
+      status: 'upcoming',
+    }
+    const adjusted = applyCashAdvanceLimitHide(
+      [baseRow],
+      [{ id: 'ca1', limit: 150_000 }],
+    )
+    expect(adjusted[0]!.amount).toBe('35000')
+
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        cashAdvanceAccounts: [cashAdvanceAccount({ limit: 150_000, openingBalance: 0 })],
+        cashAdvanceTransactions: [
+          cashAdvanceTxn({
+            date: '2026-03-10T00:00:00.000Z',
+            amount: 185_000,
+            type: 'draw',
+          }),
+        ],
+      },
+      { range: { from: '2026-06-01', to: '2026-06-30' }, hideCashAdvanceLimit: true },
+      '2026-06-15T12:00:00.000Z',
+    )
+    const ca = rows.find((r) => r.debtKind === 'cashAdvanceStatement')
+    expect(ca).toBeDefined()
+    const rawRows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        cashAdvanceAccounts: [cashAdvanceAccount({ limit: 150_000, openingBalance: 0 })],
+        cashAdvanceTransactions: [
+          cashAdvanceTxn({
+            date: '2026-03-10T00:00:00.000Z',
+            amount: 185_000,
+            type: 'draw',
+          }),
+        ],
+      },
+      { range: { from: '2026-06-01', to: '2026-06-30' } },
+      '2026-06-15T12:00:00.000Z',
+    )
+    const raw = rawRows.find((r) => r.debtKind === 'cashAdvanceStatement')
+    expect(Number(ca!.amount)).toBeLessThan(Number(raw!.amount))
+    expect(Number(ca!.amount)).toBeCloseTo(
+      Math.max(0, Number(raw!.amount) - 150_000),
+      0,
+    )
   })
 
   it('nakit avans kapama ödemesi grafik ve listede görünür', () => {

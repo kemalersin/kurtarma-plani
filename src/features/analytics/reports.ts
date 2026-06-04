@@ -2,7 +2,7 @@
  * Analiz / rapor sayfası tablo ve grafik verilerinin **saf** üreticileri.
  * UI bağımsız; filtreler explicit parametre olarak geçilir.
  */
-import { D, roundMoney } from '@/finance/decimal'
+import { D, roundMoney, Decimal, type DecimalInput } from '@/finance/decimal'
 import type {
   Account,
   CashAdvanceAccount,
@@ -53,6 +53,8 @@ export interface AnalyticsFilters {
   categoryId?: string
   /** Kart / nakit avans vadeleri: toplam ödeme (varsayılan) veya asgari. Nakit avans aynı modu kullanır. */
   cardDueMode?: CardDebtDueMode
+  /** Nakit avans satırlarında limit tutarını borçtan düş (yalnızca limit aşımı gösterilir). */
+  hideCashAdvanceLimit?: boolean
 }
 
 /** Borç analizinde kredi kartı vade tutarı modu. */
@@ -178,6 +180,42 @@ function installmentPlanAmount(
 /** Grafik / kısmi ödeme bekleyen hesabı — rollup varsa dueAmount, yoksa amount. */
 function debtInstallmentDueForBalance(row: DebtInstallmentRow): ReturnType<typeof D> {
   return D(row.dueAmount ?? row.amount)
+}
+
+/**
+ * Nakit avans borcundan limit düşülür; yalnızca limit üstü kısım kalır.
+ * Örn. borç 185.000, limit 150.000 → 35.000.
+ */
+export function cashAdvanceDebtExceedingLimit(
+  debtAmount: DecimalInput,
+  limit: DecimalInput,
+): string {
+  return roundMoney(Decimal.max(0, D(debtAmount).minus(limit))).toString()
+}
+
+/** Borç analizi nakit avans satırlarında limiti gizle (tutarları limit üstüne indir). */
+export function applyCashAdvanceLimitHide(
+  rows: DebtInstallmentRow[],
+  accounts: readonly Pick<CashAdvanceAccount, 'id' | 'limit'>[],
+): DebtInstallmentRow[] {
+  const limitById = new Map(accounts.map((a) => [a.id, a.limit]))
+  return rows.map((row) => {
+    if (row.debtKind !== 'cashAdvance' && row.debtKind !== 'cashAdvanceStatement') {
+      return row
+    }
+    const limit = limitById.get(row.debtId)
+    if (limit == null) return row
+    const adjust = (value: string | undefined): string | undefined => {
+      if (value == null || value === '') return value
+      return cashAdvanceDebtExceedingLimit(value, limit)
+    }
+    return {
+      ...row,
+      amount: adjust(row.amount) ?? row.amount,
+      paidAmount: adjust(row.paidAmount),
+      dueAmount: row.dueAmount != null ? adjust(row.dueAmount) : undefined,
+    }
+  })
 }
 
 /** Liste Tutar sütunu — plan taksit; kısmi ödemede kalan sonraki vadeye devredilir. */
@@ -535,6 +573,9 @@ export function debtInstallmentRows(
   }
 
   out.sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.debtName.localeCompare(b.debtName))
+  if (filters.hideCashAdvanceLimit) {
+    return applyCashAdvanceLimitHide(out, input.cashAdvanceAccounts)
+  }
   return out
 }
 

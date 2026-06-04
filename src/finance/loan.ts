@@ -1,7 +1,6 @@
 import { addMonths, differenceInCalendarDays, parseISO } from 'date-fns'
-import { D, roundMoney, ZERO, type DecimalInput } from '@/finance/decimal'
+import { D, roundMoney, ZERO, type DecimalInput, Decimal } from '@/finance/decimal'
 import { toDailyFromMonthly, toMonthly, type RateInput } from '@/finance/rates'
-import type Decimal from 'decimal.js'
 
 export interface LoanInput {
   /** Anapara */
@@ -311,6 +310,16 @@ function accruedPayoffInterest(
       .times(Math.min(daysAccruedFromStart, STANDARD_MONTH_DAYS))
   }
   if (daysToNext <= 0) {
+    // Son ödenen vade sonrası tahakkuk: ilk gecikmiş taksit vadesinden değil, son ödeme vadesinden.
+    if (accrualStartDate && accrualStartKind === 'installmentDue') {
+      const days = Math.max(
+        0,
+        differenceInCalendarDays(asOf, parseISO(accrualStartDate.slice(0, 10))),
+      )
+      if (days > 0) {
+        return lastPaidEnd.times(daily).times(days)
+      }
+    }
     const daysOverdue = lateDays(nextDueDate, asOfDate)
     if (daysOverdue > 0) {
       return lastPaidEnd.times(daily).times(daysOverdue)
@@ -324,55 +333,52 @@ function accruedPayoffInterest(
   return ZERO
 }
 
+/** Ödenmemiş taksitlerin plandaki faiz + vergi toplamı (erken kapama kısmi faiz tavanı). */
+export function remainingScheduledFinanceCharge(
+  schedule: LoanSchedule,
+  paidThroughIndex: number,
+): string {
+  const total = schedule.rows
+    .filter((r) => r.index > paidThroughIndex)
+    .reduce((acc, row) => acc.plus(D(row.interest)).plus(D(row.tax)), ZERO)
+  return roundMoney(total).toString()
+}
+
+/**
+ * Vadesi henüz gelmemiş ödenmemiş taksitlerin plandaki faiz + vergi toplamı.
+ * Erken kapamada bu tutar tasarruf edilir (gelecek taksit faizi ödenmez).
+ */
+export function remainingFutureFinanceCharge(
+  schedule: LoanSchedule,
+  paidThroughIndex: number,
+  asOfDate: string,
+): string {
+  const asOfKey = asOfDate.slice(0, 10)
+  const total = schedule.rows
+    .filter(
+      (r) => r.index > paidThroughIndex && r.dueDate.slice(0, 10) > asOfKey,
+    )
+    .reduce((acc, row) => acc.plus(D(row.interest)).plus(D(row.tax)), ZERO)
+  return roundMoney(total).toString()
+}
+
 /**
  * Kalan borcu vadeden önce kapatma tutarı.
  *
- * Türk tüketici kredisi mevzuatına göre erken kapama tahsil edilebilecek
- * yapılandırma ücreti vardır; biz burada **saf finansal** tahmini döneriz:
- * kalan anapara + kısmi dönem faizi + biriken gecikme faizi (vadesi geçmiş taksitler).
+ * Tahmini: kalan taksit borcu − vadesi gelmemiş taksitlerin plan faiz/vergisi
+ * (gelecek taksit faizi erken kapamada ödenmez) + gecikme faizi zaten kalan borçta.
  *
  * UI tarafında kullanıcı sözleşmesine göre erken kapama komisyonu eklenebilir.
  */
 export function payoffAmount(params: RemainingDebtParams): string {
-  const { schedule, paidThroughIndex, asOfDate, contractRate, lateRate } = params
-  const remaining = schedule.rows.filter((r) => r.index > paidThroughIndex)
-  if (remaining.length === 0) return '0'
+  const { schedule, paidThroughIndex } = params
+  if (schedule.rows.every((r) => r.index <= paidThroughIndex)) return '0'
 
-  const lastPaidEnd =
-    paidThroughIndex > 0
-      ? D(schedule.rows[paidThroughIndex - 1]!.endingBalance)
-      : D(schedule.rows[0]!.beginningBalance)
-
-  const nextRow = remaining[0]!
-  const accrualStartDate =
-    paidThroughIndex > 0
-      ? schedule.rows[paidThroughIndex - 1]!.dueDate
-      : params.startDate
-  const accrualStartKind =
-    paidThroughIndex > 0
-      ? ('installmentDue' as const)
-      : params.startDate
-        ? ('disbursement' as const)
-        : undefined
-  const partialInterest = accruedPayoffInterest(
-    lastPaidEnd,
-    nextRow.dueDate,
-    asOfDate,
-    D(schedule.effectiveMonthlyRate),
-    accrualStartDate,
-    accrualStartKind,
+  const remaining = D(remainingDebtTotal(params))
+  const futureFinance = D(
+    remainingFutureFinanceCharge(schedule, paidThroughIndex, params.asOfDate),
   )
-
-  const lateFees = outstandingLateFeesTotal({
-    schedule,
-    paidThroughIndex,
-    asOfDate,
-    contractRate,
-    lateRate,
-    installmentOverrides: params.installmentOverrides,
-  })
-
-  return roundMoney(lastPaidEnd.plus(partialInterest).plus(lateFees)).toString()
+  return roundMoney(Decimal.max(0, remaining.minus(futureFinance))).toString()
 }
 
 /** Ödenmemiş ve vadesi geçmiş taksitler için bugüne kadar biriken gecikme faizi. */

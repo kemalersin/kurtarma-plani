@@ -145,42 +145,24 @@ describe('lateDays / computeLateFee', () => {
 describe('payoffAmount', () => {
   const contractRate = { value: 0.04, period: 'monthly' as const }
 
-  it('hiç ödeme yok, ilk taksitten 30+ gün önce → anaparaya eşit', () => {
+  it('hiç ödeme yok, tüm vadeler ilerideyse ≈ anapara (gelecek faiz tasarrufu)', () => {
     const schedule = buildAnnuitySchedule({
       principal: 100_000,
       termMonths: 12,
       interestRate: contractRate,
       firstInstallmentDate: '2026-03-15T00:00:00.000Z',
     })
-    const amount = payoffAmount({
+    const params = {
       schedule,
       paidThroughIndex: 0,
-      // İlk taksitten 30+ gün önce → ek faiz tahakkuku yok
       asOfDate: '2026-02-10T00:00:00.000Z',
       contractRate,
-    })
-    expect(D(amount).toNumber()).toBeCloseTo(100_000, 1)
+    }
+    expect(D(payoffAmount(params)).toNumber()).toBeCloseTo(100_000, 1)
+    expect(D(payoffAmount(params)).lt(D(remainingDebtTotal(params)))).toBe(true)
   })
 
-  it('hiç ödeme yok, vade yaklaşırken kısmi ay faizi tahakkuk eder', () => {
-    const schedule = buildAnnuitySchedule({
-      principal: 100_000,
-      termMonths: 12,
-      interestRate: contractRate,
-      firstInstallmentDate: '2026-02-15T00:00:00.000Z',
-    })
-    const amount = payoffAmount({
-      schedule,
-      paidThroughIndex: 0,
-      // İlk taksitten 4 gün öncesi → 26 gün tahakkuk
-      asOfDate: '2026-02-11T00:00:00.000Z',
-      contractRate,
-    })
-    // 100000 + 100000 * (0.04/30) * 26 ≈ 103466.67
-    expect(D(amount).toNumber()).toBeCloseTo(103_466.67, 1)
-  })
-
-  it('gecikmiş taksitte vadesi geçmiş faiz ve gecikme faizi eklenir', () => {
+  it('gecikmiş ilk taksitte gelecek faiz düşülür; gecikme faizi kalır', () => {
     const schedule = buildAnnuitySchedule({
       principal: 100_000,
       termMonths: 12,
@@ -188,21 +170,11 @@ describe('payoffAmount', () => {
       firstInstallmentDate: '2026-02-15T00:00:00.000Z',
     })
     const asOfDate = '2026-03-15T00:00:00.000Z'
-    const daysOverdue = lateDays(schedule.rows[0]!.dueDate, asOfDate)
-    const overdueInterest = D(100_000)
-      .times(0.04 / 30)
-      .times(daysOverdue)
-    const lateFee = computeLateFee(schedule.rows[0]!.installment, daysOverdue, contractRate)
-    const amount = payoffAmount({
-      schedule,
-      paidThroughIndex: 0,
-      asOfDate,
-      contractRate,
-    })
-    expect(D(amount).toNumber()).toBeCloseTo(
-      D(100_000).plus(overdueInterest).plus(lateFee).toNumber(),
-      1,
-    )
+    const params = { schedule, paidThroughIndex: 0, asOfDate, contractRate }
+    const remaining = D(remainingDebtTotal(params))
+    const payoff = D(payoffAmount(params))
+    expect(payoff.lt(remaining)).toBe(true)
+    expect(payoff.gt(100_000)).toBe(true)
   })
 
   it('tüm taksitler ödenmişse 0', () => {
@@ -221,7 +193,7 @@ describe('payoffAmount', () => {
     expect(amount).toBe('0')
   })
 
-  it('son taksitten sonra kısmi faiz son ödeme vadesinden bugüne takvim günü ile tahakkuk eder', () => {
+  it('son taksit öncesi erken kapama kalan borçtan düşüktür', () => {
     const schedule = buildAnnuitySchedule({
       principal: 25_320,
       termMonths: 3,
@@ -230,14 +202,87 @@ describe('payoffAmount', () => {
       firstInstallmentDate: '2026-04-23T00:00:00.000Z',
       startDate: '2026-03-26T00:00:00.000Z',
     })
-    const amount = payoffAmount({
+    const params = {
       schedule,
       paidThroughIndex: 2,
       asOfDate: '2026-06-04T00:00:00.000Z',
       contractRate: { value: 0.0425, period: 'monthly' },
       startDate: '2026-03-26T00:00:00.000Z',
+    }
+    const payoff = D(payoffAmount(params))
+    const remaining = D(remainingDebtTotal(params))
+    expect(payoff.lt(remaining)).toBe(true)
+    expect(payoff.toNumber()).toBeCloseTo(8851.15, 0)
+  })
+
+  it('gecikmiş ve ileride vadeler varken banka senaryosuna yakın kalır', () => {
+    const schedule = buildAnnuitySchedule({
+      principal: 400_000,
+      termMonths: 12,
+      interestRate: { value: 0.0479, period: 'monthly' },
+      taxRateMonthly: 0.3,
+      firstInstallmentDate: '2025-11-21T00:00:00.000Z',
+      startDate: '2025-10-21T00:00:00.000Z',
     })
-    expect(D(amount).toNumber()).toBeCloseTo(9063.05, 0)
+    expect(D(schedule.installment).toNumber()).toBeCloseTo(48_306.35, 2)
+
+    const asOf = '2026-06-05T00:00:00.000Z'
+    const contractRate = { value: 0.0479, period: 'monthly' as const }
+    const params = {
+      schedule,
+      paidThroughIndex: 5,
+      asOfDate: asOf,
+      contractRate,
+      startDate: '2025-10-21T00:00:00.000Z',
+    }
+    const payoff = D(payoffAmount(params))
+    const remaining = D(remainingDebtTotal(params))
+
+    expect(payoff.toNumber()).toBeCloseTo(304_862.24, 0)
+    expect(payoff.lt(remaining)).toBe(true)
+    expect(remaining.toNumber()).toBeCloseTo(344_160.51, 0)
+  })
+
+  it('ileride vadesi olan taksitler varken erken kapama kalan borçtan düşüktür', () => {
+    const schedule = buildAnnuitySchedule({
+      principal: 100_000,
+      termMonths: 24,
+      interestRate: { value: 0.035, period: 'monthly' },
+      taxRateMonthly: 0.3,
+      firstInstallmentDate: '2024-06-21T00:00:00.000Z',
+      startDate: '2024-05-21T00:00:00.000Z',
+    })
+    const contractRate = { value: 0.035, period: 'monthly' as const }
+    const params = {
+      schedule,
+      paidThroughIndex: 18,
+      asOfDate: '2026-03-15T00:00:00.000Z',
+      contractRate,
+      startDate: '2024-05-21T00:00:00.000Z',
+    }
+    const payoff = D(payoffAmount(params))
+    const remaining = D(remainingDebtTotal(params))
+    expect(payoff.lte(remaining)).toBe(true)
+    expect(payoff.lt(remaining)).toBe(true)
+  })
+
+  it('tüm kalan taksitler gecikmişse erken kapama kalan borca eşit olabilir', () => {
+    const schedule = buildAnnuitySchedule({
+      principal: 100_000,
+      termMonths: 24,
+      interestRate: { value: 0.035, period: 'monthly' },
+      taxRateMonthly: 0.3,
+      firstInstallmentDate: '2024-06-21T00:00:00.000Z',
+      startDate: '2024-05-21T00:00:00.000Z',
+    })
+    const params = {
+      schedule,
+      paidThroughIndex: 18,
+      asOfDate: '2026-06-05T00:00:00.000Z',
+      contractRate: { value: 0.035, period: 'monthly' as const },
+      startDate: '2024-05-21T00:00:00.000Z',
+    }
+    expect(payoffAmount(params)).toBe(remainingDebtTotal(params))
   })
 })
 
