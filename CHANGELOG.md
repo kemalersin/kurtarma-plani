@@ -6,6 +6,13 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.49]
+
+### Changed
+
+- AI sohbet: model JSON çıktıları (`json` / `kp-proposals` fence) sözdizimi renklendirmesiyle gösterilir; kayıt önerisi panelinde ham JSON önizlemesi `JsonCodeBlock` ile sunulur.
+- Kredi taksit ödemesi drawer: gecikme varken üst özet kartları 2×2 yerleşimde gösterilir (taksitli avans ödemesi ile aynı).
+
 ## [0.1.46]
 
 ### Added
