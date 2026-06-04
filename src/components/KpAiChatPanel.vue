@@ -31,6 +31,7 @@ import KpTooltip from '@/components/KpTooltip.vue'
 import type { ChatAttachment, ChatMessage } from '@/core/types/ai'
 import { useAiStore } from '@/stores/ai'
 import { useConnectivity } from '@/composables/useConnectivity'
+import { useMobileViewport } from '@/composables/useMatchMedia'
 import { formatCostUsd, formatTokenCount } from '@/features/ai/cost'
 import {
   attachmentLabel,
@@ -96,8 +97,17 @@ let suppressScrollPinUpdate = false
 
 const SCROLL_BOTTOM_THRESHOLD_PX = 64
 
-const MESSAGE_INPUT_PLACEHOLDER =
+const MESSAGE_INPUT_PLACEHOLDER_DESKTOP =
+  'Mesajınızı yazın veya dosya/görsel yükleyin (Enter gönderir, Shift+Enter yeni satıra geçer)'
+const MESSAGE_INPUT_PLACEHOLDER_MOBILE =
   'Mesajınızı yazın veya dosya/görsel yükleyin\n(Enter gönderir, Shift+Enter yeni satıra geçer)'
+
+const isMobileViewport = useMobileViewport()
+const messageInputPlaceholder = computed(() =>
+  isMobileViewport.value
+    ? MESSAGE_INPUT_PLACEHOLDER_MOBILE
+    : MESSAGE_INPUT_PLACEHOLDER_DESKTOP,
+)
 
 function isNearBottom(el: HTMLElement): boolean {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= SCROLL_BOTTOM_THRESHOLD_PX
@@ -564,7 +574,7 @@ function goToAiSettings(): void {
       <Input.TextArea
         v-model:value="draft"
         :disabled="!online || ai.streaming"
-        :placeholder="MESSAGE_INPUT_PLACEHOLDER"
+        :placeholder="messageInputPlaceholder"
         :auto-size="{ minRows: 2, maxRows: 6 }"
         @keydown="onKeydown"
         @paste="onPaste"
