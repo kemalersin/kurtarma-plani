@@ -79,10 +79,11 @@ async function ensureLoaded(deps: ApplyProposalDeps): Promise<void> {
 function nextResolvableBatch(
   pending: AiProposalItem[],
   lookup: ResolveLookup,
+  currency: string,
 ): AiProposalItem[] {
   const batch: AiProposalItem[] = []
   for (const item of pending) {
-    if (canResolveItem(item.type, item.data, lookup)) batch.push(item)
+    if (canResolveItem(item.type, item.data, lookup, currency)) batch.push(item)
   }
   return batch
 }
@@ -99,7 +100,7 @@ export async function applyProposalBundle(
 
   while (pending.length) {
     const lookup = buildLookup(deps, refToId)
-    const batch = nextResolvableBatch(pending, lookup)
+    const batch = nextResolvableBatch(pending, lookup, deps.currency)
     if (!batch.length) {
       result.errors.push(
         `Çözümlenemeyen ${pending.length} kayıt kaldı: ${pending

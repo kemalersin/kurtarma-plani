@@ -6,6 +6,13 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.59]
+
+### Added
+
+- AI kayıt önerisi: prompt alan tablosu `entities.ts` Zod şemasından üretilir; drift testi (`schema-meta.spec.ts`) ve `npm run check:ai-proposal-schema` ile senkron kontrolü.
+- AI proposal apply: çözümleme sonrası tam entity Zod doğrulaması (`validateProposableDraft`); `creditCard` için `rateMode`, `cashAdvanceAprMonthly`, `cashAdvanceLateAprMonthly`, `taxRateMonthly` prompt ve şemada.
+
 ## [0.1.55]
 
 ### Fixed

@@ -1,5 +1,7 @@
 /** AI sistem promptuna eklenen kayıt önerisi format rehberi. */
-export const AI_PROPOSAL_GUIDE = `## Kayıt önerisi formatı (zorunlu)
+import { buildProposalTypeTable } from '@/features/ai/proposals/schema-meta'
+
+const AI_PROPOSAL_GUIDE_PREFIX = `## Kayıt önerisi formatı (zorunlu)
 
 Kullanıcı veri eklemek istediğinde (ekran görüntüsü, tablo, talimat) yanıtına **mutlaka** aşağıdaki JSON bloğunu ekle. Açıklama metni bloğun dışında kalabilir.
 
@@ -44,23 +46,9 @@ Yalnızca \`loan\` ve \`installmentCashAdvance\` için \`payments\` dizisi kulla
 
 ### Desteklenen \`type\` değerleri
 
-| type | Zorunlu \`data\` alanları | Opsiyonel / ilişki |
-|---|---|---|
-| bank | name | shortName, bicSwift, branchCode, notes |
-| account | name, type (\`checking\`/\`savings\`/\`fx\`/\`other\`), openingDate, bankId veya bankRef/bankName | openingBalance, iban, notes |
-| cashRegister | name, openingDate | openingBalance, notes |
-| incomeType / expenseType | name | color, notes |
-| loan | name, bankId veya bankRef/bankName, principal, termMonths, startDate, firstInstallmentDate, interestRate, interestPeriod (\`monthly\`/\`annual\`) | disbursementAccountId, lateInterestRate, lateInterestPeriod, taxRateMonthly, notes, payments[] |
-| loanPayment | loanId veya loanRef/loanName, installmentIndex, dueDate, scheduledAmount | paidDate, paidAmount, lateFee, notes, sourceAccountId/sourceAccountName, sourceCashRegisterId/sourceCashRegisterName |
-| creditCard | name, bankId veya bankRef/bankName, limit, statementCutoffDay (1–28), paymentDueDay (1–28), purchaseAprMonthly | openingBalance, openingDate, lateAprMonthly, notes |
-| creditCardTransaction | cardId veya cardRef/cardName, date, type (\`purchase\`/\`payment\`/\`cashAdvance\`), amount (işlem tutarı) | description, installmentCount (≥2), repaymentTotal (kart borcuna yansıyan toplam; boşsa amount), notes; \`payment\` → sourceAccountId/sourceAccountName, sourceCashRegisterId/sourceCashRegisterName; \`cashAdvance\` → targetAccountId/targetAccountName, targetCashRegisterId/targetCashRegisterName |
-| cashAdvanceAccount | name, bankId veya bankRef/bankName, limit, openingDate, interestRate, interestPeriod | openingBalance, lateInterestRate, lateInterestPeriod, taxRateMonthly, notes |
-| cashAdvanceTransaction | accountId veya accountRef/cashAdvanceAccountRef/cashAdvanceAccountName, date, type (\`draw\`/\`payment\`), amount | description, notes; \`payment\` → sourceAccountId/sourceAccountName, sourceCashRegisterId/sourceCashRegisterName; \`draw\` → targetAccountId/targetAccountName, targetCashRegisterId/targetCashRegisterName |
-| installmentCashAdvance | name, bankId veya bankRef/bankName, principal, termMonths, startDate, firstInstallmentDate, interestRate, interestPeriod | cashAdvanceAccountId/cashAdvanceAccountRef/cashAdvanceAccountName, taxRateMonthly, lateInterestRate, lateInterestPeriod, earlyPayoffWithoutInterest, notes, payments[] |
-| installmentCashAdvancePayment | installmentAdvanceId veya installmentAdvanceRef/installmentAdvanceName, installmentIndex, dueDate, scheduledAmount | paidDate, paidAmount, lateFee, notes, sourceAccountId/sourceAccountName, sourceCashRegisterId/sourceCashRegisterName |
-| income | amount, plannedDate + accountId/accountRef/accountName **veya** cashRegisterId/cashRegisterRef/cashRegisterName | incomeTypeId/incomeTypeName, actualDate, recurrence (\`daily\`/\`weekly\`/\`monthly\`/\`yearly\`), description, notes |
-| expense | amount, plannedDate + accountId/accountRef/accountName **veya** cashRegisterId/cashRegisterRef/cashRegisterName | expenseTypeId/expenseTypeName, actualDate, recurrence (\`daily\`/\`weekly\`/\`monthly\`/\`yearly\`), description, notes |
-| transfer | amount, date + kaynak (fromAccountId/fromAccountRef/fromAccountName veya fromCashRegisterId/fromCashRegisterRef/fromCashRegisterName) + hedef (toAccount* veya toCashRegister*) | description, notes, exchangeRate, targetAmount (farklı para birimli transfer) |
+`
+
+const AI_PROPOSAL_GUIDE_SUFFIX = `
 
 ### Örnek — kredi kartı + hareketler
 
@@ -210,3 +198,5 @@ Snapshot'ta \`type: "creditCard"\` kaydının \`id\` alanını kullan. Taksit sa
   ]
 }
 \`\`\``
+
+export const AI_PROPOSAL_GUIDE = `${AI_PROPOSAL_GUIDE_PREFIX}${buildProposalTypeTable()}${AI_PROPOSAL_GUIDE_SUFFIX}`

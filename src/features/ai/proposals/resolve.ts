@@ -1,4 +1,5 @@
 import type { EntityType } from '@/core/db/profile-db'
+import { validateProposableDraft } from '@/features/ai/proposals/entity-schemas'
 import type { ProposableEntityType } from '@/features/ai/proposals/types'
 
 export interface ResolveLookup {
@@ -148,9 +149,10 @@ export function canResolveItem(
   type: ProposableEntityType,
   data: Record<string, unknown>,
   lookup: ResolveLookup,
+  currency?: string,
 ): boolean {
   try {
-    resolveProposalData(type, data, lookup, { dryRun: true })
+    resolveProposalData(type, data, lookup, { dryRun: true, currency })
     return true
   } catch {
     return false
@@ -219,103 +221,10 @@ export function resolveProposalData(
     delete out.cashAdvanceAccountId
   }
 
-  validateRequired(type, out)
+  const validated = validateProposableDraft(type, out)
 
-  if (options?.dryRun) return out
-  return out
-}
-
-function validateRequired(type: ProposableEntityType, data: Record<string, unknown>): void {
-  const require = (...keys: string[]) => {
-    for (const key of keys) {
-      if (data[key] === undefined || data[key] === null || data[key] === '') {
-        throw new Error(`${type}: "${key}" zorunlu.`)
-      }
-    }
-  }
-
-  switch (type) {
-    case 'bank':
-      require('name')
-      break
-    case 'account':
-      require('name', 'type', 'openingDate', 'bankId')
-      break
-    case 'cashRegister':
-      require('name', 'openingDate')
-      break
-    case 'incomeType':
-    case 'expenseType':
-      require('name')
-      break
-    case 'loan':
-      require(
-        'name',
-        'bankId',
-        'principal',
-        'termMonths',
-        'startDate',
-        'firstInstallmentDate',
-        'interestRate',
-        'interestPeriod',
-      )
-      break
-    case 'loanPayment':
-      require('loanId', 'installmentIndex', 'dueDate', 'scheduledAmount')
-      break
-    case 'creditCard':
-      require(
-        'name',
-        'bankId',
-        'limit',
-        'statementCutoffDay',
-        'paymentDueDay',
-        'purchaseAprMonthly',
-      )
-      break
-    case 'creditCardTransaction':
-      require('cardId', 'date', 'type', 'amount')
-      break
-    case 'cashAdvanceAccount':
-      require('name', 'bankId', 'limit', 'openingDate', 'interestRate', 'interestPeriod')
-      break
-    case 'cashAdvanceTransaction':
-      require('accountId', 'date', 'type', 'amount')
-      break
-    case 'installmentCashAdvance':
-      require(
-        'name',
-        'bankId',
-        'principal',
-        'termMonths',
-        'startDate',
-        'firstInstallmentDate',
-        'interestRate',
-        'interestPeriod',
-      )
-      break
-    case 'installmentCashAdvancePayment':
-      require('installmentAdvanceId', 'installmentIndex', 'dueDate', 'scheduledAmount')
-      break
-    case 'income':
-    case 'expense':
-      require('amount', 'plannedDate')
-      if (!data.accountId && !data.cashRegisterId) {
-        throw new Error(`${type}: hesap veya kasa gerekli.`)
-      }
-      break
-    case 'transfer':
-      require('amount', 'date')
-      if (
-        (!data.fromAccountId && !data.fromCashRegisterId) ||
-        (!data.toAccountId && !data.toCashRegisterId)
-      ) {
-        throw new Error('transfer: kaynak ve hedef gerekli.')
-      }
-      break
-    default:
-      break
-  }
+  if (options?.dryRun) return validated
+  return validated
 }
 
 export const PROPOSABLE_TO_ENTITY: Record<ProposableEntityType, EntityType> = {
