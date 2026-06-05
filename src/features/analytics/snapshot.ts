@@ -229,7 +229,7 @@ function installmentAdvanceOverdueCount(
   installmentAdvancePayments: InstallmentCashAdvancePayment[],
   asOf: string,
 ): number {
-  const { schedule, own, idx } = advanceScheduleContext(adv, installmentAdvancePayments)
+  const { schedule, idx } = advanceScheduleContext(adv, installmentAdvancePayments)
   const today = new Date(asOf)
   let count = 0
   for (const row of schedule.rows) {
