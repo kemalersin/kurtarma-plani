@@ -1096,4 +1096,25 @@ describe('debtInstallmentMonthlySeries', () => {
     expect(series.paid[0]).toBeCloseTo(12_382.2, 0)
     expect(series.pending[0]).toBeCloseTo(338.03, 0)
   })
+
+  it('bitiş ayı range.to ay ortasında olsa bile son ayda bekleyen tutarı gösterir', () => {
+    const range = { from: '2026-01-01', to: '2026-03-05' }
+    const rows = debtInstallmentRows(
+      {
+        ...emptyDebtInput,
+        loans: [
+          loan({
+            firstInstallmentDate: '2026-01-15T00:00:00.000Z',
+            termMonths: 6,
+          }),
+        ],
+      },
+      { range },
+      '2026-01-01T00:00:00.000Z',
+    )
+    const series = debtInstallmentMonthlySeries(rows, range)
+    expect(series.months).toContain('2026-03')
+    const idx = series.months.indexOf('2026-03')
+    expect(series.pending[idx]!).toBeGreaterThan(0)
+  })
 })

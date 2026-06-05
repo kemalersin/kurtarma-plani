@@ -38,6 +38,12 @@ export function monthsBetween(fromIso: string, toIso: string): string[] {
   return out
 }
 
+/** Grafikte görünen bitiş ayının son günü (`range.to` ay ortasında olsa bile). */
+export function monthRangeUpperBound(toIso: string): string {
+  const monthStart = parseISO(`${toIso.slice(0, 7)}-01T12:00:00.000Z`)
+  return endOfMonth(monthStart).toISOString().slice(0, 10)
+}
+
 /**
  * Aylık nakit akışı: grafikte bitiş ayı görünürken `range.to` ay ortasında
  * kalabilir; yinelenen tekrarlar bitiş ayının son gününe kadar sayılır.
@@ -46,10 +52,9 @@ function monthlyCashflowOccurrenceRange(range: { from: string; to: string }): {
   from: string
   to: string
 } {
-  const monthStart = parseISO(`${range.to.slice(0, 7)}-01T12:00:00.000Z`)
   return {
     from: range.from,
-    to: endOfMonth(monthStart).toISOString().slice(0, 10),
+    to: monthRangeUpperBound(range.to),
   }
 }
 

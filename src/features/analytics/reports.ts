@@ -38,7 +38,11 @@ import {
   installmentAdvanceLateFeeRates,
 } from '@/features/debts/installmentAdvanceHelpers'
 import { isInstallmentFullyPaid, projectInstallmentRowDueAmount } from '@/features/debts/installmentDisplay'
-import { monthlyCashflowSeries, monthsBetween } from '@/features/analytics/series'
+import {
+  monthlyCashflowSeries,
+  monthRangeUpperBound,
+  monthsBetween,
+} from '@/features/analytics/series'
 
 export interface AnalyticsDateRange {
   from: string
@@ -152,12 +156,18 @@ function inRange(iso: string, range: AnalyticsDateRange): boolean {
   return d >= range.from.slice(0, 10) && d <= range.to.slice(0, 10)
 }
 
+/** Aylık borç vadeleri: bitiş ayının son gününe kadar (grafik `monthsBetween` ile uyumlu). */
+function inMonthlyRange(iso: string, range: AnalyticsDateRange): boolean {
+  const d = iso.slice(0, 10)
+  return d >= range.from.slice(0, 10) && d <= monthRangeUpperBound(range.to)
+}
+
 /** Taksit planında en az bir vade seçili aralıkta mı? */
 function scheduleOverlapsRange(
   rows: readonly { dueDate: string }[],
   range: AnalyticsDateRange,
 ): boolean {
-  return rows.some((r) => inRange(r.dueDate, range))
+  return rows.some((r) => inMonthlyRange(r.dueDate, range))
 }
 
 function installmentStatus(
@@ -263,7 +273,7 @@ function cardPeriodsForRange(
   range: AnalyticsDateRange,
   todayIso: string,
 ): ReturnType<typeof buildCardPeriods> {
-  const toDate = new Date(range.to)
+  const toDate = new Date(`${monthRangeUpperBound(range.to)}T12:00:00.000Z`)
   const fromDate = new Date(range.from)
   const today = new Date(todayIso)
   const spanMonths =
@@ -383,7 +393,7 @@ export function debtInstallmentRows(
     const payments = indexPayments(ownPayments)
     const rates = loanLateFeeRates(loan)
     for (const row of schedule.rows) {
-      if (!inRange(row.dueDate, range)) continue
+      if (!inMonthlyRange(row.dueDate, range)) continue
       const payment = payments.get(row.index)
       const paid = payment != null && isInstallmentFullyPaid(payment)
       out.push({
@@ -431,7 +441,7 @@ export function debtInstallmentRows(
     }
     const rates = installmentAdvanceLateFeeRates(adv)
     for (const row of schedule.rows) {
-      if (!inRange(row.dueDate, range)) continue
+      if (!inMonthlyRange(row.dueDate, range)) continue
       const payment = payments.get(row.index)
       const paid = payment != null && isInstallmentFullyPaid(payment)
       out.push({
@@ -477,7 +487,7 @@ export function debtInstallmentRows(
       input.cashAdvanceTaxRateMonthly,
     )
     for (const row of monthlyDebts) {
-      if (!inRange(row.dueDate, range)) continue
+      if (!inMonthlyRange(row.dueDate, range)) continue
       const paidAmount =
         row.paidAmount != null ? String(roundMoney(row.paidAmount)) : undefined
       const statementAmount =
@@ -533,7 +543,7 @@ export function debtInstallmentRows(
       ...input.creditCardRateContext,
     })
     for (const p of projections) {
-      if (!inRange(p.dueDate, range)) continue
+      if (!inMonthlyRange(p.dueDate, range)) continue
       if (p.endingBalance <= 0) continue
 
       if (cardDueMode === 'statement') {
