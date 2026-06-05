@@ -10,6 +10,7 @@ import DismissibleDrawerAlert from '@/components/DismissibleDrawerAlert.vue'
 import DrawerDataTable from '@/components/DrawerDataTable.vue'
 import KpStatRow, { type KpStat } from '@/components/KpStatRow.vue'
 import type { KpTableColumn } from '@/core/util/table-columns'
+import { kpTableColCompactCell, kpTableColGrowCell } from '@/core/util/table-columns'
 import FormDrawer from '@/components/FormDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
@@ -109,6 +110,8 @@ const columns = computed<KpTableColumn<CashAdvanceTransaction>[]>(() => [
     customRender: ({ record }) => formatDate((record as CashAdvanceTransaction).date),
     sorter: (a, b) => a.date.localeCompare(b.date),
     defaultSortOrder: 'descend',
+    customHeaderCell: kpTableColCompactCell,
+    customCell: kpTableColCompactCell,
   },
   {
     key: 'type',
@@ -123,9 +126,10 @@ const columns = computed<KpTableColumn<CashAdvanceTransaction>[]>(() => [
   {
     key: 'description',
     title: 'Açıklama',
-    kpMinWidth: 160,
     customRender: ({ record }) => (record as CashAdvanceTransaction).description ?? '—',
     kpDisplay: (record) => record.description ?? '—',
+    customHeaderCell: kpTableColGrowCell,
+    customCell: kpTableColGrowCell,
     ellipsis: { showTitle: false },
   },
   {
@@ -134,6 +138,8 @@ const columns = computed<KpTableColumn<CashAdvanceTransaction>[]>(() => [
     align: 'right',
     customRender: ({ record }) =>
       formatCurrency((record as CashAdvanceTransaction).amount, props.account?.currency),
+    customHeaderCell: kpTableColCompactCell,
+    customCell: kpTableColCompactCell,
   },
 ])
 

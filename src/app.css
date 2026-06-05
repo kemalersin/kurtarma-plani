@@ -308,6 +308,20 @@ body {
   flex-wrap: nowrap;
 }
 
+/** Drawer hareket tabloları: tarih/tutar dar, açıklama kalan genişliği alır */
+.kp-drawer-table .ant-table-thead > tr > th.kp-table-col--compact,
+.kp-drawer-table .ant-table-tbody > tr > td.kp-table-col--compact {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.kp-drawer-table .ant-table-thead > tr > th.kp-table-col--grow,
+.kp-drawer-table .ant-table-tbody > tr > td.kp-table-col--grow {
+  width: 99%;
+  min-width: 12rem;
+  max-width: none;
+}
+
 /** Scrollbar placeholder sütunu — header ve gövdede gizle (hizayı bozar) */
 .kp-list__table--desktop .ant-table-cell-scrollbar,
 .kp-list__table--desktop col.ant-table-cell-scrollbar,

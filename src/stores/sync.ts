@@ -162,6 +162,8 @@ export const useSyncStore = defineStore('sync', () => {
   const conflictPending = ref(false)
   const conflictContext = ref<SyncConflictContext | null>(null)
   const conflictModalOpen = ref(false)
+  /** Çakışma çözümü sürerken AppShell otomatik modal açmasın (stale status / yeniden açılma). */
+  const conflictSuppressAutoOpen = ref(false)
   const profileMismatch = ref<SyncProfileMismatchInfo | null>(null)
   /** Manuel modda son seçilen uzak zarf (handle yok). */
   const manualRemoteEnvelope = ref<SyncFileEnvelope | null>(null)
@@ -439,12 +441,18 @@ export const useSyncStore = defineStore('sync', () => {
     lastLocalMutationAt.value = null
 
     if (isRelayMode.value && relaySession.value) {
-      try {
-        cancelRelayDebouncedPush(relaySession.value)
-        await flushRelayPush(relaySession.value)
-      } catch {
-        // Debounce iptali; gerçek yazma hatası bir sonraki sync'te raporlanır.
-      }
+      cancelRelayDebouncedPush(relaySession.value)
+    }
+  }
+
+  const RELAY_CONFLICT_SETTLE_MS = 60_000
+
+  async function withConflictAutoOpenSuppressed<T>(fn: () => Promise<T>): Promise<T> {
+    conflictSuppressAutoOpen.value = true
+    try {
+      return await fn()
+    } finally {
+      conflictSuppressAutoOpen.value = false
     }
   }
 
@@ -552,6 +560,7 @@ export const useSyncStore = defineStore('sync', () => {
     conflictContext.value = null
     remoteUpdatePending.value = false
     conflictModalOpen.value = false
+    relayConflictGate.settle()
   }
 
   function setPendingPush(value: boolean): void {
@@ -960,11 +969,26 @@ export const useSyncStore = defineStore('sync', () => {
             pendingPush.value = true
           } else if (status === 'idle' || status === 'ws_connected') {
             pendingPush.value = false
-            if (!relayConflictGate.hasPending() && !conflictPending.value) {
-              remoteUpdatePending.value = false
+            if (!relayConflictGate.hasPending()) {
+              if (relayConflictGate.isSettling()) {
+                if (conflictPending.value) {
+                  clearConflictState()
+                } else {
+                  relayConflictGate.settle()
+                }
+              } else if (!conflictPending.value) {
+                remoteUpdatePending.value = false
+              }
             }
           } else if (status === 'conflict') {
-            conflictPending.value = true
+            if (
+              !relayConflictGate.hasPending() &&
+              !isApplyingRemote.value &&
+              !relayConflictGate.isSettling() &&
+              !conflictSuppressAutoOpen.value
+            ) {
+              conflictPending.value = true
+            }
           } else if (status === 'offline') {
             relayEsrStatus.value = 'offline'
           }
@@ -2283,7 +2307,22 @@ export const useSyncStore = defineStore('sync', () => {
     if (pwdError) throw new Error(pwdError)
 
     if (relayConflictGate.hasPending()) {
-      resolveRelayConflictChoice('remote')
+      conflictSuppressAutoOpen.value = true
+      try {
+        const settlement = relayConflictGate.beginSettlement()
+        resolveRelayConflictChoice('remote')
+        await Promise.race([
+          settlement,
+          new Promise<void>((_, reject) => {
+            setTimeout(
+              () => reject(new Error('Çakışma çözümü tamamlanamadı; tekrar deneyin.')),
+              RELAY_CONFLICT_SETTLE_MS,
+            )
+          }),
+        ])
+      } finally {
+        conflictSuppressAutoOpen.value = false
+      }
       return
     }
 
@@ -2313,65 +2352,72 @@ export const useSyncStore = defineStore('sync', () => {
 
     syncing.value = true
     try {
-      if (isManualMode.value) {
-        const remote = manualRemoteEnvelope.value
-        if (!remote || envelopeProfileMismatch(remote, profile.id)) {
-          throw new Error('Senkron dosyası okunamadı veya profile uymuyor.')
+      await withConflictAutoOpenSuppressed(async () => {
+        beginRemoteApply()
+        try {
+          if (isManualMode.value) {
+            const remote = manualRemoteEnvelope.value
+            if (!remote || envelopeProfileMismatch(remote, profile.id)) {
+              throw new Error('Senkron dosyası okunamadı veya profile uymuyor.')
+            }
+
+            await runPullFromEnvelope({
+              envelope: remote,
+              profile,
+              dataKey: profileStore.encryptionKey,
+              filePassword,
+            })
+
+            lastLocalMutationAt.value = null
+            lastPushAt.value = new Date().toISOString()
+            clearConflictState()
+
+            await saveConfig({
+              remoteRevisionByProfile: {
+                ...config.value.remoteRevisionByProfile,
+                [profile.id]: remote.revision,
+              },
+              lastSyncAt: new Date().toISOString(),
+              lastError: undefined,
+            })
+            bumpPullRevision('conflict-remote')
+            return
+          }
+
+          const handleCtx = await getHandleForActiveProfile()
+          if (!handleCtx) throw new Error('Senkron dosyası bulunamadı.')
+          const { stored } = handleCtx
+
+          const remote = await readSyncEnvelopeFromHandle(stored.handle)
+          if (!remote || envelopeProfileMismatch(remote, profile.id)) {
+            throw new Error('Senkron dosyası okunamadı veya profile uymuyor.')
+          }
+
+          await runPullSync({
+            handle: stored.handle,
+            profile,
+            dataKey: profileStore.encryptionKey,
+            config: config.value,
+            filePassword,
+          })
+
+          lastLocalMutationAt.value = null
+          lastPushAt.value = new Date().toISOString()
+          clearConflictState()
+
+          await saveConfig({
+            remoteRevisionByProfile: {
+              ...config.value.remoteRevisionByProfile,
+              [profile.id]: remote.revision,
+            },
+            lastSyncAt: new Date().toISOString(),
+            lastError: undefined,
+          })
+          bumpPullRevision('conflict-remote')
+        } finally {
+          await finishRemoteApply()
         }
-
-        await runPullFromEnvelope({
-          envelope: remote,
-          profile,
-          dataKey: profileStore.encryptionKey,
-          filePassword,
-        })
-
-        lastLocalMutationAt.value = null
-        lastPushAt.value = new Date().toISOString()
-        clearConflictState()
-
-        await saveConfig({
-          remoteRevisionByProfile: {
-            ...config.value.remoteRevisionByProfile,
-            [profile.id]: remote.revision,
-          },
-          lastSyncAt: new Date().toISOString(),
-          lastError: undefined,
-        })
-        bumpPullRevision('conflict-remote')
-        return
-      }
-
-      const handleCtx = await getHandleForActiveProfile()
-      if (!handleCtx) throw new Error('Senkron dosyası bulunamadı.')
-      const { stored } = handleCtx
-
-      const remote = await readSyncEnvelopeFromHandle(stored.handle)
-      if (!remote || envelopeProfileMismatch(remote, profile.id)) {
-        throw new Error('Senkron dosyası okunamadı veya profile uymuyor.')
-      }
-
-      await runPullSync({
-        handle: stored.handle,
-        profile,
-        dataKey: profileStore.encryptionKey,
-        config: config.value,
-        filePassword,
       })
-
-      lastLocalMutationAt.value = null
-      lastPushAt.value = new Date().toISOString()
-      clearConflictState()
-
-      await saveConfig({
-        remoteRevisionByProfile: {
-          ...config.value.remoteRevisionByProfile,
-          [profile.id]: remote.revision,
-        },
-        lastSyncAt: new Date().toISOString(),
-        lastError: undefined,
-      })
-      bumpPullRevision('conflict-remote')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Uzak sürüm uygulanamadı.'
       await saveConfig({ lastError: message })
@@ -2396,7 +2442,22 @@ export const useSyncStore = defineStore('sync', () => {
     if (pwdError) throw new Error(pwdError)
 
     if (relayConflictGate.hasPending()) {
-      resolveRelayConflictChoice('local')
+      conflictSuppressAutoOpen.value = true
+      try {
+        const settlement = relayConflictGate.beginSettlement()
+        resolveRelayConflictChoice('local')
+        await Promise.race([
+          settlement,
+          new Promise<void>((_, reject) => {
+            setTimeout(
+              () => reject(new Error('Çakışma çözümü tamamlanamadı; tekrar deneyin.')),
+              RELAY_CONFLICT_SETTLE_MS,
+            )
+          }),
+        ])
+      } finally {
+        conflictSuppressAutoOpen.value = false
+      }
       return
     }
 
@@ -2475,6 +2536,7 @@ export const useSyncStore = defineStore('sync', () => {
     conflictPending,
     conflictContext,
     conflictModalOpen,
+    conflictSuppressAutoOpen,
     remoteUpdatePending,
     activeFileName,
     enabled,

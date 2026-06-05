@@ -19,8 +19,13 @@ export function createRelayConflictChoiceGate(): {
   resolveChoice: (choice: RelayConflictChoice) => void
   hasPending: () => boolean
   cancelPending: () => void
+  /** Modal seçiminden SDK çözümünün bitmesini bekle (clearConflictState → settle). */
+  beginSettlement: () => Promise<void>
+  settle: () => void
+  isSettling: () => boolean
 } {
   let resolver: ((choice: RelayConflictChoice) => void) | null = null
+  let settlementResolver: (() => void) | null = null
 
   return {
     waitForChoice: () =>
@@ -34,7 +39,18 @@ export function createRelayConflictChoiceGate(): {
     hasPending: () => resolver !== null,
     cancelPending() {
       resolver = null
+      settlementResolver = null
     },
+    beginSettlement(): Promise<void> {
+      return new Promise<void>((resolve) => {
+        settlementResolver = resolve
+      })
+    },
+    settle() {
+      settlementResolver?.()
+      settlementResolver = null
+    },
+    isSettling: () => settlementResolver !== null,
   }
 }
 

@@ -50,4 +50,12 @@ describe('createRelayConflictChoiceGate', () => {
     await expect(choicePromise).resolves.toBe('remote')
     expect(gate.hasPending()).toBe(false)
   })
+
+  it('beginSettlement, clearConflictState settle ile tamamlanır', async () => {
+    const gate = createRelayConflictChoiceGate()
+    const settled = gate.beginSettlement()
+    gate.settle()
+    await expect(settled).resolves.toBeUndefined()
+    expect(gate.isSettling()).toBe(false)
+  })
 })

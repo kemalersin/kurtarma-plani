@@ -12,6 +12,7 @@ import DismissibleDrawerAlert from '@/components/DismissibleDrawerAlert.vue'
 import DrawerDataTable from '@/components/DrawerDataTable.vue'
 import KpStatRow, { type KpStat } from '@/components/KpStatRow.vue'
 import type { KpTableColumn } from '@/core/util/table-columns'
+import { kpTableColCompactCell, kpTableColGrowCell } from '@/core/util/table-columns'
 import FormDrawer from '@/components/FormDrawer.vue'
 import { useEntitiesStore } from '@/stores/entities'
 import { useLocaleFormatters } from '@/composables/useLocaleFormatters'
@@ -173,6 +174,8 @@ const txnColumns = computed<KpTableColumn<PeriodTxn>[]>(() => [
     customRender: ({ record }) => formatDate((record as PeriodTxn).date),
     sorter: (a, b) => a.date.localeCompare(b.date),
     defaultSortOrder: 'descend',
+    customHeaderCell: kpTableColCompactCell,
+    customCell: kpTableColCompactCell,
   },
   {
     key: 'type',
@@ -189,6 +192,8 @@ const txnColumns = computed<KpTableColumn<PeriodTxn>[]>(() => [
     title: 'Açıklama',
     customRender: ({ record }) => descriptionWithInstallment(record as PeriodTxn),
     kpDisplay: (record) => descriptionWithInstallment(record),
+    customHeaderCell: kpTableColGrowCell,
+    customCell: kpTableColGrowCell,
     ellipsis: { showTitle: false },
   },
   {
@@ -197,6 +202,8 @@ const txnColumns = computed<KpTableColumn<PeriodTxn>[]>(() => [
     align: 'right',
     customRender: ({ record }) =>
       formatCurrency((record as PeriodTxn).amount, props.card?.currency),
+    customHeaderCell: kpTableColCompactCell,
+    customCell: kpTableColCompactCell,
   },
 ])
 
