@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { assetSnapshot, debtSnapshot, debtTotalsByBankId, netWorth } from './snapshot'
 import type { AccountMovement } from '@/features/cashflow/movements'
-import { buildScheduleForLoan, remainingDebtForLoan } from '@/features/debts/loanHelpers'
+import { buildScheduleForLoan, payoffForLoan, remainingDebtForLoan } from '@/features/debts/loanHelpers'
 import type {
   Account,
   CashAdvanceAccount,
@@ -81,6 +81,7 @@ describe('debtSnapshot', () => {
       localCurrency: 'TRY',
     })
     expect(snap.total).toBe('0')
+    expect(snap.earlyPayoffTotal).toBe('0')
     expect(snap.byType.loans).toBe('0')
     expect(snap.byType.creditCards).toBe('0')
     expect(snap.breakdown).toEqual([])
@@ -118,6 +119,9 @@ describe('debtSnapshot', () => {
     })
     expect(snap.byType.loans).toBe(expected)
     expect(Number(snap.byType.loans)).toBeGreaterThan(12000)
+    const payoff = payoffForLoan(loan, schedule, 0, ISO)
+    expect(snap.earlyPayoffTotal).toBe(payoff)
+    expect(Number(snap.earlyPayoffTotal)).toBeLessThan(Number(snap.byType.loans))
     expect(snap.breakdown.find((b) => b.name === 'Krediler')).toBeDefined()
   })
 

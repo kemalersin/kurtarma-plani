@@ -18,7 +18,7 @@ import {
   compareProgressCounts,
   compareIsoDate,
 } from '@/features/debts/debtListSorters'
-import { buildScheduleForLoan, listInstallmentAmountForLoan, paidThroughIndex, remainingDebtForLoan } from './loanHelpers'
+import { buildScheduleForLoan, listInstallmentAmountForLoan, paidThroughIndex, payoffForLoan, remainingDebtForLoan } from './loanHelpers'
 import {
   installmentDebtStatusKey,
   installmentDebtStatusLabel,
@@ -93,6 +93,7 @@ function bankName(id: string): string {
 interface LoanSummary {
   installment: string
   remaining: string
+  earlyPayoff: string
   paidCount: number
   totalCount: number
   overdue: number
@@ -109,6 +110,7 @@ const summaryCache = computed<Map<string, LoanSummary>>(() => {
     const own = payments.value.filter((p) => p.loanId === loan.id)
     const idx = paidThroughIndex(own)
     const remaining = remainingDebtForLoan(loan, schedule, idx, undefined, own)
+    const earlyPayoff = payoffForLoan(loan, schedule, idx, undefined, own)
 
     const today = new Date()
     const overdue = schedule.rows.filter((r) => {
@@ -119,6 +121,7 @@ const summaryCache = computed<Map<string, LoanSummary>>(() => {
     map.set(loan.id, {
       installment: listInstallmentAmountForLoan(schedule, own, idx),
       remaining,
+      earlyPayoff,
       paidCount: idx,
       totalCount: schedule.rows.length,
       overdue,
@@ -132,6 +135,7 @@ function summary(loan: Loan): LoanSummary {
     summaryCache.value.get(loan.id) ?? {
       installment: '0',
       remaining: '0',
+      earlyPayoff: '0',
       paidCount: 0,
       totalCount: 0,
       overdue: 0,
@@ -245,6 +249,14 @@ const columns = computed<TableColumnType<Loan>[]>(() => [
     customRender: ({ record }) =>
       formatCurrency(summary(record as Loan).remaining, (record as Loan).currency),
     sorter: (a, b) => compareNumeric(a, b, (loan) => Number(summary(loan).remaining)),
+  },
+  {
+    key: 'earlyPayoff',
+    title: 'Erken kapama',
+    align: 'right',
+    customRender: ({ record }) =>
+      formatCurrency(summary(record as Loan).earlyPayoff, (record as Loan).currency),
+    sorter: (a, b) => compareNumeric(a, b, (loan) => Number(summary(loan).earlyPayoff)),
   },
   {
     key: 'progress',

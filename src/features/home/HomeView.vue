@@ -37,6 +37,11 @@ const summaryStats = computed<KpStat[]>(() => {
   const d = data.value
   const ratioPct = d.worth.debtToAssetRatio * 100
   const netTone = Number(d.worth.net) >= 0 ? 'success' : 'danger'
+  const earlyPayoffHint = `Erken kapama: ${formatCurrency(d.debts.earlyPayoffTotal, localCurrency.value)}`
+  const overdueHint =
+    d.debts.overdueCount === 0
+      ? 'Vade dikkati yok'
+      : `${d.debts.overdueCount} gecikmiş taksit`
   return [
     {
       label: 'Net varlık',
@@ -53,10 +58,15 @@ const summaryStats = computed<KpStat[]>(() => {
     {
       label: 'Toplam borç',
       value: formatCurrency(d.worth.debts, localCurrency.value),
-      hint:
-        d.debts.overdueCount === 0
-          ? 'Vade dikkati yok'
-          : `${d.debts.overdueCount} gecikmiş taksit`,
+      hint: `${earlyPayoffHint} · ${overdueHint}`,
+      mobileHint: overdueHint,
+      mobileValueToggle: {
+        value: formatCurrency(d.debts.earlyPayoffTotal, localCurrency.value),
+        label: 'Erken kapama',
+        secondaryHint: overdueHint,
+        showSecondaryAriaLabel: 'Erken kapama tutarını göster',
+        showPrimaryAriaLabel: 'Toplam borcu göster',
+      },
       tone: d.debts.overdueCount > 0 ? 'danger' : 'default',
     },
     {
@@ -66,6 +76,8 @@ const summaryStats = computed<KpStat[]>(() => {
       mobileHintToggle: {
         primary: `${formatCurrency(d.currentMonth.income, localCurrency.value)} gelir`,
         secondary: `${formatCurrency(d.currentMonth.expense, localCurrency.value)} gider`,
+        showSecondaryAriaLabel: 'Gideri göster',
+        showPrimaryAriaLabel: 'Geliri göster',
       },
       tone: d.currentMonth.net >= 0 ? 'success' : 'warning',
     },

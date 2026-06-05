@@ -26,6 +26,7 @@ import {
 import {
   advancePaidThroughIndex,
   buildScheduleForInstallmentAdvance,
+  payoffForInstallmentAdvance,
   remainingDebtForInstallmentAdvance,
 } from './installmentAdvanceHelpers'
 import {
@@ -106,6 +107,7 @@ function bankName(id: string): string {
 interface AdvanceSummary {
   installment: string
   remaining: string
+  earlyPayoff: string
   paidCount: number
   totalCount: number
   overdue: number
@@ -118,6 +120,7 @@ const summaryCache = computed<Map<string, AdvanceSummary>>(() => {
     const own = payments.value.filter((p) => p.installmentAdvanceId === adv.id)
     const idx = advancePaidThroughIndex(own)
     const remaining = remainingDebtForInstallmentAdvance(adv, schedule, idx, undefined, own)
+    const earlyPayoff = payoffForInstallmentAdvance(adv, schedule, idx, undefined, own)
 
     const today = new Date()
     const overdue = schedule.rows.filter((r) => {
@@ -128,6 +131,7 @@ const summaryCache = computed<Map<string, AdvanceSummary>>(() => {
     map.set(adv.id, {
       installment: schedule.installment,
       remaining,
+      earlyPayoff,
       paidCount: idx,
       totalCount: schedule.rows.length,
       overdue,
@@ -141,6 +145,7 @@ function summary(adv: InstallmentCashAdvance): AdvanceSummary {
     summaryCache.value.get(adv.id) ?? {
       installment: '0',
       remaining: '0',
+      earlyPayoff: '0',
       paidCount: 0,
       totalCount: 0,
       overdue: 0,
@@ -263,6 +268,17 @@ const columns = computed<TableColumnType<InstallmentCashAdvance>[]>(() => [
         (record as InstallmentCashAdvance).currency,
       ),
     sorter: (a, b) => compareNumeric(a, b, (adv) => Number(summary(adv).remaining)),
+  },
+  {
+    key: 'earlyPayoff',
+    title: 'Erken kapama',
+    align: 'right',
+    customRender: ({ record }) =>
+      formatCurrency(
+        summary(record as InstallmentCashAdvance).earlyPayoff,
+        (record as InstallmentCashAdvance).currency,
+      ),
+    sorter: (a, b) => compareNumeric(a, b, (adv) => Number(summary(adv).earlyPayoff)),
   },
   {
     key: 'progress',

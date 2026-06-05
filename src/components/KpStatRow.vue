@@ -38,7 +38,30 @@ export interface KpStat {
    * Dar ekranda (`≤640px`) hint yerine tek satır + dönüşüm düğmesi.
    * Masaüstünde yalnızca `hint` gösterilir.
    */
-  mobileHintToggle?: { primary: string; secondary: string }
+  mobileHintToggle?: {
+    primary: string
+    secondary: string
+    /** Toggle düğmesi aria-label (birincil görünürken). */
+    showSecondaryAriaLabel?: string
+    /** Toggle düğmesi aria-label (ikincil görünürken). */
+    showPrimaryAriaLabel?: string
+  }
+  /**
+   * Dar ekranda (`≤640px`) ana tutar + isteğe bağlı etiket dönüşümü.
+   * `mobileHintToggle` ile aynı düğmeyi paylaşır; ikisi birlikte verilebilir.
+   */
+  mobileValueToggle?: {
+    value: string | number
+    label?: string
+    /** Birincil görünümde mobil hint (`mobileHint` yoksa `hint`). */
+    primaryHint?: string
+    /** İkincil görünümde mobil hint (`mobileHint` yoksa `hint`). */
+    secondaryHint?: string
+    showSecondaryAriaLabel?: string
+    showPrimaryAriaLabel?: string
+  }
+  /** Mobilde (`≤640px`) varsayılan hint; `hint` yerine (masaüstü metni korunur). */
+  mobileHint?: string
   /** Etiket yanında bilgi ikonu (KpInfoHint); hover veya tıklama ile açılır */
   labelTooltip?: string
   /** Renk vurgusu — default `default` */
@@ -75,28 +98,74 @@ function hintToggleKey(item: KpStat, idx: number): string {
   return `${item.label}:${idx}`
 }
 
+function showMobileToggle(item: KpStat): boolean {
+  return isListMobile.value && (item.mobileHintToggle != null || item.mobileValueToggle != null)
+}
+
 function showMobileHintToggle(item: KpStat): boolean {
-  return isListMobile.value && item.mobileHintToggle != null
+  return showMobileToggle(item) && item.mobileHintToggle != null
+}
+
+function isShowingSecondary(item: KpStat, idx: number): boolean {
+  return hintToggleShowingSecondary.value[hintToggleKey(item, idx)] ?? false
 }
 
 function hasHint(item: KpStat): boolean {
-  return Boolean(item.hint) || item.mobileHintToggle != null
+  return Boolean(item.hint) || item.mobileHintToggle != null || item.mobileHint != null
+}
+
+function displayLabel(item: KpStat, idx: number): string {
+  if (isListMobile.value && isShowingSecondary(item, idx) && item.mobileValueToggle?.label) {
+    return item.mobileValueToggle.label
+  }
+  return item.label
+}
+
+function displayValue(item: KpStat, idx: number): string | number {
+  if (isListMobile.value && isShowingSecondary(item, idx) && item.mobileValueToggle) {
+    return item.mobileValueToggle.value
+  }
+  return item.value
 }
 
 function displayHint(item: KpStat, idx: number): string {
   if (showMobileHintToggle(item)) {
     const alt = item.mobileHintToggle!
-    return hintToggleShowingSecondary.value[hintToggleKey(item, idx)]
-      ? alt.secondary
-      : alt.primary
+    return isShowingSecondary(item, idx) ? alt.secondary : alt.primary
+  }
+  if (isListMobile.value && item.mobileValueToggle) {
+    const alt = item.mobileValueToggle
+    if (isShowingSecondary(item, idx)) {
+      return alt.secondaryHint ?? item.mobileHint ?? item.hint ?? ''
+    }
+    return alt.primaryHint ?? item.mobileHint ?? item.hint ?? ''
+  }
+  if (isListMobile.value && item.mobileHint) {
+    return item.mobileHint
   }
   return item.hint ?? ''
 }
 
 function hintToggleAriaLabel(item: KpStat, idx: number): string {
-  return hintToggleShowingSecondary.value[hintToggleKey(item, idx)]
-    ? 'Geliri göster'
-    : 'Gideri göster'
+  const valueAlt = item.mobileValueToggle
+  const hintAlt = item.mobileHintToggle
+  const showingSecondary = isShowingSecondary(item, idx)
+  if (showingSecondary) {
+    return (
+      valueAlt?.showPrimaryAriaLabel ??
+      hintAlt?.showPrimaryAriaLabel ??
+      valueAlt?.label ??
+      hintAlt?.primary ??
+      'Birincil görünümü göster'
+    )
+  }
+  return (
+    valueAlt?.showSecondaryAriaLabel ??
+    hintAlt?.showSecondaryAriaLabel ??
+    valueAlt?.label ??
+    hintAlt?.secondary ??
+    'Diğer görünümü göster'
+  )
 }
 
 function toggleHint(item: KpStat, idx: number): void {
@@ -135,12 +204,12 @@ const gridStyle = computed(() => {
       class="kp-stat"
       :class="{
         'kp-stat--mobile-full-row': item.mobileFullRow,
-        'kp-stat--hint-toggle': showMobileHintToggle(item),
+        'kp-stat--hint-toggle': showMobileToggle(item),
       }"
       :data-tone="item.tone ?? 'default'"
     >
       <button
-        v-if="showMobileHintToggle(item)"
+        v-if="showMobileToggle(item)"
         type="button"
         class="kp-stat__hint-toggle"
         :aria-label="hintToggleAriaLabel(item, idx)"
@@ -151,15 +220,15 @@ const gridStyle = computed(() => {
       <span class="kp-stat__label-row">
         <span
           class="kp-stat__label"
-          :title="!isMobileViewport && !item.labelTooltip ? item.label : undefined"
-          >{{ item.label }}</span
+          :title="!isMobileViewport && !item.labelTooltip ? displayLabel(item, idx) : undefined"
+          >{{ displayLabel(item, idx) }}</span
         >
         <KpInfoHint v-if="item.labelTooltip" :title="item.labelTooltip" />
       </span>
       <span
         class="kp-stat__value"
-        :title="!isMobileViewport ? String(item.value) : undefined"
-        >{{ item.value }}</span
+        :title="!isMobileViewport ? String(displayValue(item, idx)) : undefined"
+        >{{ displayValue(item, idx) }}</span
       >
       <span v-if="hasHint(item)" class="kp-stat__hint">{{ displayHint(item, idx) }}</span>
     </div>

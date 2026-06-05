@@ -27,11 +27,13 @@ import type { AccountMovement } from '@/features/cashflow/movements'
 import {
   buildScheduleForLoan,
   paidThroughIndex,
+  payoffForLoan,
   remainingDebtForLoan,
 } from '@/features/debts/loanHelpers'
 import {
   advancePaidThroughIndex,
   buildScheduleForInstallmentAdvance,
+  payoffForInstallmentAdvance,
   remainingDebtForInstallmentAdvance,
 } from '@/features/debts/installmentAdvanceHelpers'
 
@@ -79,6 +81,10 @@ export function assetSnapshot(
 export interface DebtSnapshot {
   /** Tüm borç türlerinin asOf anındaki toplam kalan borcu (profil currency). */
   total: string
+  /**
+   * Bugün erken kapama tahmini toplamı (kredi + taksitli avans payoff; kart/KMH kalan borç).
+   */
+  earlyPayoffTotal: string
   byType: {
     loans: string
     creditCards: string
@@ -110,21 +116,37 @@ interface DebtSnapshotInput {
 
 export type { DebtSnapshotInput }
 
+function loanPaymentsFor(loan: Loan, loanPayments: LoanPayment[]) {
+  return loanPayments.filter((p) => p.loanId === loan.id)
+}
+
+function loanScheduleContext(loan: Loan, loanPayments: LoanPayment[]) {
+  const schedule = buildScheduleForLoan(loan)
+  const own = loanPaymentsFor(loan, loanPayments)
+  const idx = paidThroughIndex(own)
+  return { schedule, own, idx }
+}
+
 function remainingLoanDebt(
   loan: Loan,
   loanPayments: LoanPayment[],
   asOf: string,
 ): string {
-  const schedule = buildScheduleForLoan(loan)
-  const own = loanPayments.filter((p) => p.loanId === loan.id)
-  const idx = paidThroughIndex(own)
+  const { schedule, own, idx } = loanScheduleContext(loan, loanPayments)
   return remainingDebtForLoan(loan, schedule, idx, asOf, own)
 }
 
+function earlyPayoffForLoan(
+  loan: Loan,
+  loanPayments: LoanPayment[],
+  asOf: string,
+): string {
+  const { schedule, own, idx } = loanScheduleContext(loan, loanPayments)
+  return payoffForLoan(loan, schedule, idx, asOf, own)
+}
+
 function loanOverdueCount(loan: Loan, loanPayments: LoanPayment[], asOf: string): number {
-  const schedule = buildScheduleForLoan(loan)
-  const own = loanPayments.filter((p) => p.loanId === loan.id)
-  const idx = paidThroughIndex(own)
+  const { schedule, idx } = loanScheduleContext(loan, loanPayments)
   const today = new Date(asOf)
   let count = 0
   for (const row of schedule.rows) {
@@ -167,15 +189,39 @@ function cashAdvanceDebtTotal(
   ).total
 }
 
+function advancePaymentsFor(
+  adv: InstallmentCashAdvance,
+  installmentAdvancePayments: InstallmentCashAdvancePayment[],
+) {
+  return installmentAdvancePayments.filter((p) => p.installmentAdvanceId === adv.id)
+}
+
+function advanceScheduleContext(
+  adv: InstallmentCashAdvance,
+  installmentAdvancePayments: InstallmentCashAdvancePayment[],
+) {
+  const schedule = buildScheduleForInstallmentAdvance(adv)
+  const own = advancePaymentsFor(adv, installmentAdvancePayments)
+  const idx = advancePaidThroughIndex(own)
+  return { schedule, own, idx }
+}
+
 function remainingInstallmentAdvanceDebt(
   adv: InstallmentCashAdvance,
   installmentAdvancePayments: InstallmentCashAdvancePayment[],
   asOf: string,
 ): string {
-  const schedule = buildScheduleForInstallmentAdvance(adv)
-  const own = installmentAdvancePayments.filter((p) => p.installmentAdvanceId === adv.id)
-  const idx = advancePaidThroughIndex(own)
+  const { schedule, own, idx } = advanceScheduleContext(adv, installmentAdvancePayments)
   return remainingDebtForInstallmentAdvance(adv, schedule, idx, asOf, own)
+}
+
+function earlyPayoffForInstallmentAdvance(
+  adv: InstallmentCashAdvance,
+  installmentAdvancePayments: InstallmentCashAdvancePayment[],
+  asOf: string,
+): string {
+  const { schedule, own, idx } = advanceScheduleContext(adv, installmentAdvancePayments)
+  return payoffForInstallmentAdvance(adv, schedule, idx, asOf, own)
 }
 
 function installmentAdvanceOverdueCount(
@@ -183,9 +229,7 @@ function installmentAdvanceOverdueCount(
   installmentAdvancePayments: InstallmentCashAdvancePayment[],
   asOf: string,
 ): number {
-  const schedule = buildScheduleForInstallmentAdvance(adv)
-  const own = installmentAdvancePayments.filter((p) => p.installmentAdvanceId === adv.id)
-  const idx = advancePaidThroughIndex(own)
+  const { schedule, own, idx } = advanceScheduleContext(adv, installmentAdvancePayments)
   const today = new Date(asOf)
   let count = 0
   for (const row of schedule.rows) {
@@ -255,34 +299,43 @@ export function debtSnapshot(input: DebtSnapshotInput): DebtSnapshot {
   let cardsTotal = D(0)
   let caTotal = D(0)
   let iaTotal = D(0)
+  let earlyPayoffTotal = D(0)
   let overdueCount = 0
 
   for (const loan of input.loans) {
     if (loan.archived) continue
     if (loan.currency !== input.localCurrency) continue
     loansTotal = loansTotal.plus(remainingLoanDebt(loan, input.loanPayments, asOf))
+    earlyPayoffTotal = earlyPayoffTotal.plus(
+      earlyPayoffForLoan(loan, input.loanPayments, asOf),
+    )
     overdueCount += loanOverdueCount(loan, input.loanPayments, asOf)
   }
 
   for (const card of input.creditCards) {
     if (card.archived) continue
     if (card.currency !== input.localCurrency) continue
-    cardsTotal = cardsTotal.plus(
-      creditCardDebtBalance(card, input.creditCardTransactions, asOf, input.creditCardRateContext),
+    const cardDebt = creditCardDebtBalance(
+      card,
+      input.creditCardTransactions,
+      asOf,
+      input.creditCardRateContext,
     )
+    cardsTotal = cardsTotal.plus(cardDebt)
+    earlyPayoffTotal = earlyPayoffTotal.plus(cardDebt)
   }
 
   for (const acc of input.cashAdvanceAccounts) {
     if (acc.archived) continue
     if (acc.currency !== input.localCurrency) continue
-    caTotal = caTotal.plus(
-      cashAdvanceDebtTotal(
-        acc,
-        input.cashAdvanceTransactions,
-        asOf,
-        input.cashAdvanceTaxRateMonthly,
-      ),
+    const caDebt = cashAdvanceDebtTotal(
+      acc,
+      input.cashAdvanceTransactions,
+      asOf,
+      input.cashAdvanceTaxRateMonthly,
     )
+    caTotal = caTotal.plus(caDebt)
+    earlyPayoffTotal = earlyPayoffTotal.plus(caDebt)
   }
 
   for (const adv of input.installmentAdvances) {
@@ -290,6 +343,9 @@ export function debtSnapshot(input: DebtSnapshotInput): DebtSnapshot {
     if (adv.currency !== input.localCurrency) continue
     iaTotal = iaTotal.plus(
       remainingInstallmentAdvanceDebt(adv, input.installmentAdvancePayments, asOf),
+    )
+    earlyPayoffTotal = earlyPayoffTotal.plus(
+      earlyPayoffForInstallmentAdvance(adv, input.installmentAdvancePayments, asOf),
     )
     overdueCount += installmentAdvanceOverdueCount(
       adv,
@@ -302,6 +358,7 @@ export function debtSnapshot(input: DebtSnapshotInput): DebtSnapshot {
 
   return {
     total: roundMoney(total).toString(),
+    earlyPayoffTotal: roundMoney(earlyPayoffTotal).toString(),
     byType: {
       loans: roundMoney(loansTotal).toString(),
       creditCards: roundMoney(cardsTotal).toString(),
