@@ -206,7 +206,7 @@ describe('payoffAmount', () => {
       schedule,
       paidThroughIndex: 2,
       asOfDate: '2026-06-04T00:00:00.000Z',
-      contractRate: { value: 0.0425, period: 'monthly' },
+      contractRate: { value: 0.0425, period: 'monthly' as const },
       startDate: '2026-03-26T00:00:00.000Z',
     }
     const payoff = D(payoffAmount(params))

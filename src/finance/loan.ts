@@ -276,63 +276,6 @@ export function effectiveInstallmentForRow(
   return override != null ? String(override) : row.installment
 }
 
-function accruedPayoffInterest(
-  lastPaidEnd: Decimal,
-  nextDueDate: string,
-  asOfDate: string,
-  dailyMonthly: Decimal,
-  accrualStartDate?: string,
-  /** disbursement: kullandırım günü sayılmaz; installmentDue: son ödeme vadesi dahil */
-  accrualStartKind?: 'disbursement' | 'installmentDue',
-): Decimal {
-  const asOf = parseISO(asOfDate.slice(0, 10))
-  const nextDue = parseISO(nextDueDate.slice(0, 10))
-  const daysToNext = differenceInCalendarDays(nextDue, asOf)
-  const daily = toDailyFromMonthly(dailyMonthly)
-
-  const daysAccruedFromStart = accrualStartDate
-    ? (() => {
-        const raw = differenceInCalendarDays(
-          asOf,
-          parseISO(accrualStartDate.slice(0, 10)),
-        )
-        if (accrualStartKind === 'disbursement') return Math.max(0, raw - 1)
-        if (accrualStartKind === 'installmentDue') return Math.max(0, raw + 1)
-        return Math.max(0, raw)
-      })()
-    : daysToNext > 0 && daysToNext < STANDARD_MONTH_DAYS
-      ? STANDARD_MONTH_DAYS - daysToNext
-      : 0
-
-  if (daysToNext > 0 && daysAccruedFromStart > 0) {
-    return lastPaidEnd
-      .times(daily)
-      .times(Math.min(daysAccruedFromStart, STANDARD_MONTH_DAYS))
-  }
-  if (daysToNext <= 0) {
-    // Son ödenen vade sonrası tahakkuk: ilk gecikmiş taksit vadesinden değil, son ödeme vadesinden.
-    if (accrualStartDate && accrualStartKind === 'installmentDue') {
-      const days = Math.max(
-        0,
-        differenceInCalendarDays(asOf, parseISO(accrualStartDate.slice(0, 10))),
-      )
-      if (days > 0) {
-        return lastPaidEnd.times(daily).times(days)
-      }
-    }
-    const daysOverdue = lateDays(nextDueDate, asOfDate)
-    if (daysOverdue > 0) {
-      return lastPaidEnd.times(daily).times(daysOverdue)
-    }
-    if (daysAccruedFromStart > 0) {
-      return lastPaidEnd
-        .times(daily)
-        .times(Math.min(daysAccruedFromStart, STANDARD_MONTH_DAYS))
-    }
-  }
-  return ZERO
-}
-
 /** Ödenmemiş taksitlerin plandaki faiz + vergi toplamı (erken kapama kısmi faiz tavanı). */
 export function remainingScheduledFinanceCharge(
   schedule: LoanSchedule,
