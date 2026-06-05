@@ -6,6 +6,8 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 ## [Unreleased]
 
+## [0.1.55]
+
 ### Fixed
 
 - Aylık borç vadeleri: bitiş ayındaki taksitler `range.to` ay ortasında kalsa bile grafikte ve listede gösterilir.
