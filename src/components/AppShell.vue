@@ -179,9 +179,9 @@ watch(
 )
 
 watch(
-  () => syncStore.conflictPending,
-  (pending) => {
-    if (pending) syncStore.openConflictModal()
+  () => syncStore.conflictPending && !syncStore.conflictSuppressAutoOpen,
+  (shouldOpen) => {
+    if (shouldOpen) syncStore.openConflictModal()
   },
 )
 

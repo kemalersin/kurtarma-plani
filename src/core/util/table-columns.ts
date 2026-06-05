@@ -28,6 +28,16 @@ export function listActionsColumnWidth(options?: { rowAction?: boolean }): numbe
   return options?.rowAction ? LIST_ACTIONS_COLUMN_WIDTH_WITH_ROW_ACTION : LIST_ACTIONS_COLUMN_WIDTH
 }
 
+/** Drawer hareket tablolarında dar sütun (tarih, tutar). */
+export function kpTableColCompactCell(): { class: string } {
+  return { class: 'kp-table-col--compact' }
+}
+
+/** Drawer hareket tablolarında kalan alanı dolduran sütun (açıklama). */
+export function kpTableColGrowCell(): { class: string } {
+  return { class: 'kp-table-col--grow' }
+}
+
 function implicitColumnMinWidth<T>(col: TableColumnType<T>): number | undefined {
   const kpCol = col as KpTableColumn<T>
   if (kpCol.kpMinWidth != null) return kpCol.kpMinWidth
