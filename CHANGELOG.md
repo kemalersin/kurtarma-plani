@@ -12,6 +12,10 @@ Yayınlanan sürüm numarası yalnızca [`package.json`](package.json) `version`
 
 - Borç analizi: «Limiti gizle» toggle — nakit avans satırlarında borçtan hesap limiti düşülür (yalnızca limit üstü gösterilir).
 
+### Fixed
+
+- Aylık nakit akışı: yinelenen gelir/gider bitiş ayında `range.to` ay ortasında kalsa bile son grafik ayında gösterilir.
+
 ## [0.1.52]
 
 ### Added

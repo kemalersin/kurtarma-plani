@@ -120,6 +120,18 @@ describe('monthlyCashflowSeries', () => {
     )
     expect(r.income).toEqual([0])
   })
+
+  it('yinelenen gelir bitiş ayında range.to ay ortasında olsa bile son ayda sayılır', () => {
+    const recurring = income('i1', 1000, '2026-01-15T00:00:00.000Z')
+    recurring.recurrence = 'monthly'
+    const r = monthlyCashflowSeries(
+      [recurring],
+      [],
+      { from: '2026-01-01', to: '2026-03-05' },
+    )
+    expect(r.months).toEqual(['2026-01', '2026-02', '2026-03'])
+    expect(r.income).toEqual([1000, 1000, 1000])
+  })
 })
 
 describe('incomeByType / expenseByType', () => {

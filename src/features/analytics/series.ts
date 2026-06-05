@@ -2,6 +2,7 @@
  * Dashboard / analiz grafik serilerinin **saf** üreticileri.
  * UI bağımsız; ECharts'a doğrudan yedirilecek `{ months[], values[] }` döner.
  */
+import { endOfMonth, parseISO } from 'date-fns'
 import { D, roundMoney, type DecimalInput } from '@/finance/decimal'
 import { iterateCashflowOccurrences } from '@/finance/recurrence'
 import type {
@@ -37,6 +38,21 @@ export function monthsBetween(fromIso: string, toIso: string): string[] {
   return out
 }
 
+/**
+ * Aylık nakit akışı: grafikte bitiş ayı görünürken `range.to` ay ortasında
+ * kalabilir; yinelenen tekrarlar bitiş ayının son gününe kadar sayılır.
+ */
+function monthlyCashflowOccurrenceRange(range: { from: string; to: string }): {
+  from: string
+  to: string
+} {
+  const monthStart = parseISO(`${range.to.slice(0, 7)}-01T12:00:00.000Z`)
+  return {
+    from: range.from,
+    to: endOfMonth(monthStart).toISOString().slice(0, 10),
+  }
+}
+
 export interface MonthlyCashflowSeries {
   months: string[]
   income: number[]
@@ -57,6 +73,7 @@ export function monthlyCashflowSeries(
   basis: 'plan' | 'actual' | 'effective' = 'effective',
 ): MonthlyCashflowSeries {
   const months = monthsBetween(range.from, range.to)
+  const occurrenceRange = monthlyCashflowOccurrenceRange(range)
   const incomeMap = new Map<string, ReturnType<typeof D>>()
   const expenseMap = new Map<string, ReturnType<typeof D>>()
   for (const m of months) {
@@ -69,8 +86,7 @@ export function monthlyCashflowSeries(
     item: Income | Expense,
   ): void {
     for (const occ of iterateCashflowOccurrences(item, {
-      from: range.from,
-      to: range.to,
+      ...occurrenceRange,
       basis,
     })) {
       const k = monthKey(occ.date)
