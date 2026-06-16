@@ -26,7 +26,7 @@ import { useAiStore } from '@/stores/ai'
 import { useModelsCatalogStore } from '@/stores/models-catalog'
 import { isCloudCatalogProvider } from '@/core/types/ai-catalog'
 import type { AiProviderConfig, AiProviderId } from '@/core/types/ai-settings'
-import { DEFAULT_BASE_URLS, fetchOllamaModels, fetchVllmModels } from '@/features/ai/providers'
+import { DEFAULT_BASE_URLS, fetchOllamaModels, fetchVllmModels, fetchZaiModels } from '@/features/ai/providers'
 import {
   usesDevAiProxy,
 } from '@/features/ai/providers/proxy-url'
@@ -47,7 +47,7 @@ const isDev = import.meta.env.DEV
 
 const hasCloudProvider = computed(() =>
   (ai.settings?.providers ?? []).some((p) =>
-    ['anthropic', 'openai', 'gemini', 'deepseek'].includes(p.provider),
+    ['anthropic', 'openai', 'gemini', 'deepseek', 'zai'].includes(p.provider),
   ),
 )
 
@@ -56,6 +56,7 @@ const providerTypeOptions = [
   { value: 'openai', label: 'OpenAI' },
   { value: 'gemini', label: 'Gemini' },
   { value: 'deepseek', label: 'DeepSeek' },
+  { value: 'zai', label: 'Z.ai' },
   { value: 'ollama', label: 'Ollama (yerel)' },
   { value: 'vllm', label: 'vLLM (yerel)' },
 ]
@@ -233,6 +234,7 @@ async function saveDraft(): Promise<void> {
 async function loadRemoteModels(): Promise<void> {
   if (!draft.value) return
   loadingRemote.value = true
+  const key = apiKeyDraft.value.trim() || draft.value.apiKey
   try {
     if (draft.value.provider === 'ollama') {
       const list = await fetchOllamaModels(draft.value.baseUrl ?? DEFAULT_BASE_URLS.ollama)
@@ -240,7 +242,13 @@ async function loadRemoteModels(): Promise<void> {
     } else if (draft.value.provider === 'vllm') {
       const list = await fetchVllmModels(
         draft.value.baseUrl ?? DEFAULT_BASE_URLS.vllm,
-        draft.value.apiKey,
+        key,
+      )
+      remoteModels.value = list.map((m) => ({ value: m.id, label: m.name }))
+    } else if (draft.value.provider === 'zai') {
+      const list = await fetchZaiModels(
+        draft.value.baseUrl ?? DEFAULT_BASE_URLS.zai,
+        key,
       )
       remoteModels.value = list.map((m) => ({ value: m.id, label: m.name }))
     }
@@ -517,7 +525,7 @@ async function toggleFloatingChatFab(value: boolean): Promise<void> {
             :filter-option="filterModelSelectOption"
           />
           <Button
-            v-if="draft.provider === 'ollama' || draft.provider === 'vllm'"
+            v-if="draft.provider === 'ollama' || draft.provider === 'vllm' || draft.provider === 'zai'"
             :loading="loadingRemote"
             @click="loadRemoteModels"
           >

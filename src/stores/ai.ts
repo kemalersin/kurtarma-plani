@@ -46,6 +46,7 @@ const PROVIDER_LABELS: Record<AiProviderConfig['provider'], string> = {
   deepseek: 'DeepSeek',
   ollama: 'Ollama',
   vllm: 'vLLM',
+  zai: 'Z.ai',
 }
 
 function defaultSettingsEntity(now: string): AiSettingsEntity {

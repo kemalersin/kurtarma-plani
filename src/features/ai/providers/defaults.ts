@@ -7,4 +7,5 @@ export const DEFAULT_BASE_URLS: Record<AiProviderId, string> = {
   deepseek: 'https://api.deepseek.com',
   ollama: 'http://localhost:11434/v1',
   vllm: 'http://localhost:8000/v1',
+  zai: 'https://api.z.ai/api/coding/paas/v4',
 }

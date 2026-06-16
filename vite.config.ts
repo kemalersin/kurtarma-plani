@@ -111,6 +111,12 @@ export default defineConfig(({ mode }) => {
           secure: true,
           rewrite: (path) => path.replace(/^\/kp-ai-proxy\/deepseek/, ''),
         },
+        '/kp-ai-proxy/zai': {
+          target: 'https://api.z.ai',
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/kp-ai-proxy\/zai/, ''),
+        },
       },
     },
     optimizeDeps: {

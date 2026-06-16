@@ -72,7 +72,7 @@ function usageFromOpenAi(chunk: Record<string, unknown>) {
 
 /** OpenAI uyumlu uçlar /v1/chat/completions kullanır; DeepSeek resmi taban /chat/completions. */
 function chatCompletionsUrl(provider: AiProviderId, base: string): string {
-  if (provider === 'deepseek') {
+  if (provider === 'deepseek' || provider === 'zai') {
     return `${base}/chat/completions`
   }
   const root = base.endsWith('/v1') ? base : `${base}/v1`
@@ -249,6 +249,7 @@ const adapters: Record<AiProviderId, AiProviderAdapter> = {
   deepseek: createOpenAiCompatibleAdapter('deepseek'),
   ollama: createOllamaAdapter(),
   vllm: createOpenAiCompatibleAdapter('vllm'),
+  zai: createOpenAiCompatibleAdapter('zai'),
 }
 
 export function getProviderAdapter(id: AiProviderId): AiProviderAdapter {
@@ -277,6 +278,19 @@ export async function fetchVllmModels(baseUrl: string, apiKey?: string): Promise
   if (apiKey?.trim()) headers.Authorization = `Bearer ${apiKey.trim()}`
   const res = await fetch(`${base}/models`, { headers })
   if (!res.ok) throw new Error(`vLLM model listesi alınamadı (HTTP ${res.status}).`)
+  const json = (await res.json()) as { data?: Array<{ id?: string }> }
+  return (json.data ?? [])
+    .map((m) => m.id)
+    .filter((id): id is string => Boolean(id))
+    .map((id) => ({ id, name: id }))
+}
+
+export async function fetchZaiModels(baseUrl: string, apiKey?: string): Promise<RemoteModelOption[]> {
+  const base = resolveBaseUrl('zai', baseUrl)
+  const headers: Record<string, string> = {}
+  if (apiKey?.trim()) headers.Authorization = `Bearer ${apiKey.trim()}`
+  const res = await fetch(`${base}/models`, { headers })
+  if (!res.ok) throw new Error(`Z.ai model listesi alınamadı (HTTP ${res.status}).`)
   const json = (await res.json()) as { data?: Array<{ id?: string }> }
   return (json.data ?? [])
     .map((m) => m.id)
